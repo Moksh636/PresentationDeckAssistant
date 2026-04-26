@@ -36,6 +36,8 @@ export interface Project {
   status: ProjectStatus
   deckIds: string[]
   updatedAt: string
+  starred?: boolean
+  trashedAt?: string
 }
 
 export interface DeckSetup {
@@ -67,6 +69,8 @@ export interface Deck {
   slideIds: string[]
   fileAssetIds: string[]
   activeVersionId?: string
+  starred?: boolean
+  trashedAt?: string
   setup: DeckSetup
   collaboration: CollaborationSettings
 }
@@ -163,6 +167,8 @@ export interface FileAsset {
   possibleSections: string[]
   possibleTone: string
   sourceTrace: SourceTrace[]
+  starred?: boolean
+  trashedAt?: string
   report?: GeneratedDeckReport
 }
 

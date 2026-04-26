@@ -34,6 +34,8 @@ interface FileAssetSeedInput {
   possibleSections?: string[]
   possibleTone?: string
   sourceTrace?: SourceTrace[]
+  starred?: boolean
+  trashedAt?: string
   report?: GeneratedDeckReport
 }
 
@@ -234,6 +236,8 @@ export function createMockFileAsset(input: FileAssetSeedInput): FileAsset {
     possibleSections: input.possibleSections ?? signal.sections,
     possibleTone: input.possibleTone ?? signal.tone,
     sourceTrace,
+    starred: input.starred,
+    trashedAt: input.trashedAt,
     report: input.report,
   }
 }

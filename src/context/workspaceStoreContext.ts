@@ -1,6 +1,7 @@
 import { createContext } from 'react'
 import type { AiEditPlan } from '../data/aiEditor'
 import type { ManualBlockKind } from '../data/slideLayout'
+import type { WorkspaceLibraryItemType } from '../data/workspaceLibrary'
 import type {
   Deck,
   DeckSetup,
@@ -29,6 +30,27 @@ export interface WorkspaceContextValue {
   redoWorkspace: () => void
   setActiveDeck: (deckId: string) => void
   createPresentation: (projectId?: string) => string | undefined
+  renameWorkspaceItem: (
+    itemType: WorkspaceLibraryItemType,
+    itemId: string,
+    name: string,
+  ) => void
+  duplicateWorkspaceItem: (
+    itemType: WorkspaceLibraryItemType,
+    itemId: string,
+  ) => string | undefined
+  moveWorkspaceItem: (
+    itemType: WorkspaceLibraryItemType,
+    itemId: string,
+    targetId: string,
+  ) => void
+  toggleWorkspaceItemStarred: (itemType: WorkspaceLibraryItemType, itemId: string) => void
+  trashWorkspaceItem: (itemType: WorkspaceLibraryItemType, itemId: string) => void
+  restoreWorkspaceItem: (itemType: WorkspaceLibraryItemType, itemId: string) => void
+  deleteWorkspaceItemPermanently: (
+    itemType: WorkspaceLibraryItemType,
+    itemId: string,
+  ) => void
   updateDeck: (deckId: string, updates: Partial<Omit<Deck, 'id' | 'projectId' | 'setup'>>) => void
   updateDeckSetup: (deckId: string, updates: Partial<DeckSetup>) => void
   updateDeckCollaboration: (deckId: string, updates: CollaborationUpdate) => void

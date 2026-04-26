@@ -27,6 +27,15 @@ import {
   normalizeSlideBlock,
 } from '../data/slideLayout'
 import { normalizeWorkspaceState } from '../data/workspaceState'
+import {
+  deleteWorkspaceItemPermanently as deleteWorkspaceItemPermanentlyInState,
+  duplicateWorkspaceItem as duplicateWorkspaceItemInState,
+  moveWorkspaceItem as moveWorkspaceItemInState,
+  renameWorkspaceItem as renameWorkspaceItemInState,
+  restoreWorkspaceItem as restoreWorkspaceItemInState,
+  toggleWorkspaceItemStarred as toggleWorkspaceItemStarredInState,
+  trashWorkspaceItem as trashWorkspaceItemInState,
+} from '../data/workspaceLibrary'
 import type {
   Comment,
   Deck,
@@ -255,6 +264,109 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     }))
 
     return nextDeck.id
+  }
+
+  const renameWorkspaceItem: WorkspaceContextValue['renameWorkspaceItem'] = (
+    itemType,
+    itemId,
+    name,
+  ) => {
+    commitWorkspace((current) =>
+      renameWorkspaceItemInState(current, {
+        itemType,
+        itemId,
+        name,
+        now: new Date().toISOString(),
+      }),
+    )
+  }
+
+  const duplicateWorkspaceItem: WorkspaceContextValue['duplicateWorkspaceItem'] = (
+    itemType,
+    itemId,
+  ) => {
+    let nextActiveItemId: string | undefined
+    const now = new Date().toISOString()
+
+    commitWorkspace((current) => {
+      const next = duplicateWorkspaceItemInState(current, {
+        itemType,
+        itemId,
+        now,
+      })
+
+      if (itemType === 'deck' && next.activeDeckId !== current.activeDeckId) {
+        nextActiveItemId = next.activeDeckId
+      }
+
+      return next
+    })
+
+    return nextActiveItemId
+  }
+
+  const moveWorkspaceItem: WorkspaceContextValue['moveWorkspaceItem'] = (
+    itemType,
+    itemId,
+    targetId,
+  ) => {
+    commitWorkspace((current) =>
+      moveWorkspaceItemInState(current, {
+        itemType,
+        itemId,
+        targetId,
+        now: new Date().toISOString(),
+      }),
+    )
+  }
+
+  const toggleWorkspaceItemStarred: WorkspaceContextValue['toggleWorkspaceItemStarred'] = (
+    itemType,
+    itemId,
+  ) => {
+    commitWorkspace((current) =>
+      toggleWorkspaceItemStarredInState(current, {
+        itemType,
+        itemId,
+        now: new Date().toISOString(),
+      }),
+    )
+  }
+
+  const trashWorkspaceItem: WorkspaceContextValue['trashWorkspaceItem'] = (itemType, itemId) => {
+    commitWorkspace((current) =>
+      trashWorkspaceItemInState(current, {
+        itemType,
+        itemId,
+        now: new Date().toISOString(),
+      }),
+    )
+  }
+
+  const restoreWorkspaceItem: WorkspaceContextValue['restoreWorkspaceItem'] = (
+    itemType,
+    itemId,
+  ) => {
+    commitWorkspace((current) =>
+      restoreWorkspaceItemInState(current, {
+        itemType,
+        itemId,
+        now: new Date().toISOString(),
+      }),
+    )
+  }
+
+  const deleteWorkspaceItemPermanently: WorkspaceContextValue['deleteWorkspaceItemPermanently'] = (
+    itemType,
+    itemId,
+  ) => {
+    commitWorkspace((current) =>
+      deleteWorkspaceItemPermanentlyInState(current, {
+        itemType,
+        itemId,
+        now: new Date().toISOString(),
+      }),
+    )
   }
 
   const updateDeck: WorkspaceContextValue['updateDeck'] = (deckId, updates) => {
@@ -1393,6 +1505,13 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         redoWorkspace,
         setActiveDeck,
         createPresentation,
+        renameWorkspaceItem,
+        duplicateWorkspaceItem,
+        moveWorkspaceItem,
+        toggleWorkspaceItemStarred,
+        trashWorkspaceItem,
+        restoreWorkspaceItem,
+        deleteWorkspaceItemPermanently,
         updateDeck,
         updateDeckSetup,
         updateDeckCollaboration,

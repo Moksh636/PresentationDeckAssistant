@@ -23,6 +23,7 @@ function createSeedDecks(): Deck[] {
       slideIds: [],
       fileAssetIds: [],
       activeVersionId: undefined,
+      starred: true,
       collaboration: {
         ...createSharedCollaborationSettings(false),
         allowCollaboratorUploads: true,

@@ -398,6 +398,11 @@ export function normalizeWorkspaceState(state: WorkspaceState | RawWorkspaceStat
             ),
           )
         : undefined,
+      starred: rawAsset.starred === true,
+      trashedAt:
+        typeof rawAsset.trashedAt === 'string'
+          ? rawAsset.trashedAt
+          : undefined,
       report: normalizeGeneratedReport(rawAsset.report),
     }),
   )
