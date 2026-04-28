@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:editor-batch3": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/editorBatch3.test.ts",
+    "test:editor-batch2": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/editorBatch2.test.ts",
     "test:editor": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/editorZoom.test.ts",
+    "test:editor-layout": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/editorLayout.test.ts",
     "test:workspace": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/workspaceLibrary.test.ts",
     "preview": "vite preview"
   },

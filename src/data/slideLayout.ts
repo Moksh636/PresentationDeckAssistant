@@ -4,8 +4,8 @@ import type {
   SlideBlockType,
   SlideBlockVisualStyle,
   SlideTextStyle,
-} from '../types/models'
-import { createId } from '../utils/ids'
+} from '../types/models.ts'
+import { createId } from '../utils/ids.ts'
 
 export type ManualBlockKind =
   | 'text-box'
@@ -84,6 +84,22 @@ export function normalizeBlockTextStyle(block: SlideBlock): SlideTextStyle {
         : block.style.italic === true,
     underline: block.textStyle?.underline === true,
     alignment: block.textStyle?.alignment ?? block.style.align,
+    listStyle:
+      block.textStyle?.listStyle === 'number'
+        ? 'number'
+        : block.textStyle?.listStyle === 'none'
+          ? 'none'
+          : Array.isArray(block.content)
+            ? 'bullet'
+            : 'none',
+    lineHeight:
+      typeof block.textStyle?.lineHeight === 'number'
+        ? clamp(block.textStyle.lineHeight, 0.8, 2)
+        : 1.18,
+    verticalAlign:
+      block.textStyle?.verticalAlign === 'middle' || block.textStyle?.verticalAlign === 'bottom'
+        ? block.textStyle.verticalAlign
+        : 'top',
     color:
       typeof block.textStyle?.color === 'string' && block.textStyle.color.trim()
         ? block.textStyle.color
@@ -233,6 +249,9 @@ function getManualTextStyle(kind: ManualBlockKind): SlideTextStyle {
       italic: false,
       underline: false,
       alignment: 'left',
+      listStyle: 'none',
+      lineHeight: 1.18,
+      verticalAlign: 'top',
     }
   }
 
@@ -243,6 +262,9 @@ function getManualTextStyle(kind: ManualBlockKind): SlideTextStyle {
     italic: false,
     underline: false,
     alignment: kind === 'shape' ? 'center' : 'left',
+    listStyle: 'none',
+    lineHeight: 1.18,
+    verticalAlign: kind === 'image-placeholder' || kind === 'chart-placeholder' ? 'middle' : 'top',
   }
 }
 

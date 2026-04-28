@@ -342,13 +342,31 @@ function MoveWorkspaceItemDialog({
           .filter((deck) => !deck.trashedAt && deck.id !== item.deckId)
           .map((deck) => ({ id: deck.id, label: deck.title }))
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCancel()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onCancel])
+
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="modal-card modal-card--compact" role="dialog" aria-modal="true">
+    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
+      <section
+        className="modal-card modal-card--compact"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="move-dialog-title"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="modal-card__header">
           <div>
             <span className="section-label">Move</span>
-            <h3>{item.name}</h3>
+            <h3 id="move-dialog-title">{item.name}</h3>
           </div>
           <button type="button" className="ghost-button" onClick={onCancel}>
             Close

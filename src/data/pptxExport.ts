@@ -89,7 +89,9 @@ function getBaseTextOptions(block: SlideBlock, rect: InchRect): TextOptions {
     underline: textStyle.underline ? { style: 'sng' } : undefined,
     align: alignmentToPptxAlign(textStyle.alignment),
     valign:
-      block.type === 'visual-placeholder' || block.type === 'chart-placeholder' ? 'middle' : 'top',
+      block.type === 'visual-placeholder' || block.type === 'chart-placeholder'
+        ? 'middle'
+        : textStyle.verticalAlign,
     color: normalizeHexColor(textStyle.color),
     margin: 0.08,
     fit: 'shrink',
@@ -144,7 +146,7 @@ function addPlaceholderBlock(
   if (block.type === 'visual-placeholder' && block.imageAsset) {
     pptxSlide.addImage({
       data: block.imageAsset.dataUrl,
-      altText: block.imageAsset.name,
+      altText: block.imageAsset.altText ?? block.imageAsset.name,
       ...rect,
     })
     return

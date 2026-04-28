@@ -51,6 +51,13 @@ function ReadOnlySlideBlock({ block, index }: { block: SlideBlock; index: number
         fontStyle: textStyle.italic ? 'italic' : 'normal',
         textDecoration: textStyle.underline ? 'underline' : 'none',
         textAlign: textStyle.alignment,
+        lineHeight: textStyle.lineHeight,
+        justifyContent:
+          textStyle.verticalAlign === 'middle'
+            ? 'center'
+            : textStyle.verticalAlign === 'bottom'
+              ? 'flex-end'
+              : 'flex-start',
         color: textStyle.color,
       }}
     >
@@ -70,16 +77,27 @@ function ReadOnlySlideBlock({ block, index }: { block: SlideBlock; index: number
         <img
           className="present-slide-object__image"
           src={block.imageAsset.dataUrl}
-          alt={block.imageAsset.name}
+          alt={block.imageAsset.altText ?? block.imageAsset.name}
+          style={{
+            objectFit: block.imageAsset.fit === 'fit' ? 'contain' : 'cover',
+          }}
         />
       ) : null}
 
       {block.type !== 'shape' && !block.imageAsset && Array.isArray(block.content) ? (
-        <ul className="present-slide-object__bullets">
+        textStyle.listStyle === 'number' ? (
+        <ol className="present-slide-object__bullets">
           {block.content.map((item, itemIndex) => (
             <li key={`${block.id}-${itemIndex}`}>{item}</li>
           ))}
-        </ul>
+        </ol>
+        ) : (
+          <ul className="present-slide-object__bullets">
+            {block.content.map((item, itemIndex) => (
+              <li key={`${block.id}-${itemIndex}`}>{item}</li>
+            ))}
+          </ul>
+        )
       ) : null}
 
       {block.type !== 'shape' && !block.imageAsset && typeof block.content === 'string' ? (
@@ -129,13 +147,15 @@ export function PresentMode({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isActive, onExit, onNext, onPrevious])
 
+  const shouldRenderSlide = isActive && slide
+
   return (
     <div
       ref={containerRef}
       className={`present-mode ${isActive ? 'is-active' : ''}`}
       aria-hidden={!isActive}
     >
-      {slide ? (
+      {shouldRenderSlide ? (
         <div className="present-mode__stage">
           <div className="present-mode__slide" aria-label={`Slide ${index + 1}: ${slide.title}`}>
             {slide.blocks

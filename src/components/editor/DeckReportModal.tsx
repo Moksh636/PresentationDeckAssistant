@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { getAddedByLabel, getSourceTypeLabel } from '../../data/sourceTrace'
 import type { FileAsset, GeneratedDeckReport, ReportType } from '../../types/models'
 import { formatConfidence, formatShortDate } from '../../utils/formatters'
@@ -33,6 +34,22 @@ export function DeckReportModal({
   onClose,
 }: DeckReportModalProps) {
   const report = reportAsset?.report
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
 
   if (!isOpen) {
     return null

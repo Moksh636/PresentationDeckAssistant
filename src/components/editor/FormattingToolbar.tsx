@@ -1,13 +1,26 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { applyListStyle, getLineSpacingValue, getVerticalAlignmentValue } from '../../data/paragraphControls'
 import type { ManualBlockKind } from '../../data/slideLayout'
-import { normalizeBlockTextStyle, normalizeBlockVisualStyle } from '../../data/slideLayout'
+import {
+  normalizeBlockLayout,
+  normalizeBlockTextStyle,
+  normalizeBlockVisualStyle,
+} from '../../data/slideLayout'
 import type { ObjectAlignment, ObjectDistribution } from '../../data/slideObjectTools'
-import type { SlideBlock, SlideBlockVisualStyle, SlideTextStyle } from '../../types/models'
+import type {
+  SlideBlock,
+  SlideBlockVisualStyle,
+  SlideImageAsset,
+  SlideTextStyle,
+} from '../../types/models'
 
 interface FormattingToolbarProps {
   selectedBlock?: SlideBlock
   onTextStyleChange: (style: Partial<SlideTextStyle>) => void
+  onTextBlockContentChange: (content: SlideBlock['content']) => void
   onVisualStyleChange: (style: Partial<SlideBlockVisualStyle>) => void
+  onImageAssetChange: (imageAsset: SlideImageAsset) => void
+  onResetImage: () => void
   onReplaceImage: (file: File) => void
   onAddBlock: (kind: ManualBlockKind) => void
   onCopyBlock: () => void
@@ -38,12 +51,12 @@ const alignments: Array<{ label: string; value: SlideTextStyle['alignment'] }> =
 ]
 
 const objectAlignments: Array<{ label: string; value: ObjectAlignment }> = [
-  { label: 'Obj L', value: 'left' },
-  { label: 'Obj C', value: 'center' },
-  { label: 'Obj R', value: 'right' },
-  { label: 'Obj T', value: 'top' },
-  { label: 'Obj M', value: 'middle' },
-  { label: 'Obj B', value: 'bottom' },
+  { label: 'L', value: 'left' },
+  { label: 'C', value: 'center' },
+  { label: 'R', value: 'right' },
+  { label: 'T', value: 'top' },
+  { label: 'M', value: 'middle' },
+  { label: 'B', value: 'bottom' },
 ]
 
 function canFormatText(block?: SlideBlock) {
@@ -53,7 +66,10 @@ function canFormatText(block?: SlideBlock) {
 export function FormattingToolbar({
   selectedBlock,
   onTextStyleChange,
+  onTextBlockContentChange,
   onVisualStyleChange,
+  onImageAssetChange,
+  onResetImage,
   onReplaceImage,
   onAddBlock,
   onCopyBlock,
@@ -65,48 +81,83 @@ export function FormattingToolbar({
   selectedBlockCount,
 }: FormattingToolbarProps) {
   const imageInputRef = useRef<HTMLInputElement | null>(null)
-  const disabled = !canFormatText(selectedBlock)
+  const arrangeMenuRef = useRef<HTMLDivElement | null>(null)
+  const [isArrangeMenuOpen, setIsArrangeMenuOpen] = useState(false)
+  const selectedBlockLocked = selectedBlock ? normalizeBlockLayout(selectedBlock, 0).locked === true : false
+  const disabled = !canFormatText(selectedBlock) || selectedBlockLocked
   const textStyle = selectedBlock ? normalizeBlockTextStyle(selectedBlock) : undefined
   const visualStyle = selectedBlock?.type === 'shape' ? normalizeBlockVisualStyle(selectedBlock) : undefined
   const canReplaceImage = selectedBlock?.type === 'visual-placeholder'
+  const selectedImageAsset = selectedBlock?.imageAsset
   const hasSelectedObjects = selectedBlockCount > 0
-  const canDistributeObjects = selectedBlockCount >= 3
+  const canArrangeObjects = hasSelectedObjects && !selectedBlockLocked
+  const canDistributeObjects = selectedBlockCount >= 3 && !selectedBlockLocked
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+
+      if (target instanceof Node && arrangeMenuRef.current?.contains(target)) {
+        return
+      }
+
+      setIsArrangeMenuOpen(false)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsArrangeMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
 
   return (
     <div className="toolbar">
       <div className="toolbar__group toolbar__group--insert">
-        <button type="button" onClick={() => onAddBlock('text-box')}>
-          Text box
+        <span className="toolbar__group-label">Insert</span>
+        <button type="button" title="Add text box" onClick={() => onAddBlock('text-box')}>
+          T
         </button>
-        <button type="button" onClick={() => onAddBlock('heading')}>
-          Heading
+        <button type="button" title="Add heading" onClick={() => onAddBlock('heading')}>
+          H1
         </button>
-        <button type="button" onClick={() => onAddBlock('image-placeholder')}>
-          Image
+        <button type="button" title="Add image placeholder" onClick={() => onAddBlock('image-placeholder')}>
+          Img
         </button>
-        <button type="button" onClick={() => onAddBlock('shape')}>
-          Rectangle
+        <button type="button" title="Add rectangle" onClick={() => onAddBlock('shape')}>
+          Rect
         </button>
-        <button type="button" onClick={() => onAddBlock('chart-placeholder')}>
+        <button type="button" title="Add chart placeholder" onClick={() => onAddBlock('chart-placeholder')}>
           Chart
         </button>
       </div>
 
       <div className="toolbar__group toolbar__group--object">
-        <button type="button" disabled={!hasSelectedObjects} onClick={onCopyBlock}>
+        <span className="toolbar__group-label">Edit</span>
+        <button type="button" title="Copy selected object (Ctrl/Cmd+C)" disabled={!hasSelectedObjects} onClick={onCopyBlock}>
           Copy
         </button>
-        <button type="button" disabled={!hasSelectedObjects} onClick={onCutBlock}>
+        <button type="button" title="Cut selected object (Ctrl/Cmd+X)" disabled={!hasSelectedObjects} onClick={onCutBlock}>
           Cut
         </button>
-        <button type="button" disabled={!canPasteBlock} onClick={onPasteBlock}>
+        <button type="button" title="Paste copied object (Ctrl/Cmd+V)" disabled={!canPasteBlock} onClick={onPasteBlock}>
           Paste
         </button>
       </div>
 
       <div className="toolbar__group toolbar__group--font">
+        <span className="toolbar__group-label">Text</span>
         <select
           aria-label="Font family"
+          title="Font family"
           disabled={disabled}
           value={textStyle?.fontFamily ?? fontFamilies[0]}
           onChange={(event) => onTextStyleChange({ fontFamily: event.target.value })}
@@ -120,6 +171,7 @@ export function FormattingToolbar({
 
         <input
           aria-label="Font size in pixels"
+          title="Font size in pixels"
           type="number"
           min={8}
           max={160}
@@ -142,7 +194,7 @@ export function FormattingToolbar({
         </datalist>
 
         <label className="toolbar__color-control">
-          <span>Text</span>
+          <span>Color</span>
           <input
             aria-label="Text color"
             type="color"
@@ -151,85 +203,180 @@ export function FormattingToolbar({
             onChange={(event) => onTextStyleChange({ color: event.target.value })}
           />
         </label>
-      </div>
-
-      <div className="toolbar__group">
         <button
           type="button"
           className={textStyle?.bold ? 'is-active' : ''}
+          title="Bold (Ctrl/Cmd+B)"
           disabled={disabled}
           onClick={() => onTextStyleChange({ bold: !textStyle?.bold })}
         >
-          Bold
+          B
         </button>
         <button
           type="button"
           className={textStyle?.italic ? 'is-active' : ''}
+          title="Italic (Ctrl/Cmd+I)"
           disabled={disabled}
           onClick={() => onTextStyleChange({ italic: !textStyle?.italic })}
         >
-          Italic
+          I
         </button>
         <button
           type="button"
           className={textStyle?.underline ? 'is-active' : ''}
+          title="Underline (Ctrl/Cmd+U)"
           disabled={disabled}
           onClick={() => onTextStyleChange({ underline: !textStyle?.underline })}
         >
-          Underline
+          U
         </button>
-      </div>
-
-      <div className="toolbar__group">
         {alignments.map((option) => (
           <button
             key={option.value}
             type="button"
             className={textStyle?.alignment === option.value ? 'is-active' : ''}
+            title={`Align ${option.label.toLowerCase()}`}
             disabled={disabled}
             onClick={() => onTextStyleChange({ alignment: option.value })}
           >
-            {option.label}
+            {option.label.slice(0, 1)}
           </button>
         ))}
+        <button
+          type="button"
+          className={textStyle?.listStyle === 'bullet' ? 'is-active' : ''}
+          title="Toggle bullets"
+          disabled={disabled || !selectedBlock}
+          onClick={() => {
+            if (!selectedBlock) {
+              return
+            }
+
+            const update = applyListStyle(selectedBlock, 'bullet')
+            onTextBlockContentChange(update.content)
+            onTextStyleChange(update.textStyle)
+          }}
+        >
+          Bul
+        </button>
+        <button
+          type="button"
+          className={textStyle?.listStyle === 'number' ? 'is-active' : ''}
+          title="Toggle numbered list"
+          disabled={disabled || !selectedBlock}
+          onClick={() => {
+            if (!selectedBlock) {
+              return
+            }
+
+            const update = applyListStyle(selectedBlock, 'number')
+            onTextBlockContentChange(update.content)
+            onTextStyleChange(update.textStyle)
+          }}
+        >
+          1.
+        </button>
+        <select
+          aria-label="Line spacing"
+          title="Line spacing"
+          disabled={disabled}
+          value={String(textStyle?.lineHeight ?? 1.18)}
+          onChange={(event) => onTextStyleChange({ lineHeight: getLineSpacingValue(Number(event.target.value)) })}
+        >
+          <option value="1">1.0</option>
+          <option value="1.2">1.2</option>
+          <option value="1.4">1.4</option>
+          <option value="1.6">1.6</option>
+          <option value="2">2.0</option>
+        </select>
+        <select
+          aria-label="Vertical alignment"
+          title="Vertical alignment"
+          disabled={disabled}
+          value={textStyle?.verticalAlign ?? 'top'}
+          onChange={(event) =>
+            onTextStyleChange({ verticalAlign: getVerticalAlignmentValue(event.target.value) })
+          }
+        >
+          <option value="top">Top</option>
+          <option value="middle">Mid</option>
+          <option value="bottom">Bot</option>
+        </select>
       </div>
 
-      <div className="toolbar__group toolbar__group--object-align">
-        {objectAlignments.map((option) => (
+      <div className="toolbar__group toolbar__group--object-align" ref={arrangeMenuRef}>
+        <span className="toolbar__group-label">Arrange</span>
+        <button
+          type="button"
+          title="Open object alignment menu"
+          aria-expanded={isArrangeMenuOpen}
+          disabled={!canArrangeObjects}
+          onClick={() => setIsArrangeMenuOpen((current) => !current)}
+        >
+          Align
+        </button>
+        {isArrangeMenuOpen ? (
+          <div className="toolbar-menu__popover">
+            {objectAlignments.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                title={`Align object ${option.value}`}
+                disabled={!canArrangeObjects}
+                onClick={() => {
+                  setIsArrangeMenuOpen(false)
+                  onAlignBlock(option.value)
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={!canDistributeObjects}
+              title={canDistributeObjects ? 'Distribute selected objects horizontally' : 'Select 3+ objects'}
+              onClick={() => {
+                setIsArrangeMenuOpen(false)
+                onDistributeBlocks('horizontal')
+              }}
+            >
+              Dist X
+            </button>
+            <button
+              type="button"
+              disabled={!canDistributeObjects}
+              title={canDistributeObjects ? 'Distribute selected objects vertically' : 'Select 3+ objects'}
+              onClick={() => {
+                setIsArrangeMenuOpen(false)
+                onDistributeBlocks('vertical')
+              }}
+            >
+              Dist Y
+            </button>
+          </div>
+        ) : null}
+        {objectAlignments.slice(0, 3).map((option) => (
           <button
             key={option.value}
             type="button"
-            disabled={!hasSelectedObjects}
+            title={`Align object ${option.value}`}
+          disabled={!canArrangeObjects}
             onClick={() => onAlignBlock(option.value)}
           >
             {option.label}
           </button>
         ))}
-        <button
-          type="button"
-          disabled={!canDistributeObjects}
-          title={canDistributeObjects ? 'Distribute selected objects horizontally' : 'Select 3+ objects'}
-          onClick={() => onDistributeBlocks('horizontal')}
-        >
-          Dist H
-        </button>
-        <button
-          type="button"
-          disabled={!canDistributeObjects}
-          title={canDistributeObjects ? 'Distribute selected objects vertically' : 'Select 3+ objects'}
-          onClick={() => onDistributeBlocks('vertical')}
-        >
-          Dist V
-        </button>
       </div>
 
       {visualStyle ? (
         <div className="toolbar__group toolbar__group--visual">
+          <span className="toolbar__group-label">Shape/Image</span>
           <label className="toolbar__color-control">
             <span>Fill</span>
             <input
               aria-label="Shape fill color"
               type="color"
+              disabled={selectedBlockLocked}
               value={visualStyle.fillColor}
               onChange={(event) => onVisualStyleChange({ fillColor: event.target.value })}
             />
@@ -240,6 +387,7 @@ export function FormattingToolbar({
             <input
               aria-label="Shape border color"
               type="color"
+              disabled={selectedBlockLocked}
               value={visualStyle.borderColor}
               onChange={(event) => onVisualStyleChange({ borderColor: event.target.value })}
             />
@@ -250,6 +398,7 @@ export function FormattingToolbar({
             <input
               aria-label="Shape border width"
               type="number"
+              disabled={selectedBlockLocked}
               min={0}
               max={24}
               step={1}
@@ -269,6 +418,7 @@ export function FormattingToolbar({
             <input
               aria-label="Shape opacity"
               type="number"
+              disabled={selectedBlockLocked}
               min={0}
               max={1}
               step={0.05}
@@ -287,9 +437,57 @@ export function FormattingToolbar({
 
       {canReplaceImage ? (
         <div className="toolbar__group toolbar__group--visual">
-          <button type="button" onClick={() => imageInputRef.current?.click()}>
-            Replace Image
+          <span className="toolbar__group-label">Shape/Image</span>
+          <button
+            type="button"
+            title="Replace image"
+            disabled={selectedBlockLocked}
+            onClick={() => imageInputRef.current?.click()}
+          >
+            Replace
           </button>
+          {selectedImageAsset ? (
+            <>
+              <button
+                type="button"
+                className={selectedImageAsset.fit !== 'fit' ? 'is-active' : ''}
+                title="Fill image frame"
+                disabled={selectedBlockLocked}
+                onClick={() => onImageAssetChange({ ...selectedImageAsset, fit: 'fill' })}
+              >
+                Fill
+              </button>
+              <button
+                type="button"
+                className={selectedImageAsset.fit === 'fit' ? 'is-active' : ''}
+                title="Fit image inside frame"
+                disabled={selectedBlockLocked}
+                onClick={() => onImageAssetChange({ ...selectedImageAsset, fit: 'fit' })}
+              >
+                Fit
+              </button>
+              <button
+                type="button"
+                title="Reset image placeholder"
+                disabled={selectedBlockLocked}
+                onClick={onResetImage}
+              >
+                Reset
+              </button>
+              <label className="toolbar__text-control">
+                <span>Alt</span>
+                <input
+                  aria-label="Image alt text"
+                  type="text"
+                  disabled={selectedBlockLocked}
+                  value={selectedImageAsset.altText ?? selectedImageAsset.name}
+                  onChange={(event) =>
+                    onImageAssetChange({ ...selectedImageAsset, altText: event.target.value })
+                  }
+                />
+              </label>
+            </>
+          ) : null}
           <input
             ref={imageInputRef}
             className="toolbar__file-input"

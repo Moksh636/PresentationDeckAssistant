@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AiEditPlan, AiEditScope } from '../../data/aiEditor'
+import type { AiProposalBlockDiff } from '../../data/aiProposalReview'
 
 export type AiChatMessageStatus = 'pending' | 'accepted' | 'rejected' | 'applied'
 
@@ -10,6 +11,7 @@ export interface AiChatMessage {
   kind?: 'message' | 'proposal'
   status?: AiChatMessageStatus
   plan?: AiEditPlan
+  diffs?: AiProposalBlockDiff[]
 }
 
 interface AiChatPanelProps {
@@ -22,6 +24,7 @@ interface AiChatPanelProps {
   onRejectProposal: (messageId: string) => void
   versionLabels: string[]
   messages: AiChatMessage[]
+  contextChips: string[]
   onSendMessage: (message: string) => void
 }
 
@@ -48,9 +51,17 @@ export function AiChatPanel({
   onRejectProposal,
   versionLabels,
   messages,
+  contextChips,
   onSendMessage,
 }: AiChatPanelProps) {
   const [draft, setDraft] = useState('')
+  const promptChips = [
+    'Shorten this slide',
+    'Make this more executive',
+    'Improve title',
+    'Add speaker notes',
+    'Make more persuasive',
+  ]
 
   return (
     <aside className="chat-panel">
@@ -97,6 +108,12 @@ export function AiChatPanel({
         </div>
       </div>
 
+      <div className="chat-context-chips" aria-label="AI context">
+        {contextChips.map((chip) => (
+          <span key={chip}>{chip}</span>
+        ))}
+      </div>
+
       <div className="chat-thread">
         {messages.map((message) => (
           <article
@@ -123,7 +140,21 @@ export function AiChatPanel({
                   <span>{message.plan.affectedBlocks} block(s)</span>
                 </div>
 
-                {message.plan.examples.length > 0 ? (
+                {(message.diffs?.length ?? 0) > 0 ? (
+                  <div className="chat-proposal__examples chat-proposal__examples--diffs">
+                    {message.diffs?.slice(0, 3).map((diff) => (
+                      <div key={`${message.id}-${diff.slideId}-${diff.blockId}`} className="chat-proposal__example">
+                        <strong>{diff.slideTitle}</strong>
+                        <p>
+                          <span>Before:</span> {diff.before}
+                        </p>
+                        <p>
+                          <span>After:</span> {diff.after}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : message.plan.examples.length > 0 ? (
                   <div className="chat-proposal__examples">
                     {message.plan.examples.slice(0, 2).map((example, index) => (
                       <div key={`${message.id}-example-${index + 1}`} className="chat-proposal__example">
@@ -164,6 +195,21 @@ export function AiChatPanel({
       </div>
 
       <div className="chat-composer">
+        <div className="chat-prompt-chips" aria-label="Prompt suggestions">
+          {promptChips.map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              disabled={hasPendingProposal}
+              onClick={() => {
+                onSendMessage(chip)
+                setDraft('')
+              }}
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
         <textarea
           rows={4}
           value={draft}

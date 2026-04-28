@@ -6,6 +6,7 @@ import {
   normalizeBlockVisualStyle,
   resizeBlockLayout,
 } from '../../data/slideLayout'
+import { getMiniToolbarPlacement } from '../../data/editorGeometry'
 import { snapBlockLayout, type BlockLayoutEntry, type SnapGuide } from '../../data/slideObjectTools'
 import { getAddedByLabel, getSourceTypeLabel } from '../../data/sourceTrace'
 import type { SlideBlock, SlideBlockLayout } from '../../types/models'
@@ -18,6 +19,8 @@ interface EditableSlideBlockProps {
   selectedLayouts: BlockLayoutEntry[]
   isSelected: boolean
   isPrimarySelected: boolean
+  isReviewHighlighted: boolean
+  isCommentSelected: boolean
   commentCount: number
   showSources: boolean
   onSelect: (options?: { addToSelection?: boolean; preserveSelection?: boolean }) => void
@@ -28,7 +31,9 @@ interface EditableSlideBlockProps {
   onGroupLayoutCommit: (updates: Array<{ blockId: string; layout: SlideBlockLayout }>) => void
   onDelete: () => void
   onDuplicate: () => void
-  onArrange: (direction: 'forward' | 'backward') => void
+  onArrange: (direction: 'forward' | 'backward' | 'front' | 'back') => void
+  onLockChange: (locked: boolean) => void
+  onContextMenu: (x: number, y: number) => void
   onSnapGuidesChange: (guides: SnapGuide[]) => void
 }
 
@@ -88,6 +93,8 @@ export function EditableSlideBlock({
   selectedLayouts,
   isSelected,
   isPrimarySelected,
+  isReviewHighlighted,
+  isCommentSelected,
   commentCount,
   showSources,
   onSelect,
@@ -99,6 +106,8 @@ export function EditableSlideBlock({
   onDelete,
   onDuplicate,
   onArrange,
+  onLockChange,
+  onContextMenu,
   onSnapGuidesChange,
 }: EditableSlideBlockProps) {
   const [isEditingText, setIsEditingText] = useState(false)
@@ -113,6 +122,8 @@ export function EditableSlideBlock({
   const isTextEditingActive = isSelected && isEditingText
   const textStyle = normalizeBlockTextStyle(block)
   const activeLayout = draftLayout ?? localDraftLayout ?? layout
+  const isLocked = activeLayout.locked === true
+  const miniToolbarPlacement = getMiniToolbarPlacement(activeLayout)
   const shouldShowSourceChip = traceCount > 0 && (showSources || isSelected || isHovered || isSourceOpen)
 
   useEffect(() => {
@@ -126,6 +137,7 @@ export function EditableSlideBlock({
     if (
       event.button !== 0 ||
       event.shiftKey ||
+      isLocked ||
       isTextEditingActive ||
       isInteractiveTarget(event.target)
     ) {
@@ -154,7 +166,9 @@ export function EditableSlideBlock({
     const startLayout = activeLayout
     const startGroupLayouts =
       isSelected && selectedLayouts.length > 1
-        ? selectedLayouts.map((entry) => ({ ...entry, layout: { ...entry.layout } }))
+        ? selectedLayouts
+            .filter((entry) => !entry.layout.locked)
+            .map((entry) => ({ ...entry, layout: { ...entry.layout } }))
         : []
     const startActiveGroupLayout =
       startGroupLayouts.find((entry) => entry.blockId === block.id)?.layout ?? startLayout
@@ -227,6 +241,10 @@ export function EditableSlideBlock({
   }
 
   const startResize = (handle: string, event: React.PointerEvent<HTMLButtonElement>) => {
+    if (isLocked) {
+      return
+    }
+
     const surface = getSlideSurface(event.currentTarget)
     const surfaceRect = surface?.getBoundingClientRect()
 
@@ -277,7 +295,11 @@ export function EditableSlideBlock({
       tabIndex={0}
       className={`slide-object slide-block--${block.type} ${
         isSelected ? 'is-selected' : ''
-      } ${isTextEditingActive ? 'is-editing' : ''} ${block.imageAsset ? 'has-image' : ''}`}
+      } ${isReviewHighlighted ? 'is-review-highlighted' : ''} ${
+        isTextEditingActive ? 'is-editing' : ''
+      } ${isLocked ? 'is-locked' : ''} ${
+        block.imageAsset ? 'has-image' : ''
+      }`}
       style={{
         left: `${activeLayout.x}%`,
         top: `${activeLayout.y}%`,
@@ -290,6 +312,13 @@ export function EditableSlideBlock({
         fontStyle: textStyle.italic ? 'italic' : 'normal',
         textDecoration: textStyle.underline ? 'underline' : 'none',
         textAlign: textStyle.alignment,
+        lineHeight: textStyle.lineHeight,
+        justifyContent:
+          textStyle.verticalAlign === 'middle'
+            ? 'center'
+            : textStyle.verticalAlign === 'bottom'
+              ? 'flex-end'
+              : 'flex-start',
         color: textStyle.color,
       }}
       onClick={(event) => {
@@ -305,12 +334,20 @@ export function EditableSlideBlock({
       onMouseLeave={() => setIsHovered(false)}
       onDoubleClick={() => {
         onSelect()
-        if (editable) {
+        if (editable && !isLocked) {
           setIsEditingText(true)
         }
       }}
+      onContextMenu={(event) => {
+        event.preventDefault()
+        event.currentTarget.focus({ preventScroll: true })
+        onSelect(isSelected ? { preserveSelection: true } : undefined)
+        onContextMenu(event.clientX, event.clientY)
+      }}
       onPointerDown={startMove}
     >
+      {isLocked ? <span className="slide-object__lock-badge">Locked</span> : null}
+
       {shouldShowSourceChip ? (
         <SourceChip
           block={block}
@@ -321,13 +358,18 @@ export function EditableSlideBlock({
       ) : null}
 
       {commentCount > 0 ? (
-        <CommentMarker count={commentCount} onOpenComments={onOpenComments} />
+        <CommentMarker
+          count={commentCount}
+          isSelected={isCommentSelected}
+          onOpenComments={onOpenComments}
+        />
       ) : null}
 
       <ObjectContent
         block={block}
         editable={editable}
         isEditingText={isTextEditingActive}
+        textStyle={textStyle}
         textareaRef={textareaRef}
         onChange={(value) => onContentChange(getNextContent(block, value))}
         onExitEditing={() => setIsEditingText(false)}
@@ -335,25 +377,36 @@ export function EditableSlideBlock({
 
       {isPrimarySelected ? (
         <>
-          <div className="object-mini-toolbar" onPointerDown={(event) => event.stopPropagation()}>
+          <div
+            className={`object-mini-toolbar object-mini-toolbar--${miniToolbarPlacement}`}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
             <button type="button" onClick={onOpenComments}>
               Comment
             </button>
             <button type="button" onClick={onDuplicate}>
               Duplicate
             </button>
-            <button type="button" onClick={() => onArrange('forward')}>
+            <button type="button" disabled={isLocked} onClick={() => onArrange('forward')}>
               Forward
             </button>
-            <button type="button" onClick={() => onArrange('backward')}>
+            <button type="button" disabled={isLocked} onClick={() => onArrange('backward')}>
               Back
             </button>
-            <button type="button" className="object-mini-toolbar__danger" onClick={onDelete}>
+            <button type="button" onClick={() => onLockChange(!isLocked)}>
+              {isLocked ? 'Unlock' : 'Lock'}
+            </button>
+            <button
+              type="button"
+              className="object-mini-toolbar__danger"
+              disabled={isLocked}
+              onClick={onDelete}
+            >
               Delete
             </button>
           </div>
 
-          {resizeHandles.map((handle) => (
+          {!isLocked ? resizeHandles.map((handle) => (
             <button
               key={handle}
               type="button"
@@ -362,7 +415,7 @@ export function EditableSlideBlock({
               aria-label={`Resize ${handle}`}
               onPointerDown={(event) => startResize(handle, event)}
             />
-          ))}
+          )) : null}
         </>
       ) : null}
     </div>
@@ -373,6 +426,7 @@ function ObjectContent({
   block,
   editable,
   isEditingText,
+  textStyle,
   textareaRef,
   onChange,
   onExitEditing,
@@ -380,6 +434,7 @@ function ObjectContent({
   block: SlideBlock
   editable: boolean
   isEditingText: boolean
+  textStyle: ReturnType<typeof normalizeBlockTextStyle>
   textareaRef: RefObject<HTMLTextAreaElement | null>
   onChange: (value: string) => void
   onExitEditing: () => void
@@ -406,7 +461,10 @@ function ObjectContent({
       <img
         className="slide-object__image"
         src={block.imageAsset.dataUrl}
-        alt={block.imageAsset.name}
+        alt={block.imageAsset.altText ?? block.imageAsset.name}
+        style={{
+          objectFit: block.imageAsset.fit === 'fit' ? 'contain' : 'cover',
+        }}
       />
     )
   }
@@ -430,12 +488,14 @@ function ObjectContent({
   }
 
   if (Array.isArray(block.content)) {
+    const ListTag = textStyle.listStyle === 'number' ? 'ol' : 'ul'
+
     return (
-      <ul className="slide-object__bullets">
+      <ListTag className="slide-object__bullets">
         {block.content.map((item, index) => (
           <li key={`${block.id}-${index}`}>{item || block.placeholder || 'Bullet'}</li>
         ))}
-      </ul>
+      </ListTag>
     )
   }
 
@@ -448,15 +508,17 @@ function ObjectContent({
 
 function CommentMarker({
   count,
+  isSelected,
   onOpenComments,
 }: {
   count: number
+  isSelected: boolean
   onOpenComments: () => void
 }) {
   return (
     <button
       type="button"
-      className="slide-block__comment-marker"
+      className={`slide-block__comment-marker ${isSelected ? 'is-selected' : ''}`}
       aria-label={`${count} block comment${count === 1 ? '' : 's'}`}
       onClick={(event) => {
         event.stopPropagation()

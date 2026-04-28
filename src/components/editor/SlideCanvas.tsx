@@ -10,7 +10,11 @@ interface SlideCanvasProps {
   primarySelectedBlockId?: string
   commentCount: number
   blockCommentCounts: Record<string, number>
+  blockCommentThreadIds: Record<string, string>
+  selectedCommentThreadId?: string
+  highlightedBlockIds: string[]
   showSources: boolean
+  zoomPercent: number
   onSelectBlock: (
     blockId: string,
     options?: { addToSelection?: boolean; preserveSelection?: boolean },
@@ -23,7 +27,12 @@ interface SlideCanvasProps {
   onBlockLayoutsChange: (updates: Array<{ blockId: string; layout: SlideBlockLayout }>) => void
   onDeleteBlock: (blockId: string) => void
   onDuplicateBlock: (blockId: string) => void
-  onArrangeBlock: (blockId: string, direction: 'forward' | 'backward') => void
+  onArrangeBlock: (
+    blockId: string,
+    direction: 'forward' | 'backward' | 'front' | 'back',
+  ) => void
+  onLockBlock: (blockId: string, locked: boolean) => void
+  onOpenBlockContextMenu: (blockId: string, x: number, y: number) => void
 }
 
 export function SlideCanvas({
@@ -32,7 +41,11 @@ export function SlideCanvas({
   primarySelectedBlockId,
   commentCount,
   blockCommentCounts,
+  blockCommentThreadIds,
+  selectedCommentThreadId,
+  highlightedBlockIds,
   showSources,
+  zoomPercent,
   onSelectBlock,
   onClearSelectedBlocks,
   onOpenComments,
@@ -43,6 +56,8 @@ export function SlideCanvas({
   onDeleteBlock,
   onDuplicateBlock,
   onArrangeBlock,
+  onLockBlock,
+  onOpenBlockContextMenu,
 }: SlideCanvasProps) {
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
   const [draftLayouts, setDraftLayouts] = useState<Record<string, SlideBlockLayout>>({})
@@ -63,6 +78,7 @@ export function SlideCanvas({
     }))
     .sort((left, right) => left.layout.zIndex - right.layout.zIndex)
   const selectedBlockIdSet = new Set(selectedBlockIds)
+  const highlightedBlockIdSet = new Set(highlightedBlockIds)
   const selectedLayoutEntries: BlockLayoutEntry[] = renderedBlocks
     .filter(({ block }) => selectedBlockIdSet.has(block.id))
     .map(({ block, layout }) => ({
@@ -73,7 +89,13 @@ export function SlideCanvas({
     selectedLayoutEntries.length > 1 ? getBlockLayoutBounds(selectedLayoutEntries) : undefined
 
   return (
-    <section className="canvas-stage">
+    <section
+      className="canvas-stage"
+      style={{
+        width: `${zoomPercent}%`,
+        maxWidth: `${Math.round(1160 * (zoomPercent / 100))}px`,
+      }}
+    >
       <div className="slide-frame">
         {commentCount > 0 ? (
           <button
@@ -117,6 +139,8 @@ export function SlideCanvas({
                 selectedLayouts={selectedLayoutEntries}
                 isSelected={selectedBlockIdSet.has(block.id)}
                 isPrimarySelected={primarySelectedBlockId === block.id}
+                isReviewHighlighted={highlightedBlockIdSet.has(block.id)}
+                isCommentSelected={blockCommentThreadIds[block.id] === selectedCommentThreadId}
                 commentCount={blockCommentCounts[block.id] ?? 0}
                 showSources={showSources}
                 onSelect={(options) => onSelectBlock(block.id, options)}
@@ -131,6 +155,8 @@ export function SlideCanvas({
                 onDelete={() => onDeleteBlock(block.id)}
                 onDuplicate={() => onDuplicateBlock(block.id)}
                 onArrange={(direction) => onArrangeBlock(block.id, direction)}
+                onLockChange={(locked) => onLockBlock(block.id, locked)}
+                onContextMenu={(x, y) => onOpenBlockContextMenu(block.id, x, y)}
                 onSnapGuidesChange={setSnapGuides}
               />
             ))}

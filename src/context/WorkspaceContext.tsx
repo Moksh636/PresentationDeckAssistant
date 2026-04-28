@@ -26,6 +26,7 @@ import {
   normalizeBlockVisualStyle,
   normalizeSlideBlock,
 } from '../data/slideLayout'
+import { createSlideFromLayoutPreset } from '../data/slideLayoutPresets'
 import { normalizeWorkspaceState } from '../data/workspaceState'
 import {
   deleteWorkspaceItemPermanently as deleteWorkspaceItemPermanentlyInState,
@@ -140,6 +141,12 @@ function createBlankSlide(deckId: string, index: number): Slide {
     sourceTrace: [],
     blocks: [],
   }
+}
+
+function isBlockLocked(block: Slide, blockId: string) {
+  const targetBlock = block.blocks.find((candidate) => candidate.id === blockId)
+
+  return targetBlock ? normalizeBlockLayout(targetBlock, 0).locked === true : false
 }
 
 function createReportFileName(deckTitle: string, reportType: ReportType) {
@@ -875,11 +882,64 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     }))
   }
 
+  const reopenComment: WorkspaceContextValue['reopenComment'] = (commentId) => {
+    setWorkspace((current) => ({
+      ...current,
+      comments: current.comments.map((thread) =>
+        thread.id === commentId
+          ? {
+              ...thread,
+              resolved: false,
+              updatedAt: new Date().toISOString(),
+            }
+          : thread,
+      ),
+    }))
+  }
+
   const addSlide: WorkspaceContextValue['addSlide'] = (deckId, afterSlideId) => {
     const currentDeckSlides = getOrderedDeckSlides(workspaceRef.current.slides, deckId)
     const afterIndex = currentDeckSlides.findIndex((slide) => slide.id === afterSlideId)
     const insertIndex = afterIndex >= 0 ? afterIndex + 1 : currentDeckSlides.length
     const nextSlide = createBlankSlide(deckId, insertIndex + 1)
+
+    commitWorkspace((current) => {
+      const deck = current.decks.find((candidate) => candidate.id === deckId)
+
+      if (!deck) {
+        return current
+      }
+
+      const deckSlides = getOrderedDeckSlides(current.slides, deckId)
+      const safeInsertIndex = Math.min(Math.max(insertIndex, 0), deckSlides.length)
+      const nextDeckSlides = reindexSlides([
+        ...deckSlides.slice(0, safeInsertIndex),
+        nextSlide,
+        ...deckSlides.slice(safeInsertIndex),
+      ])
+
+      return {
+        ...current,
+        slides: replaceDeckSlides(current.slides, deckId, nextDeckSlides),
+        decks: touchDecks(current.decks, deckId, {
+          slideIds: nextDeckSlides.map((slide) => slide.id),
+          status: 'editing',
+        }),
+      }
+    })
+
+    return nextSlide.id
+  }
+
+  const addSlideWithLayout: WorkspaceContextValue['addSlideWithLayout'] = (
+    deckId,
+    afterSlideId,
+    preset,
+  ) => {
+    const currentDeckSlides = getOrderedDeckSlides(workspaceRef.current.slides, deckId)
+    const afterIndex = currentDeckSlides.findIndex((slide) => slide.id === afterSlideId)
+    const insertIndex = afterIndex >= 0 ? afterIndex + 1 : currentDeckSlides.length
+    const nextSlide = createSlideFromLayoutPreset(deckId, insertIndex + 1, preset)
 
     commitWorkspace((current) => {
       const deck = current.decks.find((candidate) => candidate.id === deckId)
@@ -1102,7 +1162,13 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   }
 
   const deleteSlideBlocks: WorkspaceContextValue['deleteSlideBlocks'] = (slideId, blockIds) => {
-    const deletedBlockIds = new Set(blockIds)
+    const targetSlide = workspaceRef.current.slides.find((slide) => slide.id === slideId)
+    const lockedBlockIds = new Set(
+      targetSlide?.blocks
+        .filter((block, index) => normalizeBlockLayout(block, index).locked)
+        .map((block) => block.id) ?? [],
+    )
+    const deletedBlockIds = new Set(blockIds.filter((blockId) => !lockedBlockIds.has(blockId)))
 
     if (deletedBlockIds.size === 0) {
       return
@@ -1180,8 +1246,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   ) => {
     updateSlides(slideId, (slide) => ({
       ...slide,
-      blocks: slide.blocks.map((block) =>
-        block.id === blockId
+      blocks: slide.blocks.map((block, index) =>
+        block.id === blockId && !normalizeBlockLayout(block, index).locked
           ? {
               ...block,
               content,
@@ -1198,22 +1264,22 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   ) => {
     updateSlides(slideId, (slide) => ({
       ...slide,
-      blocks: slide.blocks.map((block) =>
-        block.id === blockId
+      blocks: slide.blocks.map((block, index) =>
+        block.id === blockId && !normalizeBlockLayout(block, index).locked
           ? {
-              ...block,
-            style: {
-              ...block.style,
-              ...style,
-            },
-            textStyle: normalizeBlockTextStyle({
               ...block,
               style: {
                 ...block.style,
                 ...style,
               },
-            }),
-          }
+              textStyle: normalizeBlockTextStyle({
+                ...block,
+                style: {
+                  ...block.style,
+                  ...style,
+                },
+              }),
+            }
           : block,
       ),
     }))
@@ -1226,8 +1292,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   ) => {
     updateSlides(slideId, (slide) => ({
       ...slide,
-      blocks: slide.blocks.map((block) => {
-        if (block.id !== blockId) {
+      blocks: slide.blocks.map((block, index) => {
+        if (block.id !== blockId || normalizeBlockLayout(block, index).locked) {
           return block
         }
 
@@ -1257,8 +1323,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   ) => {
     updateSlides(slideId, (slide) => ({
       ...slide,
-      blocks: slide.blocks.map((block) =>
-        block.id === blockId
+      blocks: slide.blocks.map((block, index) =>
+        block.id === blockId && !normalizeBlockLayout(block, index).locked
           ? {
               ...block,
               visualStyle: {
@@ -1278,12 +1344,27 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   ) => {
     updateSlides(slideId, (slide) => ({
       ...slide,
-      blocks: slide.blocks.map((block) =>
-        block.id === blockId
+      blocks: slide.blocks.map((block, index) =>
+        block.id === blockId && !normalizeBlockLayout(block, index).locked
           ? {
               ...block,
               content: imageAsset.name,
               imageAsset,
+            }
+          : block,
+      ),
+    }))
+  }
+
+  const resetSlideBlockImage: WorkspaceContextValue['resetSlideBlockImage'] = (slideId, blockId) => {
+    updateSlides(slideId, (slide) => ({
+      ...slide,
+      blocks: slide.blocks.map((block, index) =>
+        block.id === blockId && !normalizeBlockLayout(block, index).locked
+          ? {
+              ...block,
+              content: 'Image placeholder',
+              imageAsset: undefined,
             }
           : block,
       ),
@@ -1310,17 +1391,27 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
 
     updateSlides(slideId, (slide) => ({
       ...slide,
-      blocks: slide.blocks.map((block, index) =>
-        updatesByBlockId.has(block.id)
-          ? {
-              ...block,
-              layout: clampBlockLayout({
-                ...normalizeBlockLayout(block, index),
-                ...updatesByBlockId.get(block.id),
-              }),
-            }
-          : block,
-      ),
+      blocks: slide.blocks.map((block, index) => {
+        const update = updatesByBlockId.get(block.id)
+
+        if (!update) {
+          return block
+        }
+
+        const currentLayout = normalizeBlockLayout(block, index)
+
+        if (currentLayout.locked && !Object.hasOwn(update, 'locked')) {
+          return block
+        }
+
+        return {
+          ...block,
+          layout: clampBlockLayout({
+            ...currentLayout,
+            ...update,
+          }),
+        }
+      }),
     }))
   }
 
@@ -1353,6 +1444,10 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     direction,
   ) => {
     updateSlides(slideId, (slide) => {
+      if (isBlockLocked(slide, blockId)) {
+        return slide
+      }
+
       const orderedBlocks = slide.blocks
         .map((block, index) => ({
           block,
@@ -1360,42 +1455,41 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         }))
         .sort((left, right) => left.layout.zIndex - right.layout.zIndex)
       const currentIndex = orderedBlocks.findIndex((item) => item.block.id === blockId)
-      const swapIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1
 
-      if (currentIndex < 0 || swapIndex < 0 || swapIndex >= orderedBlocks.length) {
+      if (currentIndex < 0) {
         return slide
       }
 
-      const current = orderedBlocks[currentIndex]
-      const target = orderedBlocks[swapIndex]
-      const currentZ = current.layout.zIndex
-      const targetZ = target.layout.zIndex
+      const nextOrderedBlocks = [...orderedBlocks]
+      const [current] = nextOrderedBlocks.splice(currentIndex, 1)
+
+      if (direction === 'front') {
+        nextOrderedBlocks.push(current)
+      } else if (direction === 'back') {
+        nextOrderedBlocks.unshift(current)
+      } else {
+        const nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1
+
+        if (nextIndex < 0 || nextIndex > nextOrderedBlocks.length) {
+          return slide
+        }
+
+        nextOrderedBlocks.splice(nextIndex, 0, current)
+      }
+
+      const nextZIndexByBlockId = new Map(
+        nextOrderedBlocks.map((item, index) => [item.block.id, index + 1]),
+      )
 
       return {
         ...slide,
-        blocks: slide.blocks.map((block, index) => {
-          if (block.id === current.block.id) {
-            return {
-              ...block,
-              layout: {
-                ...normalizeBlockLayout(block, index),
-                zIndex: targetZ,
-              },
-            }
-          }
-
-          if (block.id === target.block.id) {
-            return {
-              ...block,
-              layout: {
-                ...normalizeBlockLayout(block, index),
-                zIndex: currentZ,
-              },
-            }
-          }
-
-          return normalizeSlideBlock(block, index)
-        }),
+        blocks: slide.blocks.map((block, index) => ({
+          ...normalizeSlideBlock(block, index),
+          layout: {
+            ...normalizeBlockLayout(block, index),
+            zIndex: nextZIndexByBlockId.get(block.id) ?? index + 1,
+          },
+        })),
       }
     })
   }
@@ -1525,7 +1619,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         rejectChartSuggestion,
         addComment,
         resolveComment,
+        reopenComment,
         addSlide,
+        addSlideWithLayout,
         deleteSlide,
         duplicateSlide,
         reorderSlides,
@@ -1538,6 +1634,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         updateSlideBlockTextStyle,
         updateSlideBlockVisualStyle,
         replaceSlideBlockImage,
+        resetSlideBlockImage,
         updateSlideBlockLayout,
         updateSlideBlocksLayout,
         pasteSlideBlock,

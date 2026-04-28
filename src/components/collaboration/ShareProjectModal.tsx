@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CollaborationUpdate } from '../../context/workspaceStoreContext'
 
 interface ShareProjectModalProps {
@@ -19,6 +19,22 @@ export function ShareProjectModal({
   onSave,
 }: ShareProjectModalProps) {
   const [settings, setSettings] = useState(initialSettings)
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
 
   if (!isOpen) {
     return null

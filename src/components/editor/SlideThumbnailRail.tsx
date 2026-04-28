@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import { clampThumbnailRailWidth } from '../../data/editorLayout'
+import { SLIDE_LAYOUT_PRESETS, type SlideLayoutPreset } from '../../data/slideLayoutPresets'
 import {
   normalizeBlockLayout,
   normalizeBlockTextStyle,
@@ -11,9 +14,17 @@ interface SlideThumbnailRailProps {
   selectedSlideId?: string
   onSelectSlide: (slideId: string) => void
   onAddSlide: () => void
+  onAddSlideWithLayout: (preset: SlideLayoutPreset) => void
   onDuplicateSlide: () => void
   onDeleteSlide: () => void
   onReorderSlides: (orderedSlideIds: string[]) => void
+  onOpenSlideContextMenu: (slideId: string, x: number, y: number) => void
+  isCollapsed: boolean
+  isCompact: boolean
+  railWidth: number
+  onToggleCollapsed: () => void
+  onToggleCompact: () => void
+  onResizeRail: (width: number) => void
 }
 
 function getReorderedSlideIds(slides: Slide[], sourceSlideId: string, targetSlideId: string) {
@@ -39,29 +50,114 @@ export function SlideThumbnailRail({
   selectedSlideId,
   onSelectSlide,
   onAddSlide,
+  onAddSlideWithLayout,
   onDuplicateSlide,
   onDeleteSlide,
   onReorderSlides,
+  onOpenSlideContextMenu,
+  isCollapsed,
+  isCompact,
+  railWidth,
+  onToggleCollapsed,
+  onToggleCompact,
+  onResizeRail,
 }: SlideThumbnailRailProps) {
   const [draggedSlideId, setDraggedSlideId] = useState<string>()
   const [dropTargetSlideId, setDropTargetSlideId] = useState<string>()
 
+  const handleResizeStart = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (isCollapsed) {
+      return
+    }
+
+    const startX = event.clientX
+    const startWidth = railWidth
+    const resizeHandle = event.currentTarget
+
+    resizeHandle.setPointerCapture(event.pointerId)
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      onResizeRail(clampThumbnailRailWidth(startWidth + moveEvent.clientX - startX))
+    }
+
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp, { once: true })
+  }
+
+  if (isCollapsed) {
+    return (
+      <aside className="thumbnail-rail thumbnail-rail--collapsed" aria-label="Collapsed slide rail">
+        <button
+          type="button"
+          className="thumbnail-rail__collapsed-button"
+          title="Show slide thumbnails"
+          onClick={onToggleCollapsed}
+        >
+          <span>Slides</span>
+          <strong>{slides.length}</strong>
+        </button>
+      </aside>
+    )
+  }
+
   return (
-    <aside className="thumbnail-rail">
+    <aside className={`thumbnail-rail ${isCompact ? 'thumbnail-rail--compact' : ''}`}>
       <div className="thumbnail-rail__header">
         <div>
           <span className="section-label">Slides</span>
           <strong>{slides.length}</strong>
         </div>
         <div className="thumbnail-rail__controls" aria-label="Slide controls">
-          <button type="button" onClick={onAddSlide}>
+          <button type="button" title="Hide thumbnail rail" onClick={onToggleCollapsed}>
+            Hide
+          </button>
+          <button
+            type="button"
+            className={isCompact ? 'is-active' : ''}
+            title="Toggle compact thumbnails"
+            onClick={onToggleCompact}
+          >
+            Compact
+          </button>
+          <button type="button" title="Add slide" onClick={onAddSlide}>
             Add
           </button>
-          <button type="button" disabled={!selectedSlideId} onClick={onDuplicateSlide}>
-            Duplicate
+          <select
+            className="thumbnail-rail__layout-select"
+            aria-label="Add slide with layout"
+            title="Add slide with layout"
+            defaultValue=""
+            onChange={(event) => {
+              const preset = event.target.value as SlideLayoutPreset
+
+              if (preset) {
+                onAddSlideWithLayout(preset)
+                event.currentTarget.value = ''
+              }
+            }}
+          >
+            <option value="">Layout</option>
+            {SLIDE_LAYOUT_PRESETS.map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            title="Duplicate slide"
+            disabled={!selectedSlideId}
+            onClick={onDuplicateSlide}
+          >
+            Dup
           </button>
-          <button type="button" disabled={!selectedSlideId} onClick={onDeleteSlide}>
-            Delete
+          <button type="button" title="Delete slide" disabled={!selectedSlideId} onClick={onDeleteSlide}>
+            Del
           </button>
         </div>
       </div>
@@ -77,6 +173,11 @@ export function SlideThumbnailRail({
               draggedSlideId === slide.id ? 'is-dragging' : ''
             } ${dropTargetSlideId === slide.id && draggedSlideId !== slide.id ? 'is-drop-target' : ''}`}
             onClick={() => onSelectSlide(slide.id)}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              onSelectSlide(slide.id)
+              onOpenSlideContextMenu(slide.id, event.clientX, event.clientY)
+            }}
             onDragStart={(event) => {
               setDraggedSlideId(slide.id)
               event.dataTransfer.effectAllowed = 'move'
@@ -149,6 +250,13 @@ export function SlideThumbnailRail({
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        className="thumbnail-rail__resize-handle"
+        aria-label="Resize thumbnail rail"
+        title="Drag to resize thumbnail rail"
+        onPointerDown={handleResizeStart}
+      />
     </aside>
   )
 }
@@ -175,7 +283,10 @@ function ThumbnailBlockContent({ block }: { block: Slide['blocks'][number] }) {
       <img
         className="thumbnail-slide-object__image"
         src={block.imageAsset.dataUrl}
-        alt={block.imageAsset.name}
+        alt={block.imageAsset.altText ?? block.imageAsset.name}
+        style={{
+          objectFit: block.imageAsset.fit === 'fit' ? 'contain' : 'cover',
+        }}
       />
     )
   }

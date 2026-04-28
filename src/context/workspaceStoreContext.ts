@@ -1,6 +1,7 @@
 import { createContext } from 'react'
 import type { AiEditPlan } from '../data/aiEditor'
 import type { ManualBlockKind } from '../data/slideLayout'
+import type { SlideLayoutPreset } from '../data/slideLayoutPresets'
 import type { WorkspaceLibraryItemType } from '../data/workspaceLibrary'
 import type {
   Deck,
@@ -79,7 +80,13 @@ export interface WorkspaceContextValue {
     authorRole: FileContributorRole
   }) => void
   resolveComment: (commentId: string) => void
+  reopenComment: (commentId: string) => void
   addSlide: (deckId: string, afterSlideId?: string) => string | undefined
+  addSlideWithLayout: (
+    deckId: string,
+    afterSlideId: string | undefined,
+    preset: SlideLayoutPreset,
+  ) => string | undefined
   deleteSlide: (deckId: string, slideId: string) => string | undefined
   duplicateSlide: (deckId: string, slideId: string) => string | undefined
   reorderSlides: (deckId: string, orderedSlideIds: string[]) => void
@@ -96,6 +103,7 @@ export interface WorkspaceContextValue {
     style: Partial<SlideBlockVisualStyle>,
   ) => void
   replaceSlideBlockImage: (slideId: string, blockId: string, imageAsset: SlideImageAsset) => void
+  resetSlideBlockImage: (slideId: string, blockId: string) => void
   updateSlideBlockLayout: (slideId: string, blockId: string, layout: Partial<SlideBlockLayout>) => void
   updateSlideBlocksLayout: (
     slideId: string,
@@ -103,7 +111,11 @@ export interface WorkspaceContextValue {
   ) => void
   pasteSlideBlock: (slideId: string, block: SlideBlock, offset?: number) => string | undefined
   pasteSlideBlocks: (slideId: string, blocks: SlideBlock[], offset?: number) => string[]
-  arrangeSlideBlock: (slideId: string, blockId: string, direction: 'forward' | 'backward') => void
+  arrangeSlideBlock: (
+    slideId: string,
+    blockId: string,
+    direction: 'forward' | 'backward' | 'front' | 'back',
+  ) => void
   updateSlideNotes: (slideId: string, notes: string) => void
   applyAiEditPlan: (deckId: string, plan: AiEditPlan) => void
   createAlternateVersion: (deckId: string) => void

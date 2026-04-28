@@ -89,6 +89,9 @@ export interface SlideTextStyle {
   italic: boolean
   underline: boolean
   alignment: SlideAlignment
+  listStyle?: 'none' | 'bullet' | 'number'
+  lineHeight?: number
+  verticalAlign?: 'top' | 'middle' | 'bottom'
   color?: string
 }
 
@@ -104,6 +107,8 @@ export interface SlideImageAsset {
   mimeType: string
   sizeBytes: number
   dataUrl: string
+  fit?: 'fit' | 'fill'
+  altText?: string
 }
 
 export interface SlideBlockLayout {
