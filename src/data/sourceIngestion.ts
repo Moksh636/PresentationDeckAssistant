@@ -226,7 +226,7 @@ export function createMockFileAsset(input: FileAssetSeedInput): FileAsset {
     sizeLabel: input.sizeLabel ?? formatFileSize(input.sizeBytes),
     summary:
       input.summary ??
-      `Mock ingestion is ready for ${signal.topic}. Replace this with parser output once backend extraction is available.`,
+      `Summary ready for ${signal.topic}. Full text extraction will appear when file parsing is connected.`,
     uploadedAt: input.uploadedAt,
     extractedTextPreview,
     extractedMetadata:

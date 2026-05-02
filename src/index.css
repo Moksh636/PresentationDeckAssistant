@@ -1169,9 +1169,15 @@ select:focus-visible {
 
 .builder-topbar {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.9fr) 210px;
-  gap: 18px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.9fr) minmax(160px, 200px);
+  gap: 14px 18px;
+  align-items: start;
+}
+
+.builder-topbar .builder-generate-cta {
+  min-height: var(--control-height);
+  width: 100%;
+  align-self: center;
 }
 
 .builder-grid {
@@ -3139,6 +3145,24 @@ select:focus-visible {
   left: auto;
 }
 
+/* Portal menus: outer `.anchored-popover` supplies fixed screen position */
+.anchored-popover {
+  position: fixed;
+  z-index: 80;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.editor-overflow-menu__popover--portal {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+}
+
 .editor-overflow-menu__popover button {
   width: 100%;
   text-align: left;
@@ -3158,6 +3182,33 @@ select:focus-visible {
   border-radius: 10px;
   background: var(--panel-strong);
   box-shadow: var(--shadow);
+}
+
+.toolbar-menu__popover--portal {
+  position: relative;
+  top: auto;
+  left: auto;
+}
+
+.toolbar-insert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 5px;
+  min-height: 26px;
+}
+
+.toolbar-insert-btn__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  line-height: 0;
+  color: var(--muted);
+}
+
+.toolbar-insert-btn__label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .toolbar-menu__popover button {

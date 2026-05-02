@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AnchoredMenu } from '../components/ui/AnchoredMenu'
 import { AiChatPanel, type AiChatMessage } from '../components/editor/AiChatPanel'
 import { ShareProjectModal } from '../components/collaboration/ShareProjectModal'
 import { DeckReportModal } from '../components/editor/DeckReportModal'
@@ -41,7 +42,7 @@ const initialMessages: AiChatMessage[] = [
     id: 'message-1',
     role: 'assistant',
     kind: 'message',
-    content: 'I can help tighten a single slide or propose a deck-wide rewrite from the current JSON blocks.',
+    content: 'I can help tighten a single slide or propose edits across the whole deck using your current slides.',
   },
   {
     id: 'message-2',
@@ -61,7 +62,7 @@ function isSideUiTarget(target: EventTarget | null) {
   return target instanceof HTMLElement
     ? Boolean(
         target.closest(
-          '.editor-side-panel, .editor-notes-bar, .modal-card, .modal-backdrop, [role="dialog"]',
+          '.editor-side-panel, .editor-notes-bar, .modal-card, .modal-backdrop, .editor-context-menu, .anchored-popover, [role="dialog"]',
         ),
       )
     : false
@@ -212,6 +213,8 @@ export function EditPresentationPage() {
   const [contextMenu, setContextMenu] = useState<EditorContextMenuState>()
   const presentationRootRef = useRef<HTMLDivElement | null>(null)
   const canvasWorkspaceRef = useRef<HTMLDivElement | null>(null)
+  const fileOverflowTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const presentOverflowTriggerRef = useRef<HTMLButtonElement | null>(null)
 
   const activeDeck =
     workspace.decks.find((deck) => deck.id === workspace.activeDeckId) ?? workspace.decks[0]
@@ -706,7 +709,10 @@ export function EditPresentationPage() {
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target
 
-      if (target instanceof HTMLElement && target.closest('.editor-overflow-menu')) {
+      if (
+        target instanceof HTMLElement &&
+        (target.closest('.editor-overflow-menu') || target.closest('.anchored-popover'))
+      ) {
         return
       }
 
@@ -1102,7 +1108,7 @@ export function EditPresentationPage() {
           <div>
             <span className="section-label">Edit presentation</span>
             <h2>{activeDeck.title}</h2>
-            <p>Generate a structured slide JSON set before using the editor.</p>
+            <p>Generate slides from your sources first, or add a blank slide to start editing.</p>
           </div>
 
           <button
@@ -1194,18 +1200,19 @@ export function EditPresentationPage() {
                 </button>
                 <div className="editor-overflow-menu">
                   <button
+                    ref={fileOverflowTriggerRef}
                     type="button"
-                  title="More file actions"
-                  aria-expanded={isFileMenuOpen}
-                  onClick={() => {
-                    setIsPresentMenuOpen(false)
-                    setIsFileMenuOpen((current) => !current)
-                  }}
-                >
+                    title="More file actions"
+                    aria-expanded={isFileMenuOpen}
+                    onClick={() => {
+                      setIsPresentMenuOpen(false)
+                      setIsFileMenuOpen((current) => !current)
+                    }}
+                  >
                     More
                   </button>
-                  {isFileMenuOpen ? (
-                    <div className="editor-overflow-menu__popover">
+                  <AnchoredMenu isOpen={isFileMenuOpen} triggerRef={fileOverflowTriggerRef} align="start">
+                    <div className="editor-overflow-menu__popover editor-overflow-menu__popover--portal">
                       <button
                         type="button"
                         disabled={isExportingPptx}
@@ -1245,7 +1252,7 @@ export function EditPresentationPage() {
                         Alternate version
                       </button>
                     </div>
-                  ) : null}
+                  </AnchoredMenu>
                 </div>
               </div>
 
@@ -1320,6 +1327,7 @@ export function EditPresentationPage() {
                 <span className="editor-ribbon__label">Present</span>
                 <div className="editor-overflow-menu">
                   <button
+                    ref={presentOverflowTriggerRef}
                     type="button"
                     title="Present options"
                     aria-expanded={isPresentMenuOpen}
@@ -1330,8 +1338,8 @@ export function EditPresentationPage() {
                   >
                     Present
                   </button>
-                  {isPresentMenuOpen ? (
-                    <div className="editor-overflow-menu__popover editor-overflow-menu__popover--right">
+                  <AnchoredMenu isOpen={isPresentMenuOpen} triggerRef={presentOverflowTriggerRef} align="end">
+                    <div className="editor-overflow-menu__popover editor-overflow-menu__popover--portal">
                       <button
                         type="button"
                         onClick={() => {
@@ -1351,7 +1359,7 @@ export function EditPresentationPage() {
                         From current slide
                       </button>
                     </div>
-                  ) : null}
+                  </AnchoredMenu>
                 </div>
               </div>
 

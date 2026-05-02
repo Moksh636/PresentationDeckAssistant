@@ -103,7 +103,7 @@ export function BuildPresentationPage() {
         <div className="context-card">
           <span className="section-label">Project context</span>
           <h3>{activeProject?.name ?? 'No project assigned'}</h3>
-          <p>{activeProject?.summary ?? 'Create a project connection once backend entities are live.'}</p>
+          <p>{activeProject?.summary ?? 'Project details will appear here when available.'}</p>
           <div className="context-card__meta">
             <span>{activeDeck.status}</span>
             <span>{activeDeck.setup.presentationType}</span>
@@ -113,7 +113,7 @@ export function BuildPresentationPage() {
 
         <button
           type="button"
-          className="primary-button primary-button--tall"
+          className="primary-button builder-generate-cta"
           disabled={isGenerating}
           onClick={async () => {
             if (isGenerating) {

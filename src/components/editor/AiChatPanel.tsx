@@ -86,7 +86,7 @@ export function AiChatPanel({
         <div className="chat-panel__setting-copy">
           <span className="section-label">Apply mode</span>
           <strong>Ask before applying edits</strong>
-          <p>Keep review on by default so the proposed change is visible before JSON updates.</p>
+          <p>Keep review on by default so you can see proposed edits before they are applied to the deck.</p>
         </div>
 
         <label className="inline-toggle" aria-label="Ask before applying edits">

@@ -126,7 +126,7 @@ function buildSeedVersions(decks: Deck[], slides: Slide[]): DeckVersion[] {
       id: `version-${deck.id}-1`,
       deckId: deck.id,
       label: 'v1',
-      summary: 'Initial JSON slide graph seeded for the MVP shell.',
+      summary: 'Initial version snapshot from seeded slides.',
       createdAt: deck.updatedAt,
       slideSnapshot,
     }

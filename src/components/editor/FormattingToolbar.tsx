@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AnchoredMenu } from '../ui/AnchoredMenu'
 import { applyListStyle, getLineSpacingValue, getVerticalAlignmentValue } from '../../data/paragraphControls'
 import type { ManualBlockKind } from '../../data/slideLayout'
 import {
@@ -82,6 +83,7 @@ export function FormattingToolbar({
 }: FormattingToolbarProps) {
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const arrangeMenuRef = useRef<HTMLDivElement | null>(null)
+  const arrangeTriggerRef = useRef<HTMLButtonElement | null>(null)
   const [isArrangeMenuOpen, setIsArrangeMenuOpen] = useState(false)
   const selectedBlockLocked = selectedBlock ? normalizeBlockLayout(selectedBlock, 0).locked === true : false
   const disabled = !canFormatText(selectedBlock) || selectedBlockLocked
@@ -98,6 +100,10 @@ export function FormattingToolbar({
       const target = event.target
 
       if (target instanceof Node && arrangeMenuRef.current?.contains(target)) {
+        return
+      }
+
+      if (target instanceof HTMLElement && target.closest('.anchored-popover')) {
         return
       }
 
@@ -123,20 +129,66 @@ export function FormattingToolbar({
     <div className="toolbar">
       <div className="toolbar__group toolbar__group--insert">
         <span className="toolbar__group-label">Insert</span>
-        <button type="button" title="Add text box" onClick={() => onAddBlock('text-box')}>
-          T
+        <button
+          type="button"
+          className="toolbar-insert-btn"
+          title="Add text box"
+          onClick={() => onAddBlock('text-box')}
+        >
+          <span className="toolbar-insert-btn__icon" aria-hidden>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M4 7h16M4 12h16M4 17h10" strokeLinecap="round" />
+            </svg>
+          </span>
+          <span className="toolbar-insert-btn__label">Text</span>
         </button>
-        <button type="button" title="Add heading" onClick={() => onAddBlock('heading')}>
-          H1
+        <button
+          type="button"
+          className="toolbar-insert-btn"
+          title="Add heading"
+          onClick={() => onAddBlock('heading')}
+        >
+          <span className="toolbar-insert-btn__icon" aria-hidden>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M7 5v14M7 5h8M11 12h4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <span className="toolbar-insert-btn__label">Heading</span>
         </button>
-        <button type="button" title="Add image placeholder" onClick={() => onAddBlock('image-placeholder')}>
-          Img
+        <button
+          type="button"
+          className="toolbar-insert-btn"
+          title="Add image placeholder"
+          onClick={() => onAddBlock('image-placeholder')}
+        >
+          <span className="toolbar-insert-btn__icon" aria-hidden>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <rect x={4} y={6} width={16} height={12} rx={2} />
+              <path d="M8 18l3.5-3.5a1 1 0 011.4 0L17 18" strokeLinecap="round" />
+            </svg>
+          </span>
+          <span className="toolbar-insert-btn__label">Image</span>
         </button>
-        <button type="button" title="Add rectangle" onClick={() => onAddBlock('shape')}>
-          Rect
+        <button type="button" className="toolbar-insert-btn" title="Add shape" onClick={() => onAddBlock('shape')}>
+          <span className="toolbar-insert-btn__icon" aria-hidden>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <rect x={5} y={7} width={14} height={10} rx={1} />
+            </svg>
+          </span>
+          <span className="toolbar-insert-btn__label">Shape</span>
         </button>
-        <button type="button" title="Add chart placeholder" onClick={() => onAddBlock('chart-placeholder')}>
-          Chart
+        <button
+          type="button"
+          className="toolbar-insert-btn"
+          title="Add chart placeholder"
+          onClick={() => onAddBlock('chart-placeholder')}
+        >
+          <span className="toolbar-insert-btn__icon" aria-hidden>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M6 18V10M12 18v-6M18 18V7" strokeLinecap="round" />
+            </svg>
+          </span>
+          <span className="toolbar-insert-btn__label">Chart</span>
         </button>
       </div>
 
@@ -307,6 +359,7 @@ export function FormattingToolbar({
       <div className="toolbar__group toolbar__group--object-align" ref={arrangeMenuRef}>
         <span className="toolbar__group-label">Arrange</span>
         <button
+          ref={arrangeTriggerRef}
           type="button"
           title="Open object alignment menu"
           aria-expanded={isArrangeMenuOpen}
@@ -315,8 +368,8 @@ export function FormattingToolbar({
         >
           Align
         </button>
-        {isArrangeMenuOpen ? (
-          <div className="toolbar-menu__popover">
+        <AnchoredMenu isOpen={isArrangeMenuOpen} triggerRef={arrangeTriggerRef} align="start">
+          <div className="toolbar-menu__popover toolbar-menu__popover--portal">
             {objectAlignments.map((option) => (
               <button
                 key={option.value}
@@ -354,7 +407,7 @@ export function FormattingToolbar({
               Dist Y
             </button>
           </div>
-        ) : null}
+        </AnchoredMenu>
         {objectAlignments.slice(0, 3).map((option) => (
           <button
             key={option.value}

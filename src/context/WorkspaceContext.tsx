@@ -534,7 +534,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       ),
     }))
 
-    // Replace this mocked lifecycle with a real async ingestion job when backend parsing exists.
+    // Replace this mocked lifecycle with a real async ingestion job when real file parsing is wired in.
     window.setTimeout(() => {
       setWorkspace((current) => ({
         ...current,
