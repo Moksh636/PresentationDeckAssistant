@@ -420,6 +420,105 @@ select:focus-visible {
   color: #ffffff;
 }
 
+.auth-controls {
+  margin-top: auto;
+  position: relative;
+}
+
+.auth-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.auth-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
+
+.auth-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.auth-card input {
+  width: 100%;
+  min-height: 36px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.auth-card input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.auth-card .secondary-button,
+.auth-card .ghost-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.auth-card .secondary-button {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.auth-card .ghost-button {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.auth-card__status {
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.auth-card__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.auth-controls--compact {
+  margin-top: auto;
+}
+
+.auth-controls__compact-trigger {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.auth-controls--compact .auth-controls__panel {
+  position: fixed;
+  left: calc(var(--app-sidebar-compact-width) + 10px);
+  bottom: 12px;
+  z-index: 80;
+  width: 260px;
+  display: none;
+}
+
+.auth-controls--compact .auth-controls__panel.is-open {
+  display: block;
+}
+
 .sidebar--compact {
   width: var(--app-sidebar-compact-width);
   padding: 12px 10px;

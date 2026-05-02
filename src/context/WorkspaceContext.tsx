@@ -239,6 +239,12 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     setWorkspace(next)
   }
 
+  const replaceWorkspace: WorkspaceContextValue['replaceWorkspace'] = (nextWorkspace) => {
+    const normalizedWorkspace = normalizeWorkspaceState(nextWorkspace)
+
+    commitWorkspace(() => normalizedWorkspace)
+  }
+
   const setActiveDeck = (deckId: string) => {
     setWorkspace((current) => ({
       ...current,
@@ -1595,6 +1601,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         workspace,
         canUndo: history.past.length > 0,
         canRedo: history.future.length > 0,
+        replaceWorkspace,
         undoWorkspace,
         redoWorkspace,
         setActiveDeck,

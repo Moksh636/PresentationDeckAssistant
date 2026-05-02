@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { AuthControls } from '../auth/AuthControls'
 import { useWorkspace } from '../../context/useWorkspace'
 import { formatCountLabel, formatShortDate } from '../../utils/formatters'
 
@@ -89,6 +90,8 @@ export function Sidebar({ variant = 'full' }: SidebarProps) {
           </div>
         </section>
       ) : null}
+
+      <AuthControls variant={isCompact ? 'compact' : 'full'} />
     </aside>
   )
 }

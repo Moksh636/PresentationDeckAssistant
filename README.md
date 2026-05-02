@@ -15,7 +15,7 @@ npm run dev
 
 ## Deployment Foundation
 
-The app is still a Vite SPA with local/mock persistence enabled. The backend foundation is prepared, but real Supabase persistence and real AI calls are intentionally not connected yet.
+The app is still a Vite SPA with local/mock persistence enabled. Supabase auth and manual workspace snapshot persistence are optional: if Supabase env vars are missing, the app stays in Local mode and keeps using browser localStorage. Real AI calls are intentionally not connected yet.
 
 ### Environment Variables
 
@@ -45,9 +45,19 @@ This workspace should be initialized as a Git repository before connecting to Gi
 2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to local `.env` and to Vercel project environment variables.
 3. Keep `SUPABASE_SERVICE_ROLE_KEY` only in backend/serverless environments.
 4. Review `supabase/migrations/0001_foundation.sql` before applying it. It is a schema draft for profiles, workspaces, projects, decks, slides, files, comments, deck versions, generated reports, and chart suggestions.
-5. Add real RLS policies when auth and collaborator membership rules are ready. The current migration only enables RLS and includes policy planning comments.
+5. Apply `supabase/migrations/0002_workspace_snapshots.sql` to enable the first persistence pass. It creates `workspace_snapshots` with one JSON snapshot per authenticated user and RLS policies that restrict access to `auth.uid()`.
+6. Add real row-level policies for the normalized project/deck tables when auth and collaborator membership rules are ready. The normalized foundation migration only enables RLS and includes policy planning comments.
 
 The frontend Supabase setup lives in `src/data/supabaseClient.ts`. It does not force auth and returns `null` until Supabase env vars are configured.
+
+### Auth and Workspace Snapshots
+
+- The app shell shows `Local mode` when `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing.
+- When Supabase is configured, users can request a passwordless email sign-in link.
+- Login is optional. The app remains usable before sign-in.
+- Signed-in users can manually `Save to Cloud` and `Load from Cloud`.
+- Cloud save/load uses `workspace_snapshots.workspace_json` and does not replace localStorage. Loading a snapshot also writes it back to localStorage through the existing workspace store.
+- There is no auto-sync yet, so users remain in control of when cloud state overwrites local state.
 
 ### Vercel
 
@@ -86,6 +96,8 @@ Recommended first backend path: Supabase Edge Functions for AI proxy calls. They
   Frontend AI adapter seam. It defaults to existing mock/local logic and is ready to be wired to backend proxy routes without exposing provider keys.
 - `src/data/supabaseClient.ts`
   Optional Supabase browser client using only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- `src/data/workspaceCloudPersistence.ts`
+  Manual Supabase snapshot adapter for saving/loading the full `WorkspaceState` JSON when Supabase is configured and a user is signed in.
 
 ## Slide JSON Model
 

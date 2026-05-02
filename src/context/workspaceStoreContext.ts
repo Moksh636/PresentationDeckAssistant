@@ -27,6 +27,7 @@ export interface WorkspaceContextValue {
   workspace: WorkspaceState
   canUndo: boolean
   canRedo: boolean
+  replaceWorkspace: (workspace: WorkspaceState) => void
   undoWorkspace: () => void
   redoWorkspace: () => void
   setActiveDeck: (deckId: string) => void
