@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AnchoredMenu } from '../components/ui/AnchoredMenu'
 import { AiChatPanel, type AiChatMessage } from '../components/editor/AiChatPanel'
 import { ShareProjectModal } from '../components/collaboration/ShareProjectModal'
 import { DeckReportModal } from '../components/editor/DeckReportModal'
 import { EditorContextMenu, type EditorContextMenuItem } from '../components/editor/EditorContextMenu'
 import { EditorCommentsPanel } from '../components/editor/EditorCommentsPanel'
 import { EditorSidePanel, type EditorSidePanelMode } from '../components/editor/EditorSidePanel'
-import { FormattingToolbar } from '../components/editor/FormattingToolbar'
+import { EditorMainChrome, type ChromeMenuId } from '../components/editor/EditorMainChrome'
+import { EditorUtilityRail } from '../components/editor/EditorUtilityRail'
 import { PresentMode } from '../components/editor/PresentMode'
 import { SlideCanvas } from '../components/editor/SlideCanvas'
 import { SlideThumbnailRail } from '../components/editor/SlideThumbnailRail'
@@ -62,7 +62,7 @@ function isSideUiTarget(target: EventTarget | null) {
   return target instanceof HTMLElement
     ? Boolean(
         target.closest(
-          '.editor-side-panel, .editor-notes-bar, .modal-card, .modal-backdrop, .editor-context-menu, .anchored-popover, [role="dialog"]',
+          '.editor-side-panel, .editor-notes-bar, .editor-utility-rail, .modal-card, .modal-backdrop, .editor-context-menu, .anchored-popover, [role="dialog"]',
         ),
       )
     : false
@@ -75,7 +75,7 @@ function isCanvasCommandTarget(target: EventTarget | null) {
 
   if (
     isTypingTarget(target) ||
-    target.closest('button, input, select, .editor-topbar') ||
+    target.closest('button, input, select, .editor-chrome') ||
     isSideUiTarget(target)
   ) {
     return false
@@ -205,16 +205,23 @@ export function EditPresentationPage() {
   const [pasteOffsetCount, setPasteOffsetCount] = useState(0)
   const [zoomPercent, setZoomPercent] = useState(100)
   const [isNotesOpen, setIsNotesOpen] = useState(false)
-  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false)
-  const [isPresentMenuOpen, setIsPresentMenuOpen] = useState(false)
+  const [openChromeMenu, setOpenChromeMenu] = useState<ChromeMenuId | undefined>()
   const [isThumbnailRailCollapsed, setIsThumbnailRailCollapsed] = useState(false)
   const [isThumbnailRailCompact, setIsThumbnailRailCompact] = useState(false)
   const [thumbnailRailWidth, setThumbnailRailWidth] = useState(DEFAULT_THUMBNAIL_RAIL_WIDTH)
   const [contextMenu, setContextMenu] = useState<EditorContextMenuState>()
   const presentationRootRef = useRef<HTMLDivElement | null>(null)
   const canvasWorkspaceRef = useRef<HTMLDivElement | null>(null)
-  const fileOverflowTriggerRef = useRef<HTMLButtonElement | null>(null)
-  const presentOverflowTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const fileMenuRef = useRef<HTMLButtonElement | null>(null)
+  const editMenuRef = useRef<HTMLButtonElement | null>(null)
+  const viewMenuRef = useRef<HTMLButtonElement | null>(null)
+  const insertMenuRef = useRef<HTMLButtonElement | null>(null)
+  const formatMenuRef = useRef<HTMLButtonElement | null>(null)
+  const slideMenuRef = useRef<HTMLButtonElement | null>(null)
+  const arrangeMenuRef = useRef<HTMLButtonElement | null>(null)
+  const toolsMenuRef = useRef<HTMLButtonElement | null>(null)
+  const helpMenuRef = useRef<HTMLButtonElement | null>(null)
+  const presentMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
 
   const activeDeck =
     workspace.decks.find((deck) => deck.id === workspace.activeDeckId) ?? workspace.decks[0]
@@ -716,8 +723,7 @@ export function EditPresentationPage() {
         return
       }
 
-      setIsFileMenuOpen(false)
-      setIsPresentMenuOpen(false)
+      setOpenChromeMenu(undefined)
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -725,8 +731,7 @@ export function EditPresentationPage() {
         return
       }
 
-      setIsFileMenuOpen(false)
-      setIsPresentMenuOpen(false)
+      setOpenChromeMenu(undefined)
       setActiveSidePanel(undefined)
     }
 
@@ -918,7 +923,7 @@ export function EditPresentationPage() {
         workspaceWidth: workspaceElement.clientWidth,
         workspaceHeight: workspaceElement.clientHeight,
         slideAspectRatio: 16 / 9,
-        padding: 96,
+        padding: 28,
       }),
     )
   }
@@ -936,7 +941,7 @@ export function EditPresentationPage() {
           workspaceWidth: workspaceElement.clientWidth,
           workspaceHeight: workspaceElement.clientHeight,
           slideAspectRatio: 16 / 9,
-          padding: 96,
+          padding: 28,
         }),
       )
     })
@@ -961,7 +966,7 @@ export function EditPresentationPage() {
             workspaceWidth: workspaceElement.clientWidth,
             workspaceHeight: workspaceElement.clientHeight,
             slideAspectRatio: 16 / 9,
-            padding: 96,
+            padding: 28,
           }),
         )
       })
@@ -1054,6 +1059,17 @@ export function EditPresentationPage() {
     startPresentationFromSlide(selectedSlide?.id)
   }
 
+  const toggleUtilityPanel = (mode: EditorSidePanelMode) => {
+    setOpenChromeMenu(undefined)
+    setActiveSidePanel((current) => (current === mode ? undefined : mode))
+  }
+
+  const canApplyMenuTextFormat =
+    !!selectedBlock &&
+    selectedBlock.type !== 'shape' &&
+    selectedBlock.type !== 'visual-placeholder' &&
+    !selectedBlockLocked
+
   const startPresentationFromSlide = (slideId?: string) => {
     if (!slideId) {
       return
@@ -1062,6 +1078,7 @@ export function EditPresentationPage() {
     setPresentationSlideId(slideId)
     setIsPresenting(true)
     setActiveSidePanel(undefined)
+    setOpenChromeMenu(undefined)
 
     if (presentationRootRef.current?.requestFullscreen) {
       void presentationRootRef.current.requestFullscreen().catch(() => {
@@ -1171,215 +1188,114 @@ export function EditPresentationPage() {
         />
 
         <div className="editor-workspace">
-          <div className="editor-topbar">
-            <div className="editor-topbar__title">
-              <span className="section-label">Editing</span>
-              <strong>{activeDeck.title}</strong>
-              <span>{slides.length} slides</span>
-            </div>
+          <EditorMainChrome
+            activeDeckTitle={activeDeck.title}
+            slideCount={slides.length}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            undoWorkspace={undoWorkspace}
+            redoWorkspace={redoWorkspace}
+            onShare={() => {
+              setOpenChromeMenu(undefined)
+              setIsShareOpen(true)
+            }}
+            startPresentationFromSlide={startPresentationFromSlide}
+            startPresentation={startPresentation}
+            firstSlideId={slides[0]?.id}
+            isExportingPptx={isExportingPptx}
+            onExportPptx={handleExportPptx}
+            onOpenReport={() => setIsReportOpen(true)}
+            onPrintReport={() => {
+              setIsReportOpen(true)
+              window.setTimeout(() => window.print(), 0)
+            }}
+            onAlternateVersion={() => createAlternateVersion(activeDeck.id)}
+            openChromeMenu={openChromeMenu}
+            setOpenChromeMenu={setOpenChromeMenu}
+            fileMenuRef={fileMenuRef}
+            editMenuRef={editMenuRef}
+            viewMenuRef={viewMenuRef}
+            insertMenuRef={insertMenuRef}
+            formatMenuRef={formatMenuRef}
+            slideMenuRef={slideMenuRef}
+            arrangeMenuRef={arrangeMenuRef}
+            toolsMenuRef={toolsMenuRef}
+            helpMenuRef={helpMenuRef}
+            presentMenuTriggerRef={presentMenuTriggerRef}
+            onPointerTool={clearSelectedBlocks}
+            copySelectedBlocks={copySelectedBlocks}
+            cutSelectedBlocks={cutSelectedBlocks}
+            pasteClipboardBlocks={pasteClipboardBlocks}
+            canPasteClipboard={clipboardBlocks.length > 0}
+            deleteSelectedUnlockedBlocks={deleteSelectedUnlockedBlocks}
+            handleZoom={handleZoom}
+            handleFitToWindow={handleFitToWindow}
+            zoomPercent={zoomPercent}
+            showSources={showSources}
+            setShowSources={setShowSources}
+            onOpenAiPanel={() => toggleUtilityPanel('assistant')}
+            onOpenCommentsPanel={() => toggleUtilityPanel('comments')}
+            commentThreadCount={slideCommentThreads.length + deckCommentThreads.length}
+            activeSidePanel={activeSidePanel}
+            handleAddBlock={handleAddBlock}
+            handleAddSlide={handleAddSlide}
+            handleDuplicateSlide={handleDuplicateSlide}
+            handleDeleteSlide={handleDeleteSlide}
+            handleAddSlideWithLayout={(preset) => handleAddSlideWithLayout(preset)}
+            alignSelectedBlocks={alignSelectedBlocks}
+            distributeSelectedBlocks={distributeSelectedBlocks}
+            onArrangeLayer={(direction) => {
+              if (!selectedSlide || !selectedBlock || selectedBlockLocked) {
+                return
+              }
 
-            <div className="editor-ribbon">
-              <div className="editor-ribbon__group editor-ribbon__group--file">
-                <span className="editor-ribbon__label">File</span>
-                <button type="button" title="Undo (Ctrl/Cmd+Z)" disabled={!canUndo} onClick={undoWorkspace}>
-                  Undo
-                </button>
-                <button type="button" title="Redo (Ctrl/Cmd+Y)" disabled={!canRedo} onClick={redoWorkspace}>
-                  Redo
-                </button>
-                <button
-                  type="button"
-                  title="Share deck"
-                  onClick={() => {
-                    setIsFileMenuOpen(false)
-                    setIsPresentMenuOpen(false)
-                    setIsShareOpen(true)
-                  }}
-                >
-                  Share
-                </button>
-                <div className="editor-overflow-menu">
-                  <button
-                    ref={fileOverflowTriggerRef}
-                    type="button"
-                    title="More file actions"
-                    aria-expanded={isFileMenuOpen}
-                    onClick={() => {
-                      setIsPresentMenuOpen(false)
-                      setIsFileMenuOpen((current) => !current)
-                    }}
-                  >
-                    More
-                  </button>
-                  <AnchoredMenu isOpen={isFileMenuOpen} triggerRef={fileOverflowTriggerRef} align="start">
-                    <div className="editor-overflow-menu__popover editor-overflow-menu__popover--portal">
-                      <button
-                        type="button"
-                        disabled={isExportingPptx}
-                        onClick={() => {
-                          setIsFileMenuOpen(false)
-                          void handleExportPptx()
-                        }}
-                      >
-                        {isExportingPptx ? 'Exporting PPTX...' : 'Export PPTX'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsFileMenuOpen(false)
-                          setIsReportOpen(true)
-                        }}
-                      >
-                        Generate Report
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsFileMenuOpen(false)
-                          setIsReportOpen(true)
-                          window.setTimeout(() => window.print(), 0)
-                        }}
-                      >
-                        Print / Save report
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsFileMenuOpen(false)
-                          createAlternateVersion(activeDeck.id)
-                        }}
-                      >
-                        Alternate version
-                      </button>
-                    </div>
-                  </AnchoredMenu>
-                </div>
-              </div>
+              arrangeSlideBlock(selectedSlide.id, selectedBlock.id, direction)
+            }}
+            canArrangeLayer={Boolean(selectedSlide && selectedBlock && !selectedBlockLocked)}
+            selectedBlockCount={activeSelectedBlockIds.length}
+            canDistribute={selectedUnlockedBlockLayouts.length >= 3}
+            selectedSlide={selectedSlide}
+            selectedBlock={selectedBlock}
+            canApplyMenuTextFormat={canApplyMenuTextFormat}
+            onMenuTextStyleChange={(style) => {
+              if (selectedSlide && selectedBlock && !selectedBlockLocked) {
+                updateSlideBlockTextStyle(selectedSlide.id, selectedBlock.id, style)
+              }
+            }}
+            showToast={showToast}
+            formattingToolbarProps={{
+              selectedBlock,
+              onAddBlock: handleAddBlock,
+              onTextStyleChange: (style) => {
+                if (selectedSlide && selectedBlock && !selectedBlockLocked) {
+                  updateSlideBlockTextStyle(selectedSlide.id, selectedBlock.id, style)
+                }
+              },
+              onTextBlockContentChange: (content) => {
+                if (selectedSlide && selectedBlock && !selectedBlockLocked) {
+                  updateSlideBlockContent(selectedSlide.id, selectedBlock.id, content)
+                }
+              },
+              onVisualStyleChange: (style) => {
+                if (selectedSlide && selectedBlock && !selectedBlockLocked) {
+                  updateSlideBlockVisualStyle(selectedSlide.id, selectedBlock.id, style)
+                }
+              },
+              onImageAssetChange: handleImageAssetChange,
+              onResetImage: handleResetImage,
+              onReplaceImage: handleReplaceImage,
+              onCopyBlock: copySelectedBlocks,
+              onCutBlock: cutSelectedBlocks,
+              onPasteBlock: pasteClipboardBlocks,
+              onAlignBlock: alignSelectedBlocks,
+              onDistributeBlocks: distributeSelectedBlocks,
+              canPasteBlock: clipboardBlocks.length > 0,
+              selectedBlockCount: activeSelectedBlockIds.length,
+            }}
+          />
 
-              <FormattingToolbar
-                selectedBlock={selectedBlock}
-                onAddBlock={handleAddBlock}
-                onTextStyleChange={(style) => {
-                  if (selectedSlide && selectedBlock && !selectedBlockLocked) {
-                    updateSlideBlockTextStyle(selectedSlide.id, selectedBlock.id, style)
-                  }
-                }}
-                onTextBlockContentChange={(content) => {
-                  if (selectedSlide && selectedBlock && !selectedBlockLocked) {
-                    updateSlideBlockContent(selectedSlide.id, selectedBlock.id, content)
-                  }
-                }}
-                onVisualStyleChange={(style) => {
-                  if (selectedSlide && selectedBlock && !selectedBlockLocked) {
-                    updateSlideBlockVisualStyle(selectedSlide.id, selectedBlock.id, style)
-                  }
-                }}
-                onImageAssetChange={handleImageAssetChange}
-                onResetImage={handleResetImage}
-                onReplaceImage={handleReplaceImage}
-                onCopyBlock={copySelectedBlocks}
-                onCutBlock={cutSelectedBlocks}
-                onPasteBlock={pasteClipboardBlocks}
-                onAlignBlock={alignSelectedBlocks}
-                onDistributeBlocks={distributeSelectedBlocks}
-                canPasteBlock={clipboardBlocks.length > 0}
-                selectedBlockCount={activeSelectedBlockIds.length}
-              />
-
-              <div className="editor-ribbon__group editor-ribbon__group--review">
-                <span className="editor-ribbon__label">Review</span>
-                <button
-                  type="button"
-                  title="Toggle source chips"
-                  className={showSources ? 'is-active' : ''}
-                  onClick={() => setShowSources((current) => !current)}
-                >
-                  Sources
-                </button>
-                <button
-                  type="button"
-                  title="Open AI assistant"
-                  className={activeSidePanel === 'assistant' ? 'is-active' : ''}
-                  onClick={() => {
-                    setIsFileMenuOpen(false)
-                    setIsPresentMenuOpen(false)
-                    setActiveSidePanel((current) => (current === 'assistant' ? undefined : 'assistant'))
-                  }}
-                >
-                  AI
-                </button>
-                <button
-                  type="button"
-                  title="Open comments"
-                  className={activeSidePanel === 'comments' ? 'is-active' : ''}
-                  onClick={() => {
-                    setIsFileMenuOpen(false)
-                    setIsPresentMenuOpen(false)
-                    setActiveSidePanel((current) => (current === 'comments' ? undefined : 'comments'))
-                  }}
-                >
-                  Comments
-                  <span>{slideCommentThreads.length + deckCommentThreads.length}</span>
-                </button>
-              </div>
-
-              <div className="editor-ribbon__group editor-ribbon__group--present">
-                <span className="editor-ribbon__label">Present</span>
-                <div className="editor-overflow-menu">
-                  <button
-                    ref={presentOverflowTriggerRef}
-                    type="button"
-                    title="Present options"
-                    aria-expanded={isPresentMenuOpen}
-                    onClick={() => {
-                      setIsFileMenuOpen(false)
-                      setIsPresentMenuOpen((current) => !current)
-                    }}
-                  >
-                    Present
-                  </button>
-                  <AnchoredMenu isOpen={isPresentMenuOpen} triggerRef={presentOverflowTriggerRef} align="end">
-                    <div className="editor-overflow-menu__popover editor-overflow-menu__popover--portal">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsPresentMenuOpen(false)
-                          startPresentationFromSlide(slides[0]?.id)
-                        }}
-                      >
-                        From beginning
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsPresentMenuOpen(false)
-                          startPresentation()
-                        }}
-                      >
-                        From current slide
-                      </button>
-                    </div>
-                  </AnchoredMenu>
-                </div>
-              </div>
-
-              <div className="editor-ribbon__group editor-ribbon__group--zoom">
-                <span className="editor-ribbon__label">View</span>
-                <button type="button" title="Zoom out" onClick={() => handleZoom('out')}>
-                  -
-                </button>
-                <strong>{zoomPercent}%</strong>
-                <button type="button" title="Zoom in" onClick={() => handleZoom('in')}>
-                  +
-                </button>
-                <button type="button" title="Fit slide to window" onClick={handleFitToWindow}>
-                  Fit
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className={`editor-body ${activeSidePanel ? 'has-side-panel' : ''}`}>
+          <div className="editor-stage">
+            <div className={`editor-body ${activeSidePanel ? 'has-side-panel' : ''}`}>
             <div className="editor-canvas-workspace" ref={canvasWorkspaceRef}>
               <SlideCanvas
                 slide={selectedSlide}
@@ -1547,7 +1463,7 @@ export function EditPresentationPage() {
                       })
                     }
                   />
-                ) : (
+                ) : activeSidePanel === 'assistant' ? (
                   <AiChatPanel
                     scope={scope}
                     askBeforeApplying={askBeforeApplying}
@@ -1605,9 +1521,29 @@ export function EditPresentationPage() {
                       setMessages((current) => [...current, userMessage, proposalMessage])
                     }}
                   />
+                ) : (
+                  <div className="editor-side-panel-placeholder">
+                    <p>
+                      {activeSidePanel === 'templates' &&
+                        'Theme and layout starters for new slides will be listed here.'}
+                      {activeSidePanel === 'blocks' &&
+                        'Reusable content blocks you can drop onto a slide will appear here.'}
+                      {activeSidePanel === 'media' &&
+                        'Stock photos, icons, and other media will be searchable here.'}
+                      {activeSidePanel === 'uploads' &&
+                        'Files you upload for this project will show up here.'}
+                    </p>
+                  </div>
                 )}
               </EditorSidePanel>
             ) : null}
+          </div>
+
+          <EditorUtilityRail
+            activeMode={activeSidePanel}
+            commentCount={slideCommentThreads.length + deckCommentThreads.length}
+            onToggle={toggleUtilityPanel}
+          />
           </div>
 
           <section className={`editor-notes-bar ${isNotesOpen ? 'is-open' : ''}`}>

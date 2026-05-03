@@ -16,6 +16,7 @@ import type {
 } from '../../types/models'
 
 interface FormattingToolbarProps {
+  variant?: 'default' | 'flat'
   selectedBlock?: SlideBlock
   onTextStyleChange: (style: Partial<SlideTextStyle>) => void
   onTextBlockContentChange: (content: SlideBlock['content']) => void
@@ -65,6 +66,7 @@ function canFormatText(block?: SlideBlock) {
 }
 
 export function FormattingToolbar({
+  variant = 'default',
   selectedBlock,
   onTextStyleChange,
   onTextBlockContentChange,
@@ -81,6 +83,7 @@ export function FormattingToolbar({
   canPasteBlock,
   selectedBlockCount,
 }: FormattingToolbarProps) {
+  const toolbarClass = variant === 'flat' ? 'toolbar toolbar--flat' : 'toolbar'
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const arrangeMenuRef = useRef<HTMLDivElement | null>(null)
   const arrangeTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -126,7 +129,7 @@ export function FormattingToolbar({
   }, [])
 
   return (
-    <div className="toolbar">
+    <div className={toolbarClass}>
       <div className="toolbar__group toolbar__group--insert">
         <span className="toolbar__group-label">Insert</span>
         <button
