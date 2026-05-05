@@ -99,7 +99,7 @@ function detectSignalTopic(name: string, kind: FileAssetKind) {
   if (kind === 'sheet') {
     return {
       audience: 'Operational stakeholders',
-      goal: 'Translate structured data into a presentation-ready storyline.',
+      goal: 'Translate structured data into a concise pitch storyline for exec review.',
       sections: ['Metric overview', 'Pattern summary', 'Recommendation'],
       tone: 'Analytical and direct',
       topic: 'structured data summary',
@@ -119,16 +119,16 @@ function detectSignalTopic(name: string, kind: FileAssetKind) {
   if (kind === 'report') {
     return {
       audience: 'Internal stakeholders',
-      goal: `Review the generated report for ${cleanFileLabel(name)}.`,
-      sections: ['Executive Summary', 'Key Points', 'Source References'],
+      goal: `Review the generated Intel Brief for ${cleanFileLabel(name)}.`,
+      sections: ['Intel overview', 'Key takeaways', 'Sources & citations'],
       tone: 'Business document',
-      topic: 'generated report',
+      topic: 'Intel Brief',
     }
   }
 
   return {
     audience: 'Internal stakeholders',
-    goal: `Turn ${cleanFileLabel(name)} into a structured presentation storyline.`,
+    goal: `Turn ${cleanFileLabel(name)} into a structured sales deck storyline.`,
     sections: ['Context', 'Key findings', 'Recommendation'],
     tone: kind === 'doc' ? 'Clear and narrative-driven' : 'Clear and concise',
     topic: cleanFileLabel(name) || 'source material',
@@ -140,7 +140,7 @@ function buildMockMetadata(name: string, kind: FileAssetKind, sizeBytes: number)
 
   return {
     detectedTopic: titleCase(cleanFileLabel(name) || 'Source Material'),
-    ingestionMode: 'mock-local-parser',
+    ingestionMode: 'local-preview-parser',
     containsTables: kind === 'sheet' || lowerName.includes('model'),
     containsNarrative: kind === 'doc' || kind === 'pdf',
     approximatePages: Math.max(1, Math.round(sizeBytes / 180000)),
@@ -198,7 +198,7 @@ export function createMockFileAsset(input: FileAssetSeedInput): FileAsset {
     (uploaderRole === 'owner' ? OWNER_USER_ID : COLLABORATOR_USER_ID)
   const extractedTextPreview =
     input.extractedTextPreview ??
-    `Mock extraction suggests this ${input.kind} contains ${signal.topic} context that can feed deck setup and source trace.`
+    `Preview parsing suggests this ${input.kind} includes ${signal.topic} context useful for pitch setup and citations.`
   const sourceTrace =
     input.sourceTrace ??
     [
@@ -271,7 +271,9 @@ function pickMostCommon(values: string[]) {
 }
 
 function removeExistingSourceSummary(notes: string) {
-  return notes.replace(/\n\nSource material summary:\n[\s\S]*$/u, '').trim()
+  return notes
+    .replace(/\n\n(?:Source material summary|Account research summary):\n[\s\S]*$/u, '')
+    .trim()
 }
 
 export function autoFillPresentationFieldsFromFiles(
@@ -299,12 +301,13 @@ export function autoFillPresentationFieldsFromFiles(
     .map((asset) => `${asset.name}: ${asset.extractedTextPreview}`)
   const notes = [
     removeExistingSourceSummary(currentSetup.notes),
-    noteFragments.length > 0 ? `Source material summary:\n${noteFragments.join('\n')}` : '',
+    noteFragments.length > 0 ? `Account research summary:\n${noteFragments.join('\n')}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')
 
   return {
+    ...currentSetup,
     goal: topFile.possibleGoal || currentSetup.goal,
     audience: audience || currentSetup.audience,
     tone: tone || currentSetup.tone,
@@ -342,7 +345,7 @@ export function buildSourceMaterialsSummary(fileAssets: FileAsset[]): SourceMate
     tracePreview,
     summaryText:
       fileAssets.length === 0
-        ? 'No source materials have been uploaded yet.'
-        : `Mock ingestion found ${fileAssets.length} source file${fileAssets.length === 1 ? '' : 's'}, with ${parsedFiles.length} parsed and ${highlightedFiles.length} flagged for owner review.`,
+        ? 'No account research sources have been uploaded yet.'
+        : `Source review preview: ${fileAssets.length} file${fileAssets.length === 1 ? '' : 's'} attached, ${parsedFiles.length} ready to cite, ${highlightedFiles.length} flagged for account-owner review.`,
   }
 }

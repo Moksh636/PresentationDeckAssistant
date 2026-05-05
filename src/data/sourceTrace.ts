@@ -26,10 +26,10 @@ export function getSourceTraceKey(trace: SourceTrace) {
 
 export function getSourceTypeLabel(sourceType: SourceTraceType) {
   const labels: Record<SourceTraceType, string> = {
-    'deck-input': 'Setup input',
-    'uploaded-file': 'Uploaded file',
-    'generated-summary': 'AI generated',
-    'previous-deck': 'Previous deck context',
+    'deck-input': 'Pitch setup input',
+    'uploaded-file': 'Uploaded source',
+    'generated-summary': 'Research summary',
+    'previous-deck': 'Prior deck context',
     'web-research': 'Web research',
   }
 

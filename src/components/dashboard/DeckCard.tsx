@@ -32,7 +32,7 @@ export function DeckCard({
         <span className="deck-card__date">{formatShortDate(deck.updatedAt)}</span>
       </div>
 
-      <p>{deck.setup.goal || 'Presentation setup has not been filled in yet.'}</p>
+      <p>{deck.setup.goal || 'Pitch strategy inputs have not been filled in yet.'}</p>
 
       <div className="deck-card__metrics">
         <span>{formatCountLabel(slideCount, 'slide')}</span>
@@ -43,7 +43,7 @@ export function DeckCard({
 
       <div className="deck-card__actions">
         <button type="button" className="secondary-button" onClick={onBuild}>
-          Build
+          Build pitch deck
         </button>
         <button type="button" className="primary-button" onClick={onEdit}>
           Edit

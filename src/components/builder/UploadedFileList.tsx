@@ -7,12 +7,12 @@ interface UploadedFileListProps {
 }
 
 function formatUploaderRole(role: FileAsset['uploadedByRole']) {
-  return role === 'owner' ? 'Uploaded by owner' : 'Uploaded by collaborator'
+  return role === 'owner' ? 'Uploaded by account owner' : 'Uploaded by collaborator'
 }
 
 export function UploadedFileList({ assets, onMarkReviewed }: UploadedFileListProps) {
   if (assets.length === 0) {
-    return <p className="muted-copy">No files uploaded yet.</p>
+    return <p className="muted-copy">No research sources uploaded yet.</p>
   }
 
   return (
@@ -42,7 +42,7 @@ export function UploadedFileList({ assets, onMarkReviewed }: UploadedFileListPro
               <dd>{asset.kind}</dd>
             </div>
             <div>
-              <dt className="field-label">Upload source</dt>
+              <dt className="field-label">Upload actor</dt>
               <dd>
                 {formatUploaderRole(asset.uploadedByRole)}
                 <br />
@@ -74,21 +74,21 @@ export function UploadedFileList({ assets, onMarkReviewed }: UploadedFileListPro
           ) : null}
 
           <details className="asset-card__details-panel">
-            <summary>Extraction details</summary>
+            <summary>Source review details</summary>
 
             <div className="asset-card__details">
               <div className="asset-card__detail-block asset-card__detail-block--wide">
-                <span className="field-label">Extracted text preview</span>
+                <span className="field-label">Account research text preview</span>
                 <p>{asset.extractedTextPreview}</p>
               </div>
 
               <div className="asset-card__detail-block">
-                <span className="field-label">Possible audience</span>
+                <span className="field-label">Inferred buyer persona / role</span>
                 <p>{asset.possibleAudience}</p>
               </div>
 
               <div className="asset-card__detail-block">
-                <span className="field-label">Possible goal</span>
+                <span className="field-label">Inferred meeting goal</span>
                 <p>{asset.possibleGoal}</p>
               </div>
 
@@ -98,7 +98,7 @@ export function UploadedFileList({ assets, onMarkReviewed }: UploadedFileListPro
               </div>
 
               <div className="asset-card__detail-block asset-card__detail-block--wide">
-                <span className="field-label">Possible sections</span>
+                <span className="field-label">Suggested deck sections</span>
                 <div className="asset-card__chip-row">
                   {asset.possibleSections.map((section) => (
                     <span key={section}>{section}</span>
@@ -107,7 +107,7 @@ export function UploadedFileList({ assets, onMarkReviewed }: UploadedFileListPro
               </div>
 
               <div className="asset-card__detail-block asset-card__detail-block--wide">
-                <span className="field-label">Extracted metadata</span>
+                <span className="field-label">File metadata preview</span>
                 <div className="asset-card__metadata">
                   {Object.entries(asset.extractedMetadata).map(([key, value]) => (
                     <div key={key} className="asset-card__metadata-item">
@@ -119,7 +119,7 @@ export function UploadedFileList({ assets, onMarkReviewed }: UploadedFileListPro
               </div>
 
               <div className="asset-card__detail-block asset-card__detail-block--wide">
-                <span className="field-label">Source trace</span>
+                <span className="field-label">Citation trace</span>
                 <div className="asset-card__trace">
                   {asset.sourceTrace.map((trace) => (
                     <span key={`${asset.id}-${trace.extractedSnippet}`} title={trace.extractedSnippet}>

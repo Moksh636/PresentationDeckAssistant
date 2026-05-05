@@ -288,7 +288,7 @@ export const aiClient: AiBackendClient = {
 
   async generateReport(request) {
     return maybeUseBackend(
-      'Report generation',
+      'Intel Brief generation',
       AI_BACKEND_ENDPOINTS.generateReport,
       request,
       postJson<GenerateReportResponse>,

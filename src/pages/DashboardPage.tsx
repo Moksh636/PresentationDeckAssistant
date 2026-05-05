@@ -25,9 +25,9 @@ const workspaceSections: Array<{
   { id: 'my-drive', label: 'My Drive', helper: 'All active workspace items' },
   { id: 'shared', label: 'Shared with me', helper: 'Comment-enabled work' },
   { id: 'recent', label: 'Recent', helper: 'Latest deck activity' },
-  { id: 'starred', label: 'Starred', helper: 'Pinned projects and decks' },
+  { id: 'starred', label: 'Starred', helper: 'Pinned accounts and decks' },
   { id: 'trash', label: 'Trash', helper: 'Deleted items pending removal' },
-  { id: 'projects', label: 'Projects', helper: 'Folder-level organization' },
+  { id: 'projects', label: 'Accounts', helper: 'Account workspace organization' },
 ]
 
 const sortOptions: Array<{ value: WorkspaceSortKey; label: string }> = [
@@ -44,7 +44,7 @@ function getItemIcon(type: WorkspaceLibraryItemType) {
   }
 
   if (type === 'report') {
-    return 'Report'
+    return 'Brief'
   }
 
   return 'Deck'
@@ -374,7 +374,7 @@ function MoveWorkspaceItemDialog({
         </div>
 
         <label className="form-field">
-          <span>{item.type === 'deck' ? 'Move to project' : 'Move to deck'}</span>
+          <span>{item.type === 'deck' ? 'Move to account workspace' : 'Move to deck'}</span>
           <select value={targetId} onChange={(event) => onTargetChange(event.target.value)}>
             <option value="">Select destination</option>
             {targets.map((target) => (
@@ -585,12 +585,12 @@ export function DashboardPage() {
           </nav>
 
           <div className="workspace-drive-sidebar__summary">
-            <span>{formatCountLabel(workspace.projects.length, 'project')}</span>
+            <span>{formatCountLabel(workspace.projects.length, 'account')}</span>
             <span>{formatCountLabel(workspace.decks.length, 'deck')}</span>
             <span>
               {formatCountLabel(
                 workspace.fileAssets.filter((asset) => asset.kind === 'report').length,
-                'report',
+                'intel brief',
               )}
             </span>
           </div>
@@ -599,12 +599,12 @@ export function DashboardPage() {
         <div className="workspace-main">
           <header className="workspace-toolbar">
             <div>
-              <span className="section-label">{activeProject ? 'Project folder' : 'Workspace'}</span>
+              <span className="section-label">{activeProject ? 'Account workspace' : 'Workspace'}</span>
               <h2>{activeProject?.name ?? currentSection?.label ?? 'My Drive'}</h2>
               <p>
                 {activeProject?.summary ??
                   currentSection?.helper ??
-                  'Search, sort, and manage presentation work.'}
+                  'Search, sort, and manage account and deck work.'}
               </p>
             </div>
 
@@ -614,7 +614,7 @@ export function DashboardPage() {
                 <input
                   type="search"
                   value={searchQuery}
-                  placeholder="Search projects, decks, reports"
+                  placeholder="Search accounts, decks, intel briefs"
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
               </label>
@@ -662,8 +662,8 @@ export function DashboardPage() {
                 All workspace items
               </button>
             ) : null}
-            <button type="button" className="secondary-button" onClick={handleShareActiveProject}>
-              Share project
+              <button type="button" className="secondary-button" onClick={handleShareActiveProject}>
+                Share account workspace
             </button>
             <span>
               Showing {formatCountLabel(visibleItems.length, 'item')} in{' '}
@@ -706,8 +706,8 @@ export function DashboardPage() {
               <span className="section-label">No items</span>
               <h3>No matching workspace items</h3>
               <p>
-                Try a different section, clear the search, or create a new deck from the current
-                project.
+                Try a different section, clear the search, or create a new deck in the current
+                account workspace.
               </p>
               <button type="button" className="primary-button" onClick={handleCreatePresentation}>
                 New Deck
@@ -721,7 +721,7 @@ export function DashboardPage() {
         <ShareProjectModal
           isOpen={Boolean(selectedProject)}
           title={`Share ${selectedProject.name}`}
-          description="Apply comment-only collaboration settings across every deck in this project."
+          description="Apply comment-only collaboration settings across every deck in this account workspace."
           initialSettings={projectShareSettings}
           onClose={() => setShareProjectId(undefined)}
           onSave={(settings) => updateProjectCollaboration(selectedProject.id, settings)}

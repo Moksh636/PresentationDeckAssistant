@@ -102,9 +102,9 @@ export function EditorCommentsPanel({
           }
         />
         <CommentSection
-          title="Deck comments"
+          title="Pitch deck comments"
           threads={deckThreads}
-          emptyMessage="No deck-level comments."
+          emptyMessage="No comments on the whole pitch deck yet."
           selectedThreadId={selectedThreadId}
           onSelectThread={onSelectThread}
           onResolveThread={onResolveThread}

@@ -12,7 +12,7 @@
     "test:editor": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/editorZoom.test.ts",
     "test:editor-layout": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/editorLayout.test.ts",
     "test:workspace-cloud": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/workspaceCloudPersistence.test.ts",
-    "test:workspace": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/workspaceLibrary.test.ts",
+    "test:workspace": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/workspaceLibrary.test.ts && node --experimental-strip-types --experimental-specifier-resolution=node scripts/workspaceStateNormalization.test.ts && node --experimental-strip-types --experimental-specifier-resolution=node scripts/intelReview.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

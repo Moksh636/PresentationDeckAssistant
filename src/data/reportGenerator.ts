@@ -168,18 +168,18 @@ function buildDecisions(slides: Slide[], reportType: ReportType): DeckReportDeci
 function buildPlainText(report: Omit<GeneratedDeckReport, 'plainText'>) {
   const lines = [
     report.title,
-    `Report type: ${report.reportType}`,
+    `Intel Brief type: ${report.reportType}`,
     '',
-    'Executive Summary',
+    'Executive intel summary',
     report.executiveSummary,
     '',
-    'Key Points',
+    'Deck highlights',
     ...report.keyPoints.flatMap((section) => [
       `${section.slideIndex}. ${section.title}`,
       ...section.points.map((point) => `- ${point}`),
     ]),
     '',
-    'Metrics / Chart Summaries',
+    'Proof points / Metrics / Chart summaries',
     ...(report.metrics.length > 0
       ? report.metrics.map((metric) => `- ${metric.slideTitle}: ${metric.summary}`)
       : ['- No metric or chart summaries detected.']),
@@ -189,7 +189,7 @@ function buildPlainText(report: Omit<GeneratedDeckReport, 'plainText'>) {
       ? report.decisions.map((decision) => `- ${decision.slideTitle}: ${decision.summary}`)
       : ['- No explicit risks, decisions, or next steps detected.']),
     '',
-    'Source References',
+    'Source references',
     ...(report.sourceReferences.length > 0
       ? report.sourceReferences.map(
           (trace) => `- ${trace.fileName}: ${trace.extractedSnippet}`,
@@ -210,7 +210,7 @@ export function generateDeckReport({
   const reportWithoutPlainText = {
     id: createId('report'),
     deckId: deck.id,
-    title: `${deck.title} Report`,
+    title: `${deck.title} Intel Brief`,
     reportType,
     generatedAt: new Date().toISOString(),
     executiveSummary: buildExecutiveSummary(deck, slides, reportType),

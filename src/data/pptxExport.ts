@@ -38,7 +38,7 @@ function getSafeFileName(title: string) {
     .replace(/^-+|-+$/g, '')
     .toLowerCase()
 
-  return `${safeTitle || 'presentation'}.pptx`
+  return `${safeTitle || 'pitch-deck'}.pptx`
 }
 
 function normalizeHexColor(color: string | undefined, fallback = DEFAULT_TEXT_COLOR) {
@@ -196,7 +196,7 @@ function addSlideBlock(
 export async function exportDeckAsPptx({ deck, slides }: ExportDeckAsPptxInput) {
   const pptx = new pptxgen()
   pptx.layout = 'LAYOUT_WIDE'
-  pptx.author = 'AI Presentation Workspace'
+  pptx.author = 'Deckspace sales deck intelligence'
   pptx.company = 'Deckspace MVP'
   pptx.subject = deck.setup.goal || deck.title
   pptx.title = deck.title

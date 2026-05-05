@@ -1,5 +1,6 @@
 import { createChartSuggestionsFromFiles } from './chartSuggestions'
 import { createDefaultCollaborationSettings, getMockActor } from './collaboration'
+import { normalizeDeckSetup, normalizeScreenshotAssetIdsForDeck } from './deckSetupNormalize'
 import { normalizeSlideBlock } from './slideLayout'
 import { createMockFileAsset, normalizeSourceTrace } from './sourceIngestion'
 import type {
@@ -97,32 +98,20 @@ function normalizeDeck(rawDeck: Deck | Record<string, unknown>): Deck {
     typeof deckRecord.collaboration === 'object' && deckRecord.collaboration
       ? (deckRecord.collaboration as Record<string, unknown>)
       : {}
-  const shareSetupInputs = rawSetup.shareSetupInputs === true
+  const setup = normalizeDeckSetup(rawSetup)
 
   return {
     ...(rawDeck as Deck),
-    setup: {
-      goal: typeof rawSetup.goal === 'string' ? rawSetup.goal : '',
-      audience: typeof rawSetup.audience === 'string' ? rawSetup.audience : '',
-      tone: typeof rawSetup.tone === 'string' ? rawSetup.tone : '',
-      presentationType:
-        typeof rawSetup.presentationType === 'string' ? rawSetup.presentationType : 'Strategy update',
-      requiredSections: Array.isArray(rawSetup.requiredSections)
-        ? rawSetup.requiredSections.filter((section): section is string => typeof section === 'string')
-        : [],
-      notes: typeof rawSetup.notes === 'string' ? rawSetup.notes : '',
-      webResearch: rawSetup.webResearch === true,
-      usePreviousDeckContext: rawSetup.usePreviousDeckContext === true,
-      shareSetupInputs,
-    },
+    screenshotAssetIds: normalizeScreenshotAssetIdsForDeck(deckRecord.screenshotAssetIds),
+    setup,
     collaboration: {
-      ...createDefaultCollaborationSettings(shareSetupInputs),
+      ...createDefaultCollaborationSettings(setup.shareSetupInputs),
       isShared: rawCollaboration.isShared === true,
       access: rawCollaboration.access === 'comment-only' ? 'comment-only' : 'comment-only',
       allowCollaboratorUploads:
         typeof rawCollaboration.allowCollaboratorUploads === 'boolean'
           ? rawCollaboration.allowCollaboratorUploads
-          : shareSetupInputs,
+          : setup.shareSetupInputs,
     },
   }
 }

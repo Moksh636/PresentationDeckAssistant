@@ -201,10 +201,10 @@ export function buildWorkspaceLibraryItems(workspace: WorkspaceState): Workspace
       description: project.summary,
       owner: project.owner,
       updatedAt: latestActivity,
-      typeLabel: 'Project folder',
+      typeLabel: 'Account workspace',
       countLabel: `${formatCount(projectDecks.length, 'deck')} / ${formatCount(
         projectReports.length,
-        'report',
+        'intel brief',
       )}`,
       statusLabel: project.status,
       isShared,
@@ -212,7 +212,7 @@ export function buildWorkspaceLibraryItems(workspace: WorkspaceState): Workspace
       isTrashed: Boolean(project.trashedAt),
       trashedAt: project.trashedAt,
       badges: [project.status, isShared ? 'Shared' : 'Owner'],
-      metadata: [formatCount(projectDecks.length, 'deck'), formatCount(projectReports.length, 'report')],
+      metadata: [formatCount(projectDecks.length, 'deck'), formatCount(projectReports.length, 'intel brief')],
     }
   })
 
@@ -232,11 +232,11 @@ export function buildWorkspaceLibraryItems(workspace: WorkspaceState): Workspace
       projectId: deck.projectId,
       deckId: deck.id,
       name: deck.title,
-      description: deck.setup.goal || 'Presentation setup has not been filled in yet.',
+      description: deck.setup.goal || 'Deck strategy inputs have not been filled in yet.',
       owner: project?.owner ?? 'Owner',
       updatedAt: deck.updatedAt,
       parentName: project?.name,
-      typeLabel: 'Presentation',
+      typeLabel: 'Deck',
       countLabel: `${formatCount(slideCount, 'slide')} / ${formatCount(assetCount, 'source')}`,
       statusLabel: deck.status,
       isShared: deck.collaboration.isShared,
@@ -247,7 +247,7 @@ export function buildWorkspaceLibraryItems(workspace: WorkspaceState): Workspace
       metadata: [
         formatCount(slideCount, 'slide'),
         formatCount(assetCount, 'source'),
-        formatCount(reportCount, 'report'),
+        formatCount(reportCount, 'intel brief'),
         formatCount(commentCount, 'comment'),
       ],
     }
@@ -264,18 +264,18 @@ export function buildWorkspaceLibraryItems(workspace: WorkspaceState): Workspace
       projectId: project?.id,
       deckId: asset.deckId,
       name: asset.name,
-      description: asset.summary || asset.extractedTextPreview || 'Generated report asset.',
+      description: asset.summary || asset.extractedTextPreview || 'Generated intel brief asset.',
       owner: asset.uploadedByRole === 'collaborator' ? 'Collaborator' : (project?.owner ?? 'Owner'),
       updatedAt: asset.uploadedAt,
       parentName: deck?.title,
-      typeLabel: 'Report',
+      typeLabel: 'Intel Brief',
       countLabel: asset.sizeLabel,
       statusLabel: asset.status,
       isShared: deck?.collaboration.isShared === true,
       isStarred: asset.starred === true,
       isTrashed,
       trashedAt: asset.trashedAt ?? deck?.trashedAt ?? project?.trashedAt,
-      badges: ['report', deck?.collaboration.isShared ? 'Shared' : 'Owner'],
+      badges: ['Intel Brief', deck?.collaboration.isShared ? 'Shared' : 'Owner'],
       metadata: [asset.sizeLabel, asset.status, deck?.title ?? 'Unlinked deck'],
     }
   })

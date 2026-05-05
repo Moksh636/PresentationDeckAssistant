@@ -40,6 +40,17 @@ export interface Project {
   trashedAt?: string
 }
 
+/** Optional structured intel attached to deck setup (normalized on load). */
+export interface DeckIntel {
+  companySummary?: string
+  inferredPriorities?: string[]
+  painPoints?: string[]
+  proofPoints?: string[]
+  objections?: string[]
+  recommendedPitchAngle?: string
+  citations?: SourceTrace[]
+}
+
 export interface DeckSetup {
   goal: string
   audience: string
@@ -50,6 +61,20 @@ export interface DeckSetup {
   webResearch: boolean
   usePreviousDeckContext: boolean
   shareSetupInputs: boolean
+  /** Account / sales workflow (additive; legacy decks omit these). */
+  targetCompany?: string
+  targetWebsite?: string
+  buyerPersona?: string
+  offeringSummary?: string
+  meetingGoal?: string
+  knownPainPoints?: string[]
+  desiredCta?: string
+  /** Distinct from `presentationType` (deck taxonomy); optional extra classifier. */
+  deckType?: string
+  intel?: DeckIntel
+  brandKitId?: string
+  approvedMessagingIds?: string[]
+  caseStudyIds?: string[]
 }
 
 export type SetupFieldKey = keyof DeckSetup
@@ -68,6 +93,8 @@ export interface Deck {
   updatedAt: string
   slideIds: string[]
   fileAssetIds: string[]
+  /** Deck-level screenshot / capture asset ids (placeholders for future flows). */
+  screenshotAssetIds?: string[]
   activeVersionId?: string
   starred?: boolean
   trashedAt?: string

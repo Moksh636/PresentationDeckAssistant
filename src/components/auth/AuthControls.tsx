@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
 import { useAuth } from '../../context/useAuth'
 import { useWorkspace } from '../../context/useWorkspace'
 import {
@@ -18,7 +17,6 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
   const auth = useAuth()
   const { workspace, replaceWorkspace } = useWorkspace()
   const { showToast } = useToast()
-  const [email, setEmail] = useState('')
   const [isBusy, setIsBusy] = useState(false)
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -54,33 +52,13 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
     }
   }, [isCompact, isPopoverOpen])
 
-  const handleSignIn = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    if (!email.trim()) {
-      showToast('Enter an email address to sign in.', 'error')
-      return
-    }
-
-    setIsBusy(true)
-
-    try {
-      await auth.signInWithEmail(email.trim())
-      showToast('Check your email for the Supabase sign-in link.', 'success')
-      setEmail('')
-    } catch {
-      showToast('Could not send sign-in link.', 'error')
-    } finally {
-      setIsBusy(false)
-    }
-  }
-
   const handleSignOut = async () => {
     setIsBusy(true)
 
     try {
+      const hadSession = Boolean(auth.session)
       await auth.signOut()
-      showToast('Signed out. Local mode remains available.', 'info')
+      showToast(hadSession ? 'Signed out.' : 'Returned to sign-in screen.', 'info')
     } catch {
       showToast('Could not sign out.', 'error')
     } finally {
@@ -144,7 +122,7 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
   const label = !auth.isSupabaseConfigured
     ? 'Local'
     : auth.user
-      ? 'Cloud'
+      ? auth.user.email?.split('@')[0] ?? 'Account'
       : 'Sign'
 
   return (
@@ -157,7 +135,13 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
           type="button"
           className="auth-controls__compact-trigger"
           aria-expanded={isPopoverOpen}
-          title={auth.isSupabaseConfigured ? 'Cloud sync' : 'Local mode'}
+          title={
+            !auth.isSupabaseConfigured
+              ? 'Local development'
+              : auth.user
+                ? auth.user.email ?? 'Account'
+                : 'Sign in'
+          }
           onClick={() => setIsPopoverOpen((current) => !current)}
         >
           {label}
@@ -166,10 +150,7 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
 
       <div className={`auth-controls__panel ${isCompact && isPopoverOpen ? 'is-open' : ''}`}>
         <AuthPanelContent
-          email={email}
           isBusy={isBusy || auth.isLoading}
-          onEmailChange={setEmail}
-          onSignIn={handleSignIn}
           onSignOut={handleSignOut}
           onSaveToCloud={handleSaveToCloud}
           onLoadFromCloud={handleLoadFromCloud}
@@ -180,20 +161,14 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
 }
 
 interface AuthPanelContentProps {
-  email: string
   isBusy: boolean
-  onEmailChange: (email: string) => void
-  onSignIn: (event: FormEvent<HTMLFormElement>) => void
   onSignOut: () => void
   onSaveToCloud: () => void
   onLoadFromCloud: () => void
 }
 
 function AuthPanelContent({
-  email,
   isBusy,
-  onEmailChange,
-  onSignIn,
   onSignOut,
   onSaveToCloud,
   onLoadFromCloud,
@@ -202,9 +177,15 @@ function AuthPanelContent({
 
   if (!auth.isSupabaseConfigured) {
     return (
-      <section className="auth-card" aria-label="Local persistence mode">
-        <span className="auth-card__status">Local mode</span>
-        <p>Supabase is not configured. Work is saved in this browser.</p>
+      <section className="auth-card" aria-label="Local development mode">
+        <span className="auth-card__status">Local development</span>
+        <p className="muted-copy">
+          Browser-only workspace. Use “Continue in local development mode” on the sign-in screen when env
+          vars are missing—not cloud saved.
+        </p>
+        <button type="button" className="ghost-button" disabled={isBusy} onClick={onSignOut}>
+          Return to sign-in screen
+        </button>
       </section>
     )
   }
@@ -220,28 +201,17 @@ function AuthPanelContent({
 
   if (!auth.user) {
     return (
-      <form className="auth-card" aria-label="Sign in with email" onSubmit={onSignIn}>
-        <span className="auth-card__status">Sign in to sync</span>
-        <label>
-          <span>Email</span>
-          <input
-            type="email"
-            value={email}
-            placeholder="you@example.com"
-            onChange={(event) => onEmailChange(event.target.value)}
-          />
-        </label>
-        <button type="submit" className="secondary-button" disabled={isBusy}>
-          {isBusy ? 'Sending...' : 'Sign in'}
-        </button>
-      </form>
+      <section className="auth-card" aria-label="Sign in required">
+        <span className="auth-card__status">Signed out</span>
+        <p className="muted-copy">Use the sign-in page to continue.</p>
+      </section>
     )
   }
 
   return (
     <section className="auth-card" aria-label="Cloud persistence controls">
-      <span className="auth-card__status">Cloud ready</span>
-      <p>{auth.user.email}</p>
+      <span className="auth-card__status">Signed in</span>
+      <p className="auth-card__email">{auth.user.email}</p>
       <div className="auth-card__actions">
         <button type="button" className="secondary-button" disabled={isBusy} onClick={onSaveToCloud}>
           Save to Cloud

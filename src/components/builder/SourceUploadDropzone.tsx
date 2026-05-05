@@ -66,10 +66,10 @@ export function SourceUploadDropzone({
         }}
       />
       <span className="section-label">Drag and drop</span>
-      <strong>Drop source files here</strong>
+      <strong>Drop account research sources here</strong>
       <p>
         {disabledMessage ??
-          'Upload PDFs, docs, spreadsheets, or images. Mock ingestion will create placeholder extraction and trace data.'}
+          'Upload account research, sales notes, product docs, case studies, and supporting files. For now files are summarized locally into an account research preview with citation-ready trace placeholders.'}
       </p>
       <div className="upload-dropzone__actions">
         <button
@@ -80,7 +80,7 @@ export function SourceUploadDropzone({
         >
           Browse files
         </button>
-        <span>Supports multi-file upload and collaborator-ready source tracking.</span>
+        <span>Supports multi-file upload and collaborator-ready source intelligence tracking.</span>
       </div>
     </div>
   )

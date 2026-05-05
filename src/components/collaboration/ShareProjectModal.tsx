@@ -91,7 +91,7 @@ export function ShareProjectModal({
           <label className="toggle-field">
             <div className="toggle-field__copy">
               <span>Share setup inputs</span>
-              <small>Expose setup fields for collaborator comments in the builder.</small>
+              <small>Expose pitch setup fields for collaborator comments in Build pitch deck.</small>
             </div>
             <input
               type="checkbox"

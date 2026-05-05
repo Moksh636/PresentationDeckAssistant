@@ -258,7 +258,7 @@ function buildSeedComments(slides: Slide[]): Comment[] {
   ]
 }
 
-export function createEmptyDeck(projectId: string, title = 'New Presentation'): Deck {
+export function createEmptyDeck(projectId: string, title = 'New pitch deck'): Deck {
   return {
     id: createId('deck'),
     projectId,
@@ -273,7 +273,7 @@ export function createEmptyDeck(projectId: string, title = 'New Presentation'): 
       goal: '',
       audience: '',
       tone: '',
-      presentationType: 'Strategy update',
+      presentationType: 'Account pitch deck',
       requiredSections: [],
       notes: '',
       webResearch: false,

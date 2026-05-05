@@ -1,10 +1,32 @@
 # Deckspace MVP
 
-Frontend MVP shell for an AI-native presentation workspace. The app provides three routed surfaces:
+Frontend MVP shell for an AI-native sales deck workspace. The app provides routed surfaces for dashboard, pitch deck build (account brief + intel review), and slide editing.
 
-- `Dashboard`: browse projects and decks from a shared workspace shell
-- `Build presentation`: fill in deck setup inputs, upload source files, and trigger mock slide generation
-- `Edit presentation`: edit slide blocks directly from structured JSON with a formatting bar, AI chat panel, comments, Present Mode, and PPTX export
+## Authentication
+
+The deployed app is **private-login-first**: visitors land on a **sign-in / sign-up** screen and cannot open dashboard, build, editor, or workspace features until authenticated.
+
+- **Production / hosted (Supabase configured)**  
+  Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Users must sign in (email + password, optional magic link and password reset) before using the app. Sessions persist across refreshes via the Supabase client.
+
+- **Local development (env vars missing)**  
+  If those variables are not set, the app shows a **local development** path: an explicit **Continue in local development mode** action stores a session flag and opens the app **without** cloud login. Data remains in the browser only.
+
+- A **public marketing site** is not part of this repo and can be added separately later.
+- **Billing / subscriptions** are not implemented.
+
+### Required Vercel (or host) environment variables
+
+| Variable | Required for |
+|----------|----------------|
+| `VITE_SUPABASE_URL` | Supabase project URL (public) |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key (public, RLS-protected) |
+
+Optional:
+
+- `VITE_AI_BACKEND_ENABLED` — see AI adapter section below.
+
+**Never** expose `SUPABASE_SERVICE_ROLE_KEY` or other backend secrets in Vite / client code. Keep them in serverless or Edge Functions only.
 
 ## Run
 
@@ -15,11 +37,11 @@ npm run dev
 
 ## Deployment Foundation
 
-The app is still a Vite SPA with local/mock persistence enabled. Supabase auth and manual workspace snapshot persistence are optional: if Supabase env vars are missing, the app stays in Local mode and keeps using browser localStorage. Real AI calls are intentionally not connected yet.
+The app is a Vite SPA. Workspace data defaults to **browser localStorage**; **manual** Save to Cloud / Load from Cloud is available when Supabase is configured and the user is signed in. There is no auto-sync; existing confirmation behavior for load/merge is preserved.
 
-### Environment Variables
+### Environment variables
 
-Copy `.env.example` when setting up local or hosted environments.
+Copy `.env.example` when setting up.
 
 Only variables prefixed with `VITE_` are exposed to frontend code by Vite:
 
@@ -27,7 +49,7 @@ Only variables prefixed with `VITE_` are exposed to frontend code by Vite:
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_AI_BACKEND_ENABLED`
 
-Backend-only secrets must stay in serverless functions, Supabase Edge Functions, or Vercel server environment variables:
+Backend-only secrets must stay in serverless functions, Supabase Edge Functions, or the host’s non-`VITE_` environment:
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `AI_PROVIDER_API_KEY`
@@ -41,103 +63,80 @@ This workspace should be initialized as a Git repository before connecting to Gi
 
 ### Supabase
 
-1. Create a Supabase project.
-2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to local `.env` and to Vercel project environment variables.
+1. Create a Supabase project and enable **Email** auth (password; optional magic link / OTP as configured in the project).
+2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to local `.env` and to Vercel (or your host) project environment variables.
 3. Keep `SUPABASE_SERVICE_ROLE_KEY` only in backend/serverless environments.
-4. Review `supabase/migrations/0001_foundation.sql` before applying it. It is a schema draft for profiles, workspaces, projects, decks, slides, files, comments, deck versions, generated reports, and chart suggestions.
-5. Apply `supabase/migrations/0002_workspace_snapshots.sql` to enable the first persistence pass. It creates `workspace_snapshots` with one JSON snapshot per authenticated user and RLS policies that restrict access to `auth.uid()`.
-6. Add real row-level policies for the normalized project/deck tables when auth and collaborator membership rules are ready. The normalized foundation migration only enables RLS and includes policy planning comments.
+4. Review `supabase/migrations/0001_foundation.sql` before applying it.
+5. Apply `supabase/migrations/0002_workspace_snapshots.sql` for the `workspace_snapshots` table and RLS tied to `auth.uid()`.
+6. Add real row-level policies for normalized tables when collaboration rules are ready.
 
-The frontend Supabase setup lives in `src/data/supabaseClient.ts`. It does not force auth and returns `null` until Supabase env vars are configured.
+The browser client is `src/data/supabaseClient.ts` and uses only the public anon key.
 
-### Auth and Workspace Snapshots
+### Auth and workspace snapshots
 
-- The app shell shows `Local mode` when `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing.
-- When Supabase is configured, users can request a passwordless email sign-in link.
-- Login is optional. The app remains usable before sign-in.
-- Signed-in users can manually `Save to Cloud` and `Load from Cloud`.
-- Cloud save/load uses `workspace_snapshots.workspace_json` and does not replace localStorage. Loading a snapshot also writes it back to localStorage through the existing workspace store.
-- There is no auto-sync yet, so users remain in control of when cloud state overwrites local state.
+- **Supabase configured:** sign-in is **required** to use the app; cloud save/load uses the signed-in user id.
+- **Supabase not configured:** use **local development mode** from the sign-in screen; work is not cloud-saved.
+- Cloud save/load uses `workspace_snapshots.workspace_json` and does not replace localStorage automatically. Loading a snapshot still flows through the existing workspace store.
 
 ### Vercel
 
 1. Push the Git repo to GitHub.
 2. Create a Vercel project from the GitHub repo.
-3. Use the default Vite build command: `npm run build`.
-4. Set the output directory to `dist` if Vercel does not infer it.
-5. Add frontend env vars with the `VITE_` prefix.
-6. Add backend-only secrets without the `VITE_` prefix only when serverless or Edge Functions are added.
+3. Build: `npm run build`, output directory `dist`.
+4. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for production auth.
 
-No `vercel.json` is required for the current Vite SPA. Add one later only if rewrites, custom headers, or serverless routing need explicit configuration.
+No `vercel.json` is required for the current Vite SPA unless you add rewrites or serverless routes.
 
-### Backend and AI Proxy Plan
+### Backend and AI proxy plan
 
 Vite does not provide app server routes by itself. The placeholder backend route plan is documented in `api/README.md`.
 
-Recommended first backend path: Supabase Edge Functions for AI proxy calls. They can hold provider keys server-side and return validated JSON to the frontend.
+Recommended first backend path: Supabase Edge Functions for AI proxy calls.
 
-`src/data/aiClient.ts` is the frontend adapter seam for real AI integration. It exposes methods for deck generation, editor edits, setup autofill, file ingestion, chart suggestions, report generation, and alternate versions. With `VITE_AI_BACKEND_ENABLED=false`, it keeps calling the existing local mock functions so the app remains usable.
+`src/data/aiClient.ts` is the frontend adapter seam. With `VITE_AI_BACKEND_ENABLED=false`, it keeps calling local mock functions.
 
 ## Architecture
 
-- `src/context/WorkspaceContext.tsx`
-  Client-side workspace store with local persistence. This holds projects, decks, slides, file assets, comments, and deck versions.
-- `src/data/mockWorkspace.ts`
-  Seed data and deck creation helpers so the shell works without a backend.
-- `src/data/deckGenerator.ts`
-  Deterministic mock slide generation. This is the main future AI/backend seam and already returns the JSON shape consumed by the editor.
-- `src/pages/*`
-  Route-level pages for dashboard, builder, and editor.
-- `src/components/editor/*`
-  JSON-driven slide editing primitives: thumbnail rail, formatting toolbar, canvas renderer, Present Mode renderer, comments, and chat panel.
-- `src/data/pptxExport.ts`
-  Browser-side PowerPoint export foundation. It maps normalized `Slide.blocks[]` layout/style data into widescreen `.pptx` slides using `pptxgenjs`.
-- `src/data/aiClient.ts`
-  Frontend AI adapter seam. It defaults to existing mock/local logic and is ready to be wired to backend proxy routes without exposing provider keys.
-- `src/data/supabaseClient.ts`
-  Optional Supabase browser client using only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-- `src/data/workspaceCloudPersistence.ts`
-  Manual Supabase snapshot adapter for saving/loading the full `WorkspaceState` JSON when Supabase is configured and a user is signed in.
+- `src/context/AuthContext.tsx`  
+  Supabase session, sign-in / sign-up / sign-out, password reset, and local dev bypass (session flag when env vars are missing).
+- `src/pages/AuthPage.tsx`  
+  Sign-in and sign-up UI; local development entry when Supabase is not configured.
+- `src/components/auth/ProtectedLayout.tsx`  
+  Gate for all in-app routes.
+- `src/context/WorkspaceContext.tsx`  
+  Client-side workspace store with local persistence.
+- `src/data/mockWorkspace.ts`  
+  Seed data and deck creation helpers.
+- `src/data/deckGenerator.ts`  
+  Deterministic mock slide generation.
+- `src/pages/*`  
+  Dashboard, build, editor, auth.
+- `src/components/editor/*`  
+  Slide editing, comments, Present Mode, export.
+- `src/data/pptxExport.ts`  
+  Browser PPTX export via `pptxgenjs`.
+- `src/data/aiClient.ts`  
+  AI adapter seam.
+- `src/data/supabaseClient.ts`  
+  Optional Supabase browser client.
+- `src/data/workspaceCloudPersistence.ts`  
+  Manual cloud snapshot save/load.
 
 ## Slide JSON Model
 
-Slides are rendered from `Slide.blocks[]`. Each block carries:
-
-- `type`
-- `content`
-- `style.align`
-- `style.fontSize`
-- `style.bold`
-- `style.italic`
-
-This keeps the editor tied to structured data rather than hardcoded slide markup.
+Slides render from `Slide.blocks[]` with `type`, `content`, and `style` (align, fontSize, bold, italic).
 
 ## Present Mode
 
-The editor supports a basic Present Mode from the top toolbar. It uses the browser Fullscreen API to show only the active slide on a dark presentation stage with next, previous, and exit controls.
-
-Keyboard support:
-
-- `ArrowRight` or `Space`: next slide
-- `ArrowLeft`: previous slide
-- `Escape`: exit presentation
-
-True OS-level taskbar hiding depends on the browser and operating system fullscreen behavior.
+Fullscreen slide stage with next/previous/exit. Keyboard: ArrowRight, Space, ArrowLeft, Escape.
 
 ## PPTX Export
 
-The editor toolbar includes `Export PPTX`. Export uses `pptxgenjs` in the browser and downloads a widescreen 16:9 `.pptx` named from the deck title.
-
-Supported in the foundation: text, headings, rectangles, image/chart placeholder boxes, approximate position/size, text formatting, z-order, and speaker notes through PowerPoint notes.
-
-## Editor UI/UX Fix Plan Notes
-
-- Present Mode foundation is now supported through browser fullscreen.
-- Remaining high-impact editor fixes include undo/redo, keyboard shortcuts, slide thumbnail previews, alignment guides, strict comment scoping, and drag/resize performance improvements.
+Editor toolbar `Export PPTX` downloads a widescreen `.pptx` from the deck title.
 
 ## Next Steps
 
-- Replace local mock generation with async backend jobs that return the same slide JSON contract
-- Attach real file parsing, source summaries, and source trace metadata to `FileAsset`
-- Add collaboration and comment threading to slide-level edits
-- Add version restore flows and improve export fidelity for real images and native charts
+- Replace local mock generation with async backend jobs returning the same slide JSON contract
+- Real file parsing and source trace metadata on `FileAsset`
+- Collaboration and version restore flows
+- Public marketing site (separate from this private app)

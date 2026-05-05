@@ -219,7 +219,7 @@ export function AiChatPanel({
         <p className="chat-composer__hint">
           {hasPendingProposal
             ? 'Resolve the current proposal before sending another request.'
-            : 'Mock AI edits update the same structured slide blocks used by the editor.'}
+            : 'Assistant suggestions update the same slide blocks used in this editor preview.'}
         </p>
         <button
           type="button"

@@ -170,7 +170,7 @@ export function PresentMode({
               ))}
           </div>
 
-          <div className="present-mode__controls" aria-label="Presentation controls">
+          <div className="present-mode__controls" aria-label="Present mode controls">
             <button type="button" onClick={onPrevious} disabled={index === 0}>
               Previous
             </button>

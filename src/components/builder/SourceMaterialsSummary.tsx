@@ -17,8 +17,8 @@ export function SourceMaterialsSummary({
     <section className="panel-card preview-panel">
       <div className="section-heading">
         <div>
-          <span className="section-label">Source Materials Summary</span>
-          <h3>Ingestion signals and autofill suggestions</h3>
+          <span className="section-label">Source intelligence summary</span>
+          <h3>Research ingestion signals and autofill suggestions</h3>
         </div>
         <button
           type="button"
@@ -26,7 +26,7 @@ export function SourceMaterialsSummary({
           disabled={assets.length === 0}
           onClick={onAutoFill}
         >
-          Auto-fill from files
+          Auto-fill from sources
         </button>
       </div>
 
@@ -51,7 +51,7 @@ export function SourceMaterialsSummary({
 
           <div className="source-summary__stack">
             <div className="context-note">
-              <span className="field-label">Suggested audience</span>
+              <span className="field-label">Suggested buyer persona / role</span>
               <strong>{summary.suggestedAudience || 'No audience suggestion yet'}</strong>
             </div>
 
@@ -61,7 +61,7 @@ export function SourceMaterialsSummary({
             </div>
 
             <div className="context-note source-summary__goal">
-              <span className="field-label">Suggested goal</span>
+              <span className="field-label">Suggested meeting goal</span>
               <strong>{summary.suggestedGoal || 'No goal suggestion yet'}</strong>
             </div>
           </div>
@@ -76,7 +76,7 @@ export function SourceMaterialsSummary({
           </div>
 
           <div className="source-summary__section">
-            <span className="field-label">Source trace preview</span>
+            <span className="field-label">Citation trace preview</span>
             <div className="source-trace source-trace--detailed">
               {summary.tracePreview.map((trace) => (
                 <span

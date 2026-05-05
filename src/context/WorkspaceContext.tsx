@@ -156,7 +156,7 @@ function createReportFileName(deckTitle: string, reportType: ReportType) {
     .replace(/^-|-$/g, '')
     .slice(0, 48)
 
-  return `${safeTitle || 'deck'}-${reportType}-report.html`
+  return `${safeTitle || 'deck'}-${reportType}-intel-brief.html`
 }
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
@@ -678,7 +678,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         highlightForOwnerReview: false,
         sizeBytes,
         sizeLabel: formatFileSize(sizeBytes),
-        summary: `Printable ${reportType} report generated from ${deckSlides.length} slide${deckSlides.length === 1 ? '' : 's'}.`,
+        summary: `Printable ${reportType} Intel Brief generated from ${deckSlides.length} slide${deckSlides.length === 1 ? '' : 's'}.`,
         uploadedAt: report.generatedAt,
         extractedTextPreview: report.executiveSummary,
         extractedMetadata: {
@@ -703,8 +703,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
           {
             id: versionId,
             deckId,
-            label: 'Report generated',
-            summary: `Generated ${reportType} printable report asset ${fileName}.`,
+            label: 'Intel Brief generated',
+            summary: `Generated ${reportType} printable Intel Brief asset ${fileName}.`,
             createdAt: report.generatedAt,
             parentVersionId: deck.activeVersionId,
             sourceDeckId: deck.id,

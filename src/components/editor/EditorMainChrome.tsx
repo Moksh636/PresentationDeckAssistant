@@ -316,7 +316,7 @@ export function EditorMainChrome({
                 onOpenReport()
               }}
             >
-              Generate report
+              Generate Intel Brief
             </button>
             <button
               type="button"
@@ -325,7 +325,7 @@ export function EditorMainChrome({
                 onPrintReport()
               }}
             >
-              Print / Save report
+              Print / Save Intel Brief
             </button>
             <button
               type="button"

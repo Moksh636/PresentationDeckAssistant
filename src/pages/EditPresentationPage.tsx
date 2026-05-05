@@ -42,13 +42,15 @@ const initialMessages: AiChatMessage[] = [
     id: 'message-1',
     role: 'assistant',
     kind: 'message',
-    content: 'I can help tighten a single slide or propose edits across the whole deck using your current slides.',
+    content:
+      'I can tighten a slide or propose edits across the whole pitch deck using your source-backed slides.',
   },
   {
     id: 'message-2',
     role: 'assistant',
     kind: 'message',
-    content: 'Ask for a more formal tone, a shorter narrative, or a whole-deck rewrite. Review stays on by default.',
+    content:
+      'Ask for a sharper opener, stakeholder-specific proof, or deck-wide repositioning — review stays on by default.',
   },
 ]
 
@@ -385,7 +387,7 @@ export function EditPresentationPage() {
           },
         ]
       : []),
-    { value: 'general', label: 'Deck note' },
+    { value: 'general', label: 'Pitch deck note' },
   ]
   const noteRows = Math.min(6, Math.max(1, selectedSlide?.notes.split('\n').length ?? 1))
   const activePresentationSlideId = slides.some((slide) => slide.id === presentationSlideId)
@@ -881,9 +883,9 @@ export function EditPresentationPage() {
 
     if (assetId) {
       setActiveReportAssetId(assetId)
-      showToast('Report generated and saved as a deck asset.', 'success')
+      showToast('Intel Brief generated and saved as a deck-linked asset.', 'success')
     } else {
-      showToast('Report could not be generated for this deck.', 'error')
+      showToast('Intel Brief could not be generated for this deck.', 'error')
     }
   }
 
@@ -1082,10 +1084,10 @@ export function EditPresentationPage() {
 
     if (presentationRootRef.current?.requestFullscreen) {
       void presentationRootRef.current.requestFullscreen().catch(() => {
-        showToast('Fullscreen presentation was blocked by the browser.', 'error')
+        showToast('Fullscreen present mode was blocked by the browser.', 'error')
       })
     } else {
-      showToast('Fullscreen presentation is not available in this browser.', 'error')
+      showToast('Fullscreen present mode is not available in this browser.', 'error')
     }
   }
 
@@ -1110,7 +1112,7 @@ export function EditPresentationPage() {
       <section className="page">
         <div className="page-header">
           <div>
-            <span className="section-label">Edit presentation</span>
+            <span className="section-label">Edit deck</span>
             <h2>No active deck</h2>
           </div>
         </div>
@@ -1123,9 +1125,9 @@ export function EditPresentationPage() {
       <section className="page">
         <div className="page-header">
           <div>
-            <span className="section-label">Edit presentation</span>
+            <span className="section-label">Edit deck</span>
             <h2>{activeDeck.title}</h2>
-            <p>Generate slides from your sources first, or add a blank slide to start editing.</p>
+            <p>Generate a tailored pitch deck from your sources first, or add a blank slide to start editing.</p>
           </div>
 
           <button
@@ -1150,7 +1152,7 @@ export function EditPresentationPage() {
               }
             }}
           >
-            {isGenerating ? 'Generating...' : 'Generate Slides'}
+            {isGenerating ? 'Generating tailored deck...' : 'Generate tailored pitch deck'}
           </button>
           <button type="button" className="secondary-button" onClick={handleAddSlide}>
             Add blank slide
@@ -1531,7 +1533,7 @@ export function EditPresentationPage() {
                       {activeSidePanel === 'media' &&
                         'Stock photos, icons, and other media will be searchable here.'}
                       {activeSidePanel === 'uploads' &&
-                        'Files you upload for this project will show up here.'}
+                        'Files you upload for this account workspace will appear here.'}
                     </p>
                   </div>
                 )}
@@ -1580,7 +1582,7 @@ export function EditPresentationPage() {
         <ShareProjectModal
           isOpen={isShareOpen}
           title={`Share ${activeDeck.title}`}
-          description="Allow comment-only deck collaboration, optional setup comments, and collaborator uploads."
+          description="Allow comment-only deck collaboration on this pitch workspace, optional setup comments, and collaborator uploads."
           initialSettings={{
             isShared: activeDeck.collaboration.isShared,
             shareSetupInputs: activeDeck.setup.shareSetupInputs,

@@ -2,6 +2,7 @@ import type {
   CollaborationSettings,
   Comment,
   Deck,
+  DeckIntel,
   DeckSetup,
   FileContributorRole,
   SetupFieldKey,
@@ -65,15 +66,27 @@ export function getRoleLabel(role: FileContributorRole) {
 
 export function getSetupFieldLabel(field: SetupFieldKey) {
   const labels: Record<SetupFieldKey, string> = {
-    goal: 'Presentation goal',
-    audience: 'Audience',
+    goal: 'Meeting goal',
+    audience: 'Buyer persona / role',
     tone: 'Tone / style',
-    presentationType: 'Presentation type',
+    presentationType: 'Deck type',
     requiredSections: 'Required sections',
-    notes: 'Notes / context',
+    notes: 'Pitch strategy notes',
     webResearch: 'Web research',
     usePreviousDeckContext: 'Use previous deck context',
     shareSetupInputs: 'Share setup inputs',
+    targetCompany: 'Target company',
+    targetWebsite: 'Target website',
+    buyerPersona: 'Buyer persona',
+    offeringSummary: 'Offering summary',
+    meetingGoal: 'Meeting goal (account)',
+    knownPainPoints: 'Known pain points',
+    desiredCta: 'Desired CTA',
+    deckType: 'Deck type (classifier)',
+    intel: 'Account intel review',
+    brandKitId: 'Brand kit',
+    approvedMessagingIds: 'Approved messaging',
+    caseStudyIds: 'Case studies',
   }
 
   return labels[field]
@@ -92,7 +105,7 @@ export function getCommentThreadLabel(thread: Comment) {
     return getSetupFieldLabel(thread.inputFieldKey)
   }
 
-  return 'General deck comment'
+  return 'General pitch deck comment'
 }
 
 export function getCommentTargetKey(input: {
@@ -119,6 +132,24 @@ export function canCollaboratorCommentOnSetup(deck: Deck) {
 
 export function getSetupFieldValueSummary(setup: DeckSetup, key: SetupFieldKey) {
   const value = setup[key]
+
+  if (key === 'intel') {
+    if (!value || typeof value !== 'object') {
+      return 'No value set'
+    }
+
+    const intel = value as DeckIntel
+    const populated =
+      Boolean(intel.companySummary?.trim()) ||
+      Boolean(intel.recommendedPitchAngle?.trim()) ||
+      (intel.inferredPriorities?.length ?? 0) > 0 ||
+      (intel.painPoints?.length ?? 0) > 0 ||
+      (intel.proofPoints?.length ?? 0) > 0 ||
+      (intel.objections?.length ?? 0) > 0 ||
+      (intel.citations?.length ?? 0) > 0
+
+    return populated ? 'Account intel review captured' : 'No value set'
+  }
 
   if (Array.isArray(value)) {
     return value.join(', ') || 'No value set'

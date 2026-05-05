@@ -20,7 +20,7 @@ export function ProjectCard({ project, onShare }: ProjectCardProps) {
       {onShare ? (
         <div className="deck-card__actions">
           <button type="button" className="secondary-button" onClick={onShare}>
-            Share project
+            Share account workspace
           </button>
         </div>
       ) : null}

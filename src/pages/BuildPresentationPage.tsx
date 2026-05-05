@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChartSuggestionsPanel } from '../components/builder/ChartSuggestionsPanel'
+import { IntelReviewPanel } from '../components/builder/IntelReviewPanel'
 import { SourceMaterialsSummary } from '../components/builder/SourceMaterialsSummary'
 import { SourceUploadDropzone } from '../components/builder/SourceUploadDropzone'
 import { ToggleField } from '../components/builder/ToggleField'
@@ -12,16 +13,94 @@ import {
   canCollaboratorUpload,
   getSetupFieldLabel,
 } from '../data/collaboration'
-import type { FileContributorRole, SetupFieldKey } from '../types/models'
+import type { DeckSetup, FileContributorRole, SetupFieldKey } from '../types/models'
+
+function effectiveMeetingGoal(setup: DeckSetup): string {
+  if (setup.meetingGoal !== undefined && setup.meetingGoal.trim() !== '') {
+    return setup.meetingGoal
+  }
+
+  return setup.goal
+}
+
+function effectiveBuyerPersona(setup: DeckSetup): string {
+  if (setup.buyerPersona !== undefined && setup.buyerPersona.trim() !== '') {
+    return setup.buyerPersona
+  }
+
+  return setup.audience
+}
+
+function effectiveDeckTypeValue(setup: DeckSetup): string {
+  if (setup.deckType !== undefined && setup.deckType.trim() !== '') {
+    return setup.deckType
+  }
+
+  return setup.presentationType
+}
+
+function painPointsToLines(setup: DeckSetup): string {
+  return (setup.knownPainPoints ?? []).join('\n')
+}
+
+function linesToPainPoints(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
 
 const setupFieldTargets: SetupFieldKey[] = [
+  'targetCompany',
+  'targetWebsite',
+  'meetingGoal',
+  'buyerPersona',
+  'offeringSummary',
+  'knownPainPoints',
+  'desiredCta',
+  'tone',
+  'deckType',
+  'presentationType',
+  'intel',
+  'notes',
+  'requiredSections',
   'goal',
   'audience',
-  'tone',
-  'presentationType',
-  'requiredSections',
-  'notes',
 ]
+
+/** Canonical deck type labels (synced to `presentationType` + `deckType` for generation compatibility). */
+const DECK_TYPE_OPTIONS: readonly string[] = [
+  'Account pitch deck',
+  'Discovery follow-up deck',
+  'Sales proposal deck',
+  'Pilot proposal deck',
+  'Executive briefing deck',
+  'Renewal / expansion deck',
+  'Sponsor pitch deck',
+  'Partnership pitch deck',
+  'Client status / account review deck',
+  'Custom deck',
+]
+
+function deckTypeSelectOptions(currentValue: string): string[] {
+  const trimmed = currentValue.trim()
+
+  if (!trimmed) {
+    return [...DECK_TYPE_OPTIONS]
+  }
+
+  const matchesCanonical = DECK_TYPE_OPTIONS.some((option) => option === trimmed)
+
+  if (!matchesCanonical) {
+    return [currentValue, ...DECK_TYPE_OPTIONS]
+  }
+
+  if (DECK_TYPE_OPTIONS.includes(currentValue)) {
+    return [...DECK_TYPE_OPTIONS]
+  }
+
+  return [currentValue, ...DECK_TYPE_OPTIONS.filter((option) => option !== trimmed)]
+}
 
 export function BuildPresentationPage() {
   const navigate = useNavigate()
@@ -64,6 +143,9 @@ export function BuildPresentationPage() {
     : false
   const selectedSetupFieldKey =
     selectedSetupTarget === 'general' ? undefined : (selectedSetupTarget as SetupFieldKey)
+  const setup = activeDeck?.setup
+  const deckTypeSelectSource = setup ? effectiveDeckTypeValue(setup) : ''
+  const deckTypeOptions = activeDeck ? deckTypeSelectOptions(deckTypeSelectSource) : []
   const setupCommentThreads = workspace.comments
     .filter(
       (thread) =>
@@ -75,12 +157,12 @@ export function BuildPresentationPage() {
     )
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 
-  if (!activeDeck) {
+  if (!activeDeck || !setup) {
     return (
       <section className="page">
         <div className="page-header">
           <div>
-            <span className="section-label">Build presentation</span>
+            <span className="section-label">Build pitch deck</span>
             <h2>No deck selected</h2>
           </div>
         </div>
@@ -92,7 +174,7 @@ export function BuildPresentationPage() {
     <section className="page">
       <div className="builder-topbar">
         <label className="field-group">
-          <span className="field-label">Presentation title</span>
+          <span className="field-label">Deck title</span>
           <input
             type="text"
             value={activeDeck.title}
@@ -101,13 +183,14 @@ export function BuildPresentationPage() {
         </label>
 
         <div className="context-card">
-          <span className="section-label">Project context</span>
-          <h3>{activeProject?.name ?? 'No project assigned'}</h3>
-          <p>{activeProject?.summary ?? 'Project details will appear here when available.'}</p>
+          <span className="section-label">Account context</span>
+          <h3>{activeProject?.name ?? 'No account assigned'}</h3>
+          <p>{activeProject?.summary ?? 'Account details will appear here when available.'}</p>
           <div className="context-card__meta">
             <span>{activeDeck.status}</span>
-            <span>{activeDeck.setup.presentationType}</span>
-            <span>{deckAssets.length} files</span>
+            <span>{setup.targetCompany?.trim() || 'Company TBD'}</span>
+            <span>{effectiveDeckTypeValue(setup)}</span>
+            <span>{deckAssets.length} sources</span>
           </div>
         </div>
 
@@ -133,128 +216,264 @@ export function BuildPresentationPage() {
             }
           }}
         >
-          {isGenerating ? 'Generating...' : 'Generate Slides'}
+          {isGenerating ? 'Generating tailored deck...' : 'Generate tailored pitch deck'}
         </button>
       </div>
 
       <div className="builder-grid">
-        <div className="builder-form panel-card">
-          <div className="section-heading">
-            <span className="section-label">Presentation setup</span>
-            <h3>Define the input brief</h3>
+        <div className="builder-main-column">
+          <div className="builder-form panel-card">
+            <div className="section-heading">
+              <span className="section-label">Account pitch brief</span>
+              <h3>Target account → tailored pitch deck</h3>
+              <p className="muted-copy">
+                Capture who you are selling to and what you want out of the meeting. Legacy fields stay
+                in sync under the hood for existing decks and generation.
+              </p>
+            </div>
+
+            <div className="form-grid">
+              <label className="field-group">
+                <span className="field-label">Target company</span>
+                <input
+                  type="text"
+                  value={setup.targetCompany ?? ''}
+                  placeholder="Account legal name or shorthand"
+                  onChange={(event) =>
+                    updateDeckSetup(activeDeck.id, { targetCompany: event.target.value })
+                  }
+                />
+              </label>
+
+              <label className="field-group">
+                <span className="field-label">Target website</span>
+                <input
+                  type="text"
+                  value={setup.targetWebsite ?? ''}
+                  placeholder="https://…"
+                  onChange={(event) =>
+                    updateDeckSetup(activeDeck.id, { targetWebsite: event.target.value })
+                  }
+                />
+              </label>
+
+              <label className="field-group field-group--wide">
+                <span className="field-label">Buyer persona / role</span>
+                <input
+                  type="text"
+                  value={effectiveBuyerPersona(setup)}
+                  placeholder="Economic buyer, champion, or committee role"
+                  onChange={(event) => {
+                    const value = event.target.value
+                    updateDeckSetup(activeDeck.id, { buyerPersona: value, audience: value })
+                  }}
+                />
+              </label>
+
+              <label className="field-group field-group--wide">
+                <span className="field-label">Product or service being pitched</span>
+                <input
+                  type="text"
+                  value={setup.offeringSummary ?? ''}
+                  placeholder="What you are asking them to buy, pilot, or expand"
+                  onChange={(event) =>
+                    updateDeckSetup(activeDeck.id, { offeringSummary: event.target.value })
+                  }
+                />
+              </label>
+
+              <label className="field-group field-group--wide">
+                <span className="field-label">Meeting goal</span>
+                <textarea
+                  rows={4}
+                  value={effectiveMeetingGoal(setup)}
+                  placeholder="Outcome you need from this conversation"
+                  onChange={(event) => {
+                    const value = event.target.value
+                    updateDeckSetup(activeDeck.id, { meetingGoal: value, goal: value })
+                  }}
+                />
+              </label>
+
+              <label className="field-group field-group--wide">
+                <span className="field-label">Known pain points</span>
+                <textarea
+                  rows={4}
+                  value={painPointsToLines(setup)}
+                  placeholder={'One pain point per line\ne.g. manual reporting\nslow approvals'}
+                  onChange={(event) =>
+                    updateDeckSetup(activeDeck.id, {
+                      knownPainPoints: linesToPainPoints(event.target.value),
+                    })
+                  }
+                />
+              </label>
+
+              <label className="field-group">
+                <span className="field-label">Desired CTA</span>
+                <input
+                  type="text"
+                  value={setup.desiredCta ?? ''}
+                  placeholder="Next step you want them to take"
+                  onChange={(event) =>
+                    updateDeckSetup(activeDeck.id, { desiredCta: event.target.value })
+                  }
+                />
+              </label>
+
+              <label className="field-group">
+                <span className="field-label">Tone</span>
+                <input
+                  type="text"
+                  value={setup.tone}
+                  onChange={(event) => updateDeckSetup(activeDeck.id, { tone: event.target.value })}
+                />
+              </label>
+
+              <label className="field-group field-group--wide">
+                <span className="field-label">Deck type</span>
+                <select
+                  value={deckTypeSelectSource}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    updateDeckSetup(activeDeck.id, {
+                      deckType: value,
+                      presentationType: value,
+                    })
+                  }}
+                >
+                  {!deckTypeSelectSource.trim() ? (
+                    <option value="" disabled>
+                      Select deck type…
+                    </option>
+                  ) : null}
+                  {deckTypeOptions.map((option, index) => (
+                    <option key={`${option}-${index}`} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field-group field-group--wide">
+                <span className="field-label">Pitch strategy notes</span>
+                <textarea
+                  rows={5}
+                  value={setup.notes}
+                  placeholder="Positioning, landmines, proof to emphasize, stakeholders to name-check"
+                  onChange={(event) =>
+                    updateDeckSetup(activeDeck.id, { notes: event.target.value })
+                  }
+                />
+              </label>
+            </div>
+
+            <div className="toggle-grid">
+              <ToggleField
+                label="Web research"
+                description="Reserve a hook for future search-backed source collection."
+                checked={setup.webResearch}
+                onChange={(checked) => updateDeckSetup(activeDeck.id, { webResearch: checked })}
+              />
+              <ToggleField
+                label="Use previous deck as context"
+                description="Carry forward account narrative from a prior deck."
+                checked={setup.usePreviousDeckContext}
+                onChange={(checked) =>
+                  updateDeckSetup(activeDeck.id, { usePreviousDeckContext: checked })
+                }
+              />
+              <ToggleField
+                label="Share setup inputs"
+                description="Expose setup fields for collaborator comments when sharing is enabled."
+                checked={setup.shareSetupInputs}
+                onChange={(checked) =>
+                  updateDeckSetup(activeDeck.id, { shareSetupInputs: checked })
+                }
+              />
+            </div>
+
+            <details className="builder-details">
+              <summary>Advanced: slide outline</summary>
+              <div className="field-group" style={{ marginTop: '12px' }}>
+                <span className="field-label">Required sections</span>
+                <textarea
+                  rows={5}
+                  value={setup.requiredSections.join('\n')}
+                  placeholder="One section per line (optional)"
+                  onChange={(event) =>
+                    updateDeckSetup(activeDeck.id, {
+                      requiredSections: event.target.value
+                        .split('\n')
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+                <p className="muted-copy">
+                  Optional structure for the generator; leave blank to infer from sources.
+                </p>
+              </div>
+            </details>
+
+            <details className="builder-details builder-details--muted">
+              <summary>Brand & memory placeholders</summary>
+              <p className="muted-copy" style={{ marginTop: '10px' }}>
+                Brand kit, approved messaging, case studies, and product screenshots will be available
+                for company workspaces later. Fields below are disabled for now.
+              </p>
+              <div className="form-grid" style={{ marginTop: '14px', opacity: 0.72 }}>
+                <label className="field-group">
+                  <span className="field-label">Brand kit</span>
+                  <input type="text" disabled value={setup.brandKitId ?? ''} placeholder="Coming soon" />
+                </label>
+                <label className="field-group">
+                  <span className="field-label">Approved messaging IDs</span>
+                  <input
+                    type="text"
+                    disabled
+                    value={(setup.approvedMessagingIds ?? []).join(', ')}
+                    placeholder="Coming soon"
+                  />
+                </label>
+                <label className="field-group">
+                  <span className="field-label">Case study IDs</span>
+                  <input
+                    type="text"
+                    disabled
+                    value={(setup.caseStudyIds ?? []).join(', ')}
+                    placeholder="Coming soon"
+                  />
+                </label>
+                <label className="field-group field-group--wide">
+                  <span className="field-label">Product screenshot asset IDs</span>
+                  <input
+                    type="text"
+                    disabled
+                    value={(activeDeck.screenshotAssetIds ?? []).join(', ')}
+                    placeholder="Coming soon"
+                  />
+                </label>
+              </div>
+            </details>
           </div>
 
-          <div className="form-grid">
-            <label className="field-group field-group--wide">
-              <span className="field-label">Presentation goal</span>
-              <textarea
-                rows={4}
-                value={activeDeck.setup.goal}
-                onChange={(event) =>
-                  updateDeckSetup(activeDeck.id, { goal: event.target.value })
-                }
-              />
-            </label>
+          <IntelReviewPanel
+            deckId={activeDeck.id}
+            setup={setup}
+            fileAssets={deckAssets}
+            updateDeckSetup={updateDeckSetup}
+          />
 
-            <label className="field-group">
-              <span className="field-label">Audience</span>
-              <input
-                type="text"
-                value={activeDeck.setup.audience}
-                onChange={(event) =>
-                  updateDeckSetup(activeDeck.id, { audience: event.target.value })
-                }
-              />
-            </label>
-
-            <label className="field-group">
-              <span className="field-label">Tone / style</span>
-              <input
-                type="text"
-                value={activeDeck.setup.tone}
-                onChange={(event) =>
-                  updateDeckSetup(activeDeck.id, { tone: event.target.value })
-                }
-              />
-            </label>
-
-            <label className="field-group">
-              <span className="field-label">Presentation type</span>
-              <select
-                value={activeDeck.setup.presentationType}
-                onChange={(event) =>
-                  updateDeckSetup(activeDeck.id, { presentationType: event.target.value })
-                }
-              >
-                <option>Board update</option>
-                <option>Strategy update</option>
-                <option>Sales pitch</option>
-                <option>Launch debrief</option>
-                <option>Internal review</option>
-              </select>
-            </label>
-
-            <label className="field-group">
-              <span className="field-label">Required sections</span>
-              <textarea
-                rows={5}
-                value={activeDeck.setup.requiredSections.join('\n')}
-                placeholder="One section per line"
-                onChange={(event) =>
-                  updateDeckSetup(activeDeck.id, {
-                    requiredSections: event.target.value
-                      .split('\n')
-                      .map((item) => item.trim())
-                      .filter(Boolean),
-                  })
-                }
-              />
-            </label>
-
-            <label className="field-group">
-              <span className="field-label">Notes / context</span>
-              <textarea
-                rows={5}
-                value={activeDeck.setup.notes}
-                onChange={(event) =>
-                  updateDeckSetup(activeDeck.id, { notes: event.target.value })
-                }
-              />
-            </label>
-          </div>
-
-          <div className="toggle-grid">
-            <ToggleField
-              label="Web research"
-              description="Reserve a hook for future search-backed source collection."
-              checked={activeDeck.setup.webResearch}
-              onChange={(checked) => updateDeckSetup(activeDeck.id, { webResearch: checked })}
-            />
-            <ToggleField
-              label="Use previous deck as context"
-              description="Carry forward project narrative from a prior presentation."
-              checked={activeDeck.setup.usePreviousDeckContext}
-              onChange={(checked) =>
-                updateDeckSetup(activeDeck.id, { usePreviousDeckContext: checked })
-              }
-            />
-            <ToggleField
-              label="Share setup inputs"
-              description="Expose setup fields for collaborator comments when sharing is enabled."
-              checked={activeDeck.setup.shareSetupInputs}
-              onChange={(checked) =>
-                updateDeckSetup(activeDeck.id, { shareSetupInputs: checked })
-              }
-            />
-          </div>
-        </div>
-
-        <div className="builder-sidebar">
           <section className="panel-card upload-panel">
             <div className="section-heading">
               <div>
-                <span className="section-label">Files</span>
-                <h3>Upload and ingest source material</h3>
+                <span className="section-label">Source materials</span>
+                <h3>Account research &amp; supporting sources</h3>
+                <p className="muted-copy">
+                  Upload account research, sales notes, case studies, product docs, call transcripts, and
+                  any files you want cited in the pitch. Parsed previews help autofill the brief above.
+                </p>
               </div>
             </div>
 
@@ -279,14 +498,14 @@ export function BuildPresentationPage() {
               </div>
               <p className="muted-copy">
                 {canUploadAsCollaborator
-                  ? 'Collaborator uploads are highlighted for owner review.'
-                  : 'Enable sharing and collaborator uploads to mock external source submission.'}
+                  ? 'Collaborator uploads are highlighted for account-owner review.'
+                  : 'Enable sharing and collaborator uploads to collect account research from collaborators.'}
               </p>
             </div>
 
             <SourceUploadDropzone
               disabled={uploadRole === 'collaborator' && !canUploadAsCollaborator}
-              disabledMessage="Collaborator uploads are disabled for this deck until sharing allows them."
+              disabledMessage="Collaborator uploads are disabled for this deck until sharing for this account workspace allows them."
               onFilesSelected={(files) => {
                 uploadAssets(activeDeck.id, files, {
                   uploadedByRole: uploadRole,
@@ -295,13 +514,15 @@ export function BuildPresentationPage() {
             />
 
             <UploadedFileList assets={deckAssets} onMarkReviewed={markAssetReviewed} />
+
+            <SourceMaterialsSummary
+              assets={deckAssets}
+              onAutoFill={() => autoFillDeckSetupFromFiles(activeDeck.id)}
+            />
           </section>
+        </div>
 
-          <SourceMaterialsSummary
-            assets={deckAssets}
-            onAutoFill={() => autoFillDeckSetupFromFiles(activeDeck.id)}
-          />
-
+        <div className="builder-sidebar">
           <ChartSuggestionsPanel
             suggestions={chartSuggestions}
             assets={deckAssets}
@@ -309,27 +530,27 @@ export function BuildPresentationPage() {
             onReject={rejectChartSuggestion}
           />
 
-          {activeDeck.setup.usePreviousDeckContext && previousDeck ? (
+          {setup.usePreviousDeckContext && previousDeck ? (
             <section className="panel-card">
               <div className="section-heading">
                 <span className="section-label">Previous deck context</span>
                 <h3>{previousDeck.title}</h3>
               </div>
-              <p className="muted-copy">{previousDeck.setup.goal}</p>
+              <p className="muted-copy">{effectiveMeetingGoal(previousDeck.setup)}</p>
             </section>
           ) : null}
         </div>
       </div>
 
-      {activeDeck.collaboration.isShared && activeDeck.setup.shareSetupInputs ? (
+      {activeDeck.collaboration.isShared && setup.shareSetupInputs ? (
         <CommentsPanel
-          title="Setup input comments"
-          description="Collect comment-only feedback on the presentation brief before generating slides."
+          title="Pitch setup comments"
+          description="Collect comment-only feedback on the account pitch brief before generating a tailored deck."
           threads={setupCommentThreads}
           actorRole={commentRole}
           canCommentAsCollaborator={canCommentSetupAsCollaborator}
           targetOptions={[
-            { value: 'general', label: 'General setup note' },
+            { value: 'general', label: 'General pitch setup note' },
             ...setupFieldTargets.map((field) => ({
               value: field,
               label: getSetupFieldLabel(field),

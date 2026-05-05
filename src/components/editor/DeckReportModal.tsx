@@ -16,12 +16,12 @@ const reportTypeOptions: Array<{ value: ReportType; label: string; description: 
   {
     value: 'concise',
     label: 'Concise',
-    description: 'Short executive report for quick review.',
+    description: 'Short account intelligence brief for quick review.',
   },
   {
     value: 'detailed',
     label: 'Detailed',
-    description: 'Longer report with more slide-by-slide detail.',
+    description: 'Longer account intelligence brief with more slide-by-slide detail.',
   },
 ]
 
@@ -66,9 +66,9 @@ export function DeckReportModal({
       >
         <div className="modal-card__header report-modal__chrome">
           <div>
-            <span className="section-label">Deck report</span>
-            <h3 id="report-modal-title">Generate printable report</h3>
-            <p>Creates an HTML report asset linked to this deck and ready for Print / Save as PDF.</p>
+            <span className="section-label">Intel Brief</span>
+            <h3 id="report-modal-title">Generate printable Intel Brief</h3>
+            <p>Creates an HTML Intel Brief asset linked to this deck and ready for Print / Save as PDF.</p>
           </div>
 
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -79,7 +79,7 @@ export function DeckReportModal({
         <div className="report-modal__body">
           <aside className="report-modal__chrome report-settings-panel">
             <div>
-              <span className="field-label">Report type</span>
+              <span className="field-label">Intel Brief type</span>
               <div className="report-type-options">
                 {reportTypeOptions.map((option) => (
                   <button
@@ -96,7 +96,7 @@ export function DeckReportModal({
             </div>
 
             <button type="button" className="primary-button" onClick={onGenerate}>
-              Generate report
+              Generate Intel Brief
             </button>
 
             <button
@@ -110,7 +110,7 @@ export function DeckReportModal({
 
             {reportAsset ? (
               <div className="report-asset-summary">
-                <span className="field-label">Saved asset</span>
+                <span className="field-label">Saved Intel Brief asset</span>
                 <strong>{reportAsset.name}</strong>
                 <p>{reportAsset.summary}</p>
                 <small>{reportAsset.sizeLabel}</small>
@@ -123,11 +123,11 @@ export function DeckReportModal({
               <PrintableReport report={report} />
             ) : (
               <div className="report-empty-state">
-                <span className="section-label">No report generated</span>
-                <h4>Choose a report type and generate a preview.</h4>
+                <span className="section-label">No Intel Brief generated</span>
+                <h4>Choose an Intel Brief type and generate a preview.</h4>
                 <p>
-                  The report will be saved as a deck-linked asset and a deck version labeled
-                  "Report generated."
+                  The Intel Brief will be saved as a deck-linked asset and a deck version labeled
+                  "Intel Brief generated."
                 </p>
               </div>
             )}
@@ -140,20 +140,20 @@ export function DeckReportModal({
 
 function PrintableReport({ report }: { report: GeneratedDeckReport }) {
   return (
-    <article className="printable-report" aria-label={`${report.title} printable report`}>
+    <article className="printable-report" aria-label={`${report.title} printable Intel Brief`}>
       <header className="report-document__cover">
-        <span>{report.reportType} report</span>
+        <span>{report.reportType} Intel Brief</span>
         <h1>{report.title}</h1>
         <p>Generated {formatShortDate(report.generatedAt)}</p>
       </header>
 
       <section className="report-section">
-        <h2>Executive Summary</h2>
+        <h2>Executive intel summary</h2>
         <p>{report.executiveSummary}</p>
       </section>
 
       <section className="report-section">
-        <h2>Key Points by Slide / Section</h2>
+        <h2>Account & Pitch Highlights by Slide</h2>
         {report.keyPoints.map((section) => (
           <div key={section.slideId} className="report-section__block">
             <h3>
@@ -169,7 +169,7 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
       </section>
 
       <section className="report-section">
-        <h2>Metrics / Chart Summaries</h2>
+        <h2>Proof Points / Metrics / Chart Summaries</h2>
         {report.metrics.length > 0 ? (
           report.metrics.map((metric) => (
             <div key={`${metric.slideId}-${metric.summary}`} className="report-section__block">
@@ -180,12 +180,12 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
             </div>
           ))
         ) : (
-          <p>No metric or chart summaries were detected in this deck.</p>
+          <p>No proof-point metrics or chart summaries were detected in this deck.</p>
         )}
       </section>
 
       <section className="report-section">
-        <h2>Risks / Decisions / Next Steps</h2>
+        <h2>Risks / Objections / Decisions / Next Steps</h2>
         {report.decisions.length > 0 ? (
           <ul>
             {report.decisions.map((decision) => (
@@ -195,7 +195,7 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
             ))}
           </ul>
         ) : (
-          <p>No explicit risks, decisions, or next steps were detected in this deck.</p>
+          <p>No explicit risks, objections, decisions, or next steps were detected in this deck.</p>
         )}
       </section>
 
