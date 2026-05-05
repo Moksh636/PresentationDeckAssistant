@@ -295,8 +295,31 @@ export interface DeckVersion {
 
 /** Company Brain (shared organizational memory scaffolding; local/mock + future Supabase). */
 export type MembershipAccessRole = 'owner' | 'admin' | 'member' | 'viewer'
-export type CompanyRole = MembershipAccessRole
 export type CompanyDepartment = string
+
+/** Job title / IC role definitions managed by admins (distinct from MembershipAccessRole). */
+export interface CompanyBrainCatalogRole {
+  id: string
+  organizationId: string
+  name: string
+  description?: string
+  /** Optional default department catalog id when assigning this role. */
+  defaultDepartmentId?: string
+  archived?: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Department definitions managed by admins. */
+export interface CompanyBrainCatalogDepartment {
+  id: string
+  organizationId: string
+  name: string
+  description?: string
+  archived?: boolean
+  createdAt: string
+  updatedAt: string
+}
 export type KnowledgeApprovalStatus = 'approved' | 'needs-review' | 'rejected' | 'archived'
 
 export interface KnowledgeVisibilityRule {
@@ -343,6 +366,11 @@ export interface OrganizationMembership {
   accessRole: MembershipAccessRole
   createdAt: string
   updatedAt: string
+  /** Pre-assignment scaffold for invites (titles match catalog names when configured). */
+  invitedRoleTitle?: string
+  invitedDepartment?: string
+  roleLocked?: boolean
+  departmentLocked?: boolean
 }
 
 export interface KnowledgeFolder {
@@ -456,6 +484,10 @@ export interface CompanyBrainWorkspaceSlice {
   activeOrganizationId: string
   organizations: Organization[]
   organizationMemberships: OrganizationMembership[]
+  /** Company-managed job roles / titles. */
+  companyRoles: CompanyBrainCatalogRole[]
+  /** Company-managed departments. */
+  companyDepartments: CompanyBrainCatalogDepartment[]
   knowledgeFolders: KnowledgeFolder[]
   knowledgeItems: CompanyKnowledgeItem[]
   brandKits: CompanyBrandKit[]

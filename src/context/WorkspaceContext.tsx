@@ -31,6 +31,8 @@ import { createSlideFromLayoutPreset } from '../data/slideLayoutPresets'
 import { supabase } from '../data/supabaseClient'
 import {
   addOrganizationMember,
+  archiveCompanyCatalogDepartment as applyArchiveCompanyCatalogDepartment,
+  archiveCompanyCatalogRole as applyArchiveCompanyCatalogRole,
   completeCompanyOnboarding,
   deleteApprovedMessaging,
   deleteCaseStudy,
@@ -43,6 +45,8 @@ import {
   upsertApprovedMessaging,
   upsertBrandKit,
   upsertCaseStudy,
+  upsertCompanyCatalogDepartment as applyUpsertCompanyCatalogDepartment,
+  upsertCompanyCatalogRole as applyUpsertCompanyCatalogRole,
   upsertCompanyKnowledgeItem,
   upsertKnowledgeFolder,
   upsertProductService,
@@ -1793,6 +1797,32 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     )
   }
 
+  const upsertCatalogDepartment: WorkspaceContextValue['upsertCompanyCatalogDepartment'] = (
+    organizationId,
+    input,
+  ) => {
+    commitWorkspace((current) =>
+      applyUpsertCompanyCatalogDepartment(current, organizationId, input),
+    )
+  }
+
+  const archiveCatalogDepartment: WorkspaceContextValue['archiveCompanyCatalogDepartment'] = (
+    organizationId,
+    departmentId,
+  ) => {
+    commitWorkspace((current) =>
+      applyArchiveCompanyCatalogDepartment(current, organizationId, departmentId),
+    )
+  }
+
+  const upsertCatalogRole: WorkspaceContextValue['upsertCompanyCatalogRole'] = (organizationId, input) => {
+    commitWorkspace((current) => applyUpsertCompanyCatalogRole(current, organizationId, input))
+  }
+
+  const archiveCatalogRole: WorkspaceContextValue['archiveCompanyCatalogRole'] = (organizationId, roleId) => {
+    commitWorkspace((current) => applyArchiveCompanyCatalogRole(current, organizationId, roleId))
+  }
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -1864,6 +1894,10 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         upsertCompanyProductService,
         deleteCompanyProductService,
         addCompanyMember,
+        upsertCompanyCatalogDepartment: upsertCatalogDepartment,
+        archiveCompanyCatalogDepartment: archiveCatalogDepartment,
+        upsertCompanyCatalogRole: upsertCatalogRole,
+        archiveCompanyCatalogRole: archiveCatalogRole,
       }}
     >
       {children}

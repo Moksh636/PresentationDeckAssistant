@@ -9,6 +9,10 @@ import {
   sortWorkspaceLibraryItems,
 } from '../data/workspaceLibrary'
 import { CompanySetupModal } from '../components/company/CompanySetupModal'
+import {
+  buildTemplateDepartmentPickerOptions,
+  buildTemplateRolePickerOptions,
+} from '../data/companyCatalogSeed'
 import type {
   WorkspaceLibraryItem,
   WorkspaceLibraryItemType,
@@ -426,6 +430,9 @@ export function DashboardPage() {
   const [moveItem, setMoveItem] = useState<WorkspaceLibraryItem>()
   const [moveTargetId, setMoveTargetId] = useState('')
 
+  const setupRolePickerOptions = useMemo(() => buildTemplateRolePickerOptions(), [])
+  const setupDepartmentPickerOptions = useMemo(() => buildTemplateDepartmentPickerOptions(), [])
+
   const libraryItems = useMemo(() => buildWorkspaceLibraryItems(workspace), [workspace])
   const sectionCounts = useMemo(
     () =>
@@ -560,9 +567,12 @@ export function DashboardPage() {
   return (
     <section className="page page--workspace">
       <CompanySetupModal
+        key={showCompanySetup ? 'company-setup-active' : 'company-setup-idle'}
         open={showCompanySetup}
         onDismiss={() => dismissCompanyOnboarding()}
         onComplete={(input) => completeCompanyBrainOnboarding(input)}
+        roleOptions={setupRolePickerOptions}
+        departmentOptions={setupDepartmentPickerOptions}
       />
 
       <div className="workspace-dashboard">

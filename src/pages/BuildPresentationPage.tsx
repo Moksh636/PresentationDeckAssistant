@@ -147,6 +147,24 @@ export function BuildPresentationPage() {
     [workspace, organizationId, profile.userId],
   )
 
+  const catalogRoleNamesForOrg = useMemo(() => {
+    if (!organizationId) {
+      return []
+    }
+    return workspace.companyBrain.companyRoles
+      .filter((r) => !r.archived && r.organizationId === organizationId)
+      .map((r) => r.name)
+  }, [workspace.companyBrain.companyRoles, organizationId])
+
+  const catalogDepartmentNamesForOrg = useMemo(() => {
+    if (!organizationId) {
+      return []
+    }
+    return workspace.companyBrain.companyDepartments
+      .filter((d) => !d.archived && d.organizationId === organizationId)
+      .map((d) => d.name)
+  }, [workspace.companyBrain.companyDepartments, organizationId])
+
   const companyKnowledgeSuggestions = useMemo(() => {
     if (!organizationId || !activeDeck) {
       return []
@@ -160,8 +178,20 @@ export function BuildPresentationPage() {
       currentUserId: profile.userId,
       deckSetup: activeDeck.setup,
       knowledgeItems: workspace.companyBrain.knowledgeItems,
+      companyCatalogRoleNames: catalogRoleNamesForOrg.length ? catalogRoleNamesForOrg : undefined,
+      companyCatalogDepartmentNames: catalogDepartmentNamesForOrg.length
+        ? catalogDepartmentNamesForOrg
+        : undefined,
     })
-  }, [organizationId, membership, profile.userId, workspace.companyBrain.knowledgeItems, activeDeck])
+  }, [
+    organizationId,
+    membership,
+    profile.userId,
+    workspace.companyBrain.knowledgeItems,
+    activeDeck,
+    catalogRoleNamesForOrg,
+    catalogDepartmentNamesForOrg,
+  ])
 
   const selectedCompanyKnowledgeItems = useMemo(() => {
     if (!activeDeck) {

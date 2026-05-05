@@ -4,6 +4,8 @@ import type {
   CompanyActivityKind,
   CompanyActivityLog,
   CompanyBrandKit,
+  CompanyBrainCatalogDepartment,
+  CompanyBrainCatalogRole,
   CompanyBrainWorkspaceSlice,
   CompanyKnowledgeItem,
   CompanyKnowledgeSourceType,
@@ -15,6 +17,7 @@ import type {
   WorkspaceState,
 } from '../types/models'
 import { createId } from '../utils/ids.ts'
+import { seedCompanyCatalogForOrganization } from './companyCatalogSeed.ts'
 import { createEmptyCompanyBrainWorkspaceSlice, slugifyOrganizationName } from './companyBrainNormalize.ts'
 
 function nowIso() {
@@ -124,6 +127,8 @@ export function completeCompanyOnboarding(
     updatedAt: iso,
   }
 
+  const seeded = seedCompanyCatalogForOrganization({ organizationId: orgId, iso })
+
   const membership: OrganizationMembership = {
     id: createId('membership'),
     organizationId: orgId,
@@ -141,6 +146,8 @@ export function completeCompanyOnboarding(
     ...slice,
     organizations: [org, ...slice.organizations],
     organizationMemberships: [membership, ...slice.organizationMemberships],
+    companyRoles: [...seeded.companyRoles, ...slice.companyRoles],
+    companyDepartments: [...seeded.companyDepartments, ...slice.companyDepartments],
     activeOrganizationId: orgId,
     onboarding: {
       dismissed: slice.onboarding.dismissed,
@@ -161,6 +168,153 @@ export function completeCompanyOnboarding(
   return {
     ...workspace,
     companyBrain: nextSlice,
+  }
+}
+
+export function upsertCompanyCatalogDepartment(
+  workspace: WorkspaceState,
+  organizationId: string,
+  input: Pick<CompanyBrainCatalogDepartment, 'name'> &
+    Partial<Pick<CompanyBrainCatalogDepartment, 'description' | 'archived'>> & {
+      id?: string
+    },
+): WorkspaceState {
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const id =
+    input.id ??
+    slice.companyDepartments.find(
+      (d) => d.organizationId === organizationId && d.name.trim() === input.name.trim() && !d.archived,
+    )?.id ??
+    createId('cdept')
+  const existing = slice.companyDepartments.find((d) => d.id === id && d.organizationId === organizationId)
+  const nextRow: CompanyBrainCatalogDepartment = existing
+    ? {
+        ...existing,
+        name: input.name.trim() || existing.name,
+        description:
+          typeof input.description === 'string' ? input.description : existing.description,
+        archived:
+          input.archived === true ? true : existing.archived === true ? true : undefined,
+        updatedAt: iso,
+      }
+    : {
+        id,
+        organizationId,
+        name: input.name.trim() || 'Department',
+        description: typeof input.description === 'string' ? input.description : undefined,
+        archived: input.archived === true ? true : undefined,
+        createdAt: iso,
+        updatedAt: iso,
+      }
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      companyDepartments: [nextRow, ...slice.companyDepartments.filter((d) => d.id !== id)],
+    },
+  }
+}
+
+export function archiveCompanyCatalogDepartment(
+  workspace: WorkspaceState,
+  organizationId: string,
+  departmentId: string,
+): WorkspaceState {
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      companyDepartments: slice.companyDepartments.map((d) =>
+        d.id === departmentId && d.organizationId === organizationId
+          ? { ...d, archived: true, updatedAt: iso }
+          : d,
+      ),
+    },
+  }
+}
+
+export function upsertCompanyCatalogRole(
+  workspace: WorkspaceState,
+  organizationId: string,
+  input: Pick<CompanyBrainCatalogRole, 'name'> &
+    Partial<Pick<CompanyBrainCatalogRole, 'description' | 'defaultDepartmentId' | 'archived'>> & {
+      id?: string
+    },
+): WorkspaceState {
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const id =
+    input.id ??
+    slice.companyRoles.find(
+      (r) =>
+        r.organizationId === organizationId && r.name.trim() === input.name.trim() && !r.archived,
+    )?.id ??
+    createId('crole')
+  const existing = slice.companyRoles.find((r) => r.id === id && r.organizationId === organizationId)
+
+  let defaultDepartmentId = input.defaultDepartmentId
+  if (defaultDepartmentId) {
+    const deptOk = slice.companyDepartments.some(
+      (d) => d.id === defaultDepartmentId && d.organizationId === organizationId && !d.archived,
+    )
+    if (!deptOk) {
+      defaultDepartmentId = undefined
+    }
+  }
+
+  const nextRow: CompanyBrainCatalogRole = existing
+    ? {
+        ...existing,
+        name: input.name.trim() || existing.name,
+        description:
+          typeof input.description === 'string' ? input.description : existing.description,
+        defaultDepartmentId:
+          defaultDepartmentId !== undefined ? defaultDepartmentId : existing.defaultDepartmentId,
+        archived:
+          input.archived === true ? true : existing.archived === true ? true : undefined,
+        updatedAt: iso,
+      }
+    : {
+        id,
+        organizationId,
+        name: input.name.trim() || 'Role',
+        description: typeof input.description === 'string' ? input.description : undefined,
+        defaultDepartmentId,
+        archived: input.archived === true ? true : undefined,
+        createdAt: iso,
+        updatedAt: iso,
+      }
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      companyRoles: [nextRow, ...slice.companyRoles.filter((r) => r.id !== id)],
+    },
+  }
+}
+
+export function archiveCompanyCatalogRole(
+  workspace: WorkspaceState,
+  organizationId: string,
+  roleId: string,
+): WorkspaceState {
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      companyRoles: slice.companyRoles.map((r) =>
+        r.id === roleId && r.organizationId === organizationId ? { ...r, archived: true, updatedAt: iso } : r,
+      ),
+    },
   }
 }
 
@@ -657,6 +811,10 @@ export function addOrganizationMember(
     accessRole: member.accessRole,
     createdAt: iso,
     updatedAt: iso,
+    invitedRoleTitle: member.invitedRoleTitle?.trim() || undefined,
+    invitedDepartment: member.invitedDepartment?.trim() || undefined,
+    roleLocked: member.roleLocked === true ? true : undefined,
+    departmentLocked: member.departmentLocked === true ? true : undefined,
   }
 
   let nextSlice: CompanyBrainWorkspaceSlice = {

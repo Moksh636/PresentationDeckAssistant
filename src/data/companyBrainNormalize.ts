@@ -4,6 +4,8 @@ import type {
   CompanyActivityKind,
   CompanyActivityLog,
   CompanyBrandKit,
+  CompanyBrainCatalogDepartment,
+  CompanyBrainCatalogRole,
   CompanyBrainWorkspaceSlice,
   CompanyKnowledgeItem,
   CompanyKnowledgeSourceType,
@@ -82,6 +84,8 @@ export function createEmptyCompanyBrainWorkspaceSlice(): CompanyBrainWorkspaceSl
     activeOrganizationId: '',
     organizations: [],
     organizationMemberships: [],
+    companyRoles: [],
+    companyDepartments: [],
     knowledgeFolders: [],
     knowledgeItems: [],
     brandKits: [],
@@ -137,6 +141,48 @@ export function normalizeCompanyBrainWorkspaceSlice(
           roleTitle: typeof r.roleTitle === 'string' ? r.roleTitle : '',
           department: typeof r.department === 'string' ? r.department : '',
           accessRole: normalizeAccessRole(r.accessRole),
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
+          invitedRoleTitle:
+            typeof r.invitedRoleTitle === 'string' ? r.invitedRoleTitle : undefined,
+          invitedDepartment:
+            typeof r.invitedDepartment === 'string' ? r.invitedDepartment : undefined,
+          roleLocked: r.roleLocked === true ? true : undefined,
+          departmentLocked: r.departmentLocked === true ? true : undefined,
+        }
+      })
+    : []
+
+  const companyDepartments: CompanyBrainCatalogDepartment[] = Array.isArray(record.companyDepartments)
+    ? record.companyDepartments.map((row, index): CompanyBrainCatalogDepartment => {
+        const r = row as Record<string, unknown>
+        const orgId =
+          typeof r.organizationId === 'string' ? r.organizationId : organizations[0]?.id ?? ''
+        return {
+          id: typeof r.id === 'string' ? r.id : `cdept-legacy-${index + 1}`,
+          organizationId: orgId,
+          name: typeof r.name === 'string' ? r.name : 'Department',
+          description: typeof r.description === 'string' ? r.description : undefined,
+          archived: r.archived === true ? true : undefined,
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
+        }
+      })
+    : []
+
+  const companyRoles: CompanyBrainCatalogRole[] = Array.isArray(record.companyRoles)
+    ? record.companyRoles.map((row, index): CompanyBrainCatalogRole => {
+        const r = row as Record<string, unknown>
+        const orgId =
+          typeof r.organizationId === 'string' ? r.organizationId : organizations[0]?.id ?? ''
+        return {
+          id: typeof r.id === 'string' ? r.id : `crole-legacy-${index + 1}`,
+          organizationId: orgId,
+          name: typeof r.name === 'string' ? r.name : 'Role',
+          description: typeof r.description === 'string' ? r.description : undefined,
+          defaultDepartmentId:
+            typeof r.defaultDepartmentId === 'string' ? r.defaultDepartmentId : undefined,
+          archived: r.archived === true ? true : undefined,
           createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
           updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
         }
@@ -304,6 +350,8 @@ export function normalizeCompanyBrainWorkspaceSlice(
     activeOrganizationId,
     organizations,
     organizationMemberships,
+    companyRoles,
+    companyDepartments,
     knowledgeFolders,
     knowledgeItems,
     brandKits,

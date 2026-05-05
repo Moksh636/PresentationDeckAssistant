@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { completeCompanyOnboarding } from '../src/data/companyBrainMutations.ts'
 import {
+  DEFAULT_COMPANY_DEPARTMENTS,
+  DEFAULT_COMPANY_ROLES,
+} from '../src/data/companyCatalogSeed.ts'
+import {
   createEmptyCompanyBrainWorkspaceSlice,
   normalizeCompanyBrainWorkspaceSlice,
   slugifyOrganizationName,
@@ -12,6 +16,8 @@ assert.equal(slugifyOrganizationName('  Acme & Co '), 'acme-co')
 
 const normalizedEmpty = normalizeCompanyBrainWorkspaceSlice({})
 assert.equal(normalizedEmpty.organizations.length, 0)
+assert.equal(normalizedEmpty.companyRoles.length, 0)
+assert.equal(normalizedEmpty.companyDepartments.length, 0)
 
 const legacyWorkspaceSkeleton = {
   activeDeckId: 'd1',
@@ -47,6 +53,15 @@ const organizationId =
     ?.id ?? ''
 
 assert.ok(organizationId)
+
+const seededDeptCount = orgWorkspace.companyBrain.companyDepartments.filter(
+  (row) => row.organizationId === organizationId && !row.archived,
+).length
+const seededRoleCount = orgWorkspace.companyBrain.companyRoles.filter(
+  (row) => row.organizationId === organizationId && !row.archived,
+).length
+assert.equal(seededDeptCount, DEFAULT_COMPANY_DEPARTMENTS.length)
+assert.equal(seededRoleCount, DEFAULT_COMPANY_ROLES.length)
 
 function item(seed: Partial<CompanyKnowledgeItem> & Pick<CompanyKnowledgeItem, 'id'>): CompanyKnowledgeItem {
   return {

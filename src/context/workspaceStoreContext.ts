@@ -11,6 +11,8 @@ import type {
   ApprovedMessagingItem,
   CaseStudyItem,
   CompanyBrandKit,
+  CompanyBrainCatalogDepartment,
+  CompanyBrainCatalogRole,
   KnowledgeApprovalStatus,
   KnowledgeFolder,
   OrganizationMembership,
@@ -134,6 +136,22 @@ export interface WorkspaceContextValue {
   dismissCompanyOnboarding: () => void
   setCompanyActiveOrganization: (organizationId: string) => void
   completeCompanyBrainOnboarding: (input: CompleteCompanyOnboardingInput) => void
+  upsertCompanyCatalogDepartment: (
+    organizationId: string,
+    input: Pick<CompanyBrainCatalogDepartment, 'name'> &
+      Partial<Pick<CompanyBrainCatalogDepartment, 'description' | 'archived'>> & {
+        id?: string
+      },
+  ) => void
+  archiveCompanyCatalogDepartment: (organizationId: string, departmentId: string) => void
+  upsertCompanyCatalogRole: (
+    organizationId: string,
+    input: Pick<CompanyBrainCatalogRole, 'name'> &
+      Partial<Pick<CompanyBrainCatalogRole, 'description' | 'defaultDepartmentId' | 'archived'>> & {
+        id?: string
+      },
+  ) => void
+  archiveCompanyCatalogRole: (organizationId: string, roleId: string) => void
   upsertCompanyKnowledgeFolder: (organizationId: string, folder: Pick<KnowledgeFolder, 'name'> & { id?: string }) => void
   upsertCompanyKnowledgeItem: (organizationId: string, input: UpsertKnowledgeItemInput) => void
   deleteCompanyKnowledgeItem: (organizationId: string, itemId: string) => void

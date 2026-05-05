@@ -10,6 +10,19 @@ export interface RelevantCompanyKnowledgeArgs {
   currentUserId: string
   deckSetup: Pick<DeckSetup, 'targetCompany' | 'buyerPersona' | 'offeringSummary' | 'goal' | 'knownPainPoints'>
   knowledgeItems: CompanyKnowledgeItem[]
+  /** Active company-managed role names (bonus when membership aligns with configured titles). */
+  companyCatalogRoleNames?: string[]
+  /** Active company-managed department names (bonus when membership aligns). */
+  companyCatalogDepartmentNames?: string[]
+}
+
+function normalizedCatalogNameMatch(value: string, catalog: readonly string[]): boolean {
+  const v = value.trim().toLowerCase()
+  if (!v || catalog.length === 0) {
+    return false
+  }
+  const set = new Set(catalog.map((n) => n.trim().toLowerCase()).filter(Boolean))
+  return set.has(v)
 }
 
 function tokenize(text: string): string[] {
@@ -142,10 +155,22 @@ export function getRelevantCompanyKnowledgeForUser(
       if (dept && item.allowedDepartments?.map((d) => d.toLowerCase()).includes(dept)) {
         score += 35
       }
+      if (
+        args.companyCatalogDepartmentNames?.length &&
+        normalizedCatalogNameMatch(args.department, args.companyCatalogDepartmentNames)
+      ) {
+        score += 10
+      }
       const title = item.title.toLowerCase()
       const roleTitle = args.userRoleTitle.trim().toLowerCase()
       if (roleTitle && item.allowedRoleTitles?.map((r) => r.toLowerCase()).includes(roleTitle)) {
         score += 30
+      }
+      if (
+        args.companyCatalogRoleNames?.length &&
+        normalizedCatalogNameMatch(args.userRoleTitle, args.companyCatalogRoleNames)
+      ) {
+        score += 10
       }
 
       const haystackTokens = uniqTokens(
