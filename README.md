@@ -72,6 +72,44 @@ This workspace should be initialized as a Git repository before connecting to Gi
 
 The browser client is `src/data/supabaseClient.ts` and uses only the public anon key.
 
+### Supabase Storage (uploaded sources & deck images)
+
+The app uses two buckets (create them in **Supabase Dashboard → Storage**):
+
+| Bucket id | Purpose |
+|-----------|---------|
+| `source-files` | Raw files uploaded on the **build** flow (account research sources). Objects use paths `{auth_user_id}/{deck_id}/{file_asset_id}/{filename}`. |
+| `deck-assets` | Slide images inserted or replaced in the **editor** (`visual-placeholder` blocks). Same path pattern with a unique asset key per upload. |
+
+**Recommended setup**
+
+1. Create both buckets. For the simplest client behavior (stable image URLs in slides), mark them **public** and rely on long random paths for obscurity, **or** keep them private and plan to resolve signed URLs when loading slides (the editor currently uses `getPublicUrl` after upload; private buckets may require follow-up work to use `createSignedUrl` or edge helpers).
+2. Add **Storage policies** so authenticated users can read/write only under their own prefix. Example policy shape (adjust names as needed; run in SQL editor against `storage.objects`):
+
+```sql
+-- Example: allow authenticated users full access to objects under their user id folder in source-files
+create policy "source_files_own_prefix"
+on storage.objects for all
+to authenticated
+using (bucket_id = 'source-files' and (storage.foldername(name))[1] = auth.uid()::text)
+with check (bucket_id = 'source-files' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "deck_assets_own_prefix"
+on storage.objects for all
+to authenticated
+using (bucket_id = 'deck-assets' and (storage.foldername(name))[1] = auth.uid()::text)
+with check (bucket_id = 'deck-assets' and (storage.foldername(name))[1] = auth.uid()::text);
+```
+
+Public buckets still require **insert/update** policies for authenticated users; use the Supabase policy UI or SQL to match your security model.
+
+**App behavior**
+
+- **No Supabase env vars / local dev mode:** uploads stay local (existing mock ingestion and data URLs). Nothing is sent to Storage.
+- **Signed in with Supabase:** the build flow uploads each selected file to `source-files` when possible and stores a `storage` reference on the `FileAsset`. The editor uploads slide images to `deck-assets` and prefers the cloud URL for `SlideImageAsset.dataUrl`. If Storage is missing, misconfigured, or the upload fails, the app **falls back** to the previous local-only behavior and shows an informational toast.
+
+Helpers live in `src/data/workspaceStorage.ts` (`uploadWorkspaceAsset`, `getWorkspaceAssetUrl`, `deleteWorkspaceAsset`). Existing workspace JSON and localStorage data are **not** auto-migrated to buckets.
+
 ### Auth and workspace snapshots
 
 - **Supabase configured:** sign-in is **required** to use the app; cloud save/load uses the signed-in user id.
@@ -121,6 +159,8 @@ Recommended first backend path: Supabase Edge Functions for AI proxy calls.
   Optional Supabase browser client.
 - `src/data/workspaceCloudPersistence.ts`  
   Manual cloud snapshot save/load.
+- `src/data/workspaceStorage.ts`  
+  Supabase Storage uploads and URLs for `source-files` and `deck-assets`.
 
 ## Slide JSON Model
 

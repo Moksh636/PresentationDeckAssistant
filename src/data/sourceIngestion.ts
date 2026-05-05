@@ -8,6 +8,7 @@ import type {
   GeneratedDeckReport,
   SourceTrace,
   SourceTraceType,
+  WorkspaceAssetStorageRef,
 } from '../types/models'
 import { formatFileSize } from '../utils/formatters'
 
@@ -37,6 +38,7 @@ interface FileAssetSeedInput {
   starred?: boolean
   trashedAt?: string
   report?: GeneratedDeckReport
+  storage?: WorkspaceAssetStorageRef
 }
 
 export interface SourceMaterialsSummary {
@@ -239,6 +241,7 @@ export function createMockFileAsset(input: FileAssetSeedInput): FileAsset {
     starred: input.starred,
     trashedAt: input.trashedAt,
     report: input.report,
+    storage: input.storage,
   }
 }
 

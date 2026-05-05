@@ -13,7 +13,9 @@ import { PresentMode } from '../components/editor/PresentMode'
 import { SlideCanvas } from '../components/editor/SlideCanvas'
 import { SlideThumbnailRail } from '../components/editor/SlideThumbnailRail'
 import { useToast } from '../components/feedback/toastContext'
+import { useAuth } from '../context/useAuth'
 import { useWorkspace } from '../context/useWorkspace'
+import { supabase } from '../data/supabaseClient'
 import { buildMockAiEditPlan, type AiEditPlan, type AiEditScope } from '../data/aiEditor'
 import { getAiProposalBlockDiffs } from '../data/aiProposalReview'
 import {
@@ -22,6 +24,12 @@ import {
 } from '../data/editorLayout'
 import { getFitEditorZoom, getNextEditorZoom } from '../data/editorZoom'
 import { getNormalizedImageAsset } from '../data/imageControls'
+import {
+  WORKSPACE_STORAGE_BUCKETS,
+  buildWorkspaceStoragePath,
+  shouldAttemptWorkspaceStorageUpload,
+  tryPrepareWorkspaceFileForCloud,
+} from '../data/workspaceStorage'
 import {
   alignBlockLayouts,
   distributeBlockLayouts,
@@ -34,7 +42,13 @@ import {
   type ManualBlockKind,
 } from '../data/slideLayout'
 import type { SlideLayoutPreset } from '../data/slideLayoutPresets'
-import type { FileContributorRole, ReportType, Slide, SlideBlock } from '../types/models'
+import type {
+  FileContributorRole,
+  ReportType,
+  Slide,
+  SlideBlock,
+  WorkspaceAssetStorageRef,
+} from '../types/models'
 import { createId } from '../utils/ids'
 
 const initialMessages: AiChatMessage[] = [
@@ -151,6 +165,7 @@ type EditorContextMenuState =
 export function EditPresentationPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const { user, isLocalDevBypass } = useAuth()
   const {
     workspace,
     canUndo,
@@ -993,17 +1008,57 @@ export function EditPresentationPage() {
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(file)
+      const localDataUrl = await readFileAsDataUrl(file)
+      let nextDataUrl = localDataUrl
+      let storage: WorkspaceAssetStorageRef | undefined
+      let attemptedCloud = false
+      let usedCloud = false
 
-      replaceSlideBlockImage(selectedSlide.id, selectedBlock.id, {
-        name: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-        dataUrl,
-        fit: 'fill',
-        altText: file.name,
-      })
-      showToast('Image replaced.', 'success')
+      if (shouldAttemptWorkspaceStorageUpload({ supabaseClient: supabase, userId: user?.id, isLocalDevBypass }) && supabase && user && activeDeck) {
+        attemptedCloud = true
+        const objectPath = buildWorkspaceStoragePath({
+          userId: user.id,
+          deckId: activeDeck.id,
+          assetId: createId('img'),
+          fileName: file.name,
+        })
+        const prepared = await tryPrepareWorkspaceFileForCloud({
+          supabase,
+          bucket: WORKSPACE_STORAGE_BUCKETS.deckAssets,
+          objectPath,
+          file,
+          fallbackDataUrl: localDataUrl,
+        })
+        nextDataUrl = prepared.dataUrl
+        storage = prepared.storage
+        usedCloud = prepared.usedCloud
+        if (!prepared.usedCloud) {
+          showToast(
+            prepared.failureStage === 'public-url'
+              ? 'Image uploaded but no display URL returned; using local preview. Use a public bucket or signed URL policies.'
+              : 'Could not upload to cloud storage. Image kept locally in this browser.',
+            'info',
+          )
+        }
+      }
+
+      replaceSlideBlockImage(
+        selectedSlide.id,
+        selectedBlock.id,
+        getNormalizedImageAsset({
+          name: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          dataUrl: nextDataUrl,
+          fit: 'fill',
+          altText: file.name,
+          storage,
+        }),
+      )
+
+      if (!attemptedCloud || usedCloud) {
+        showToast('Image replaced.', 'success')
+      }
     } catch {
       window.alert('The selected image could not be read. Try a different image file.')
       showToast('Image could not be read.', 'error')

@@ -2,6 +2,7 @@ import { createChartSuggestionsFromFiles } from './chartSuggestions'
 import { createDefaultCollaborationSettings, getMockActor } from './collaboration'
 import { normalizeDeckSetup, normalizeScreenshotAssetIdsForDeck } from './deckSetupNormalize'
 import { normalizeSlideBlock } from './slideLayout'
+import { normalizeWorkspaceAssetStorageRef } from './workspaceStorage'
 import { createMockFileAsset, normalizeSourceTrace } from './sourceIngestion'
 import type {
   ChartSuggestion,
@@ -368,6 +369,7 @@ export function normalizeWorkspaceState(state: WorkspaceState | RawWorkspaceStat
         : undefined,
       possibleTone:
         typeof rawAsset.possibleTone === 'string' ? rawAsset.possibleTone : undefined,
+      storage: normalizeWorkspaceAssetStorageRef(rawAsset.storage),
       sourceTrace: Array.isArray(rawAsset.sourceTrace)
         ? rawAsset.sourceTrace.map((trace, index) =>
             normalizeSourceTrace(

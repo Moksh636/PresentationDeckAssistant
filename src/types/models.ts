@@ -129,6 +129,12 @@ export interface SlideBlockVisualStyle {
   opacity: number
 }
 
+/** When set, the same file is stored in Supabase Storage (see `src/data/workspaceStorage.ts`). */
+export interface WorkspaceAssetStorageRef {
+  bucket: string
+  objectPath: string
+}
+
 export interface SlideImageAsset {
   name: string
   mimeType: string
@@ -136,6 +142,7 @@ export interface SlideImageAsset {
   dataUrl: string
   fit?: 'fit' | 'fill'
   altText?: string
+  storage?: WorkspaceAssetStorageRef
 }
 
 export interface SlideBlockLayout {
@@ -202,6 +209,7 @@ export interface FileAsset {
   starred?: boolean
   trashedAt?: string
   report?: GeneratedDeckReport
+  storage?: WorkspaceAssetStorageRef
 }
 
 export interface DeckReportKeyPoint {

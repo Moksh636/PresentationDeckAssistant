@@ -13,8 +13,8 @@ import { AuthPage } from './pages/AuthPage'
 function App() {
   return (
     <AuthProvider>
-      <WorkspaceProvider>
-        <ToastProvider>
+      <ToastProvider>
+        <WorkspaceProvider>
           <Routes>
             <Route path="/" element={<RootRedirect />} />
             <Route path="/auth" element={<AuthPage />} />
@@ -27,8 +27,8 @@ function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </ToastProvider>
-      </WorkspaceProvider>
+        </WorkspaceProvider>
+      </ToastProvider>
     </AuthProvider>
   )
 }

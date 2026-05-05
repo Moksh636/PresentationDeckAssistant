@@ -1,4 +1,5 @@
 import { type PropsWithChildren, useEffect, useRef, useState } from 'react'
+import { useToast } from '../components/feedback/toastContext'
 import {
   createChartSlideFromSuggestion,
   createChartSuggestionsFromFiles,
@@ -27,7 +28,14 @@ import {
   normalizeSlideBlock,
 } from '../data/slideLayout'
 import { createSlideFromLayoutPreset } from '../data/slideLayoutPresets'
+import { supabase } from '../data/supabaseClient'
 import { normalizeWorkspaceState } from '../data/workspaceState'
+import {
+  WORKSPACE_STORAGE_BUCKETS,
+  buildWorkspaceStoragePath,
+  shouldAttemptWorkspaceStorageUpload,
+  uploadWorkspaceAsset,
+} from '../data/workspaceStorage'
 import {
   deleteWorkspaceItemPermanently as deleteWorkspaceItemPermanentlyInState,
   duplicateWorkspaceItem as duplicateWorkspaceItemInState,
@@ -51,6 +59,7 @@ import { formatFileSize } from '../utils/formatters'
 import { createId } from '../utils/ids'
 import { WorkspaceContext } from './workspaceStoreContext'
 import type { WorkspaceContextValue } from './workspaceStoreContext'
+import { useAuth } from './useAuth'
 
 const STORAGE_KEY = 'ai-presentation-workspace:v1'
 const HISTORY_LIMIT = 40
@@ -160,6 +169,8 @@ function createReportFileName(deckTitle: string, reportType: ReportType) {
 }
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
+  const { user, isLocalDevBypass } = useAuth()
+  const { showToast } = useToast()
   const [workspace, setWorkspace] = useState<WorkspaceState>(loadInitialWorkspace)
   const [history, setHistory] = useState<WorkspaceHistory>({ past: [], future: [] })
   const workspaceRef = useRef(workspace)
@@ -533,6 +544,56 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
           : deck,
       ),
     }))
+
+    if (shouldAttemptWorkspaceStorageUpload({ supabaseClient: supabase, userId: user?.id, isLocalDevBypass }) && supabase && user) {
+      const authUserId = user.id
+
+      void (async () => {
+        for (let index = 0; index < entries.length; index++) {
+          const file = entries[index]
+          const asset = nextAssets[index]
+
+          if (!file || !asset) {
+            continue
+          }
+
+          const objectPath = buildWorkspaceStoragePath({
+            userId: authUserId,
+            deckId,
+            assetId: asset.id,
+            fileName: file.name,
+          })
+
+          const result = await uploadWorkspaceAsset({
+            supabase,
+            bucket: WORKSPACE_STORAGE_BUCKETS.sourceFiles,
+            objectPath,
+            file,
+            contentType: file.type || undefined,
+          })
+
+          if (result.error) {
+            showToast(
+              `Could not save "${file.name}" to cloud storage. It remains available locally only.`,
+              'info',
+            )
+            continue
+          }
+
+          setWorkspace((current) => ({
+            ...current,
+            fileAssets: current.fileAssets.map((candidate) =>
+              candidate.id === asset.id
+                ? {
+                    ...candidate,
+                    storage: { bucket: result.bucket, objectPath: result.objectPath },
+                  }
+                : candidate,
+            ),
+          }))
+        }
+      })()
+    }
 
     // Replace this mocked lifecycle with a real async ingestion job when real file parsing is wired in.
     window.setTimeout(() => {
