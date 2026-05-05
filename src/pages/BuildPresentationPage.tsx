@@ -11,6 +11,7 @@ import { CommentsPanel } from '../components/collaboration/CommentsPanel'
 import { useAuth } from '../context/useAuth'
 import { useWorkspace } from '../context/useWorkspace'
 import { getMembershipForOrgUser } from '../data/companyBrainMutations'
+import { getActiveOrganizationBrandKit } from '../data/brandKitResolve'
 import { getRelevantCompanyKnowledgeForUser } from '../data/companyKnowledgeRetrieval'
 import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import {
@@ -138,6 +139,14 @@ export function BuildPresentationPage() {
     workspace.companyBrain.activeOrganizationId ||
     workspace.companyBrain.organizations[0]?.id ||
     ''
+
+  const activeOrganizationName =
+    workspace.companyBrain.organizations.find((org) => org.id === organizationId)?.name ?? 'Organization'
+
+  const activeBrandKit = useMemo(
+    () => getActiveOrganizationBrandKit(workspace.companyBrain),
+    [workspace.companyBrain],
+  )
 
   const membership = useMemo(
     () =>
@@ -507,10 +516,80 @@ export function BuildPresentationPage() {
                 <strong>Company Brain</strong>—local/mock for now, with Supabase tables ready for relational
                 sync.
               </p>
+
+              {activeBrandKit ? (
+                <div style={{ marginTop: '14px' }}>
+                  <ToggleField
+                    label="Apply organization Brand Kit to this deck"
+                    description={`When on, generated slides, Intel Brief previews, and PPTX export pick up ${activeOrganizationName} colors, font, and logo rules.`}
+                    checked={setup.brandKitId === activeBrandKit.id}
+                    onChange={(checked) =>
+                      updateDeckSetup(activeDeck.id, {
+                        brandKitId: checked ? activeBrandKit.id : undefined,
+                      })
+                    }
+                  />
+                  <div
+                    className="panel-card"
+                    style={{
+                      marginTop: '12px',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span className="field-label" style={{ width: '100%', marginBottom: '4px' }}>
+                      Active Brand Kit preview
+                    </span>
+                    <span
+                      title="Primary"
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        background: activeBrandKit.primaryColor,
+                        border: '1px solid rgba(24,32,45,0.12)',
+                      }}
+                    />
+                    <span
+                      title="Secondary"
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        background: activeBrandKit.secondaryColor,
+                        border: '1px solid rgba(24,32,45,0.12)',
+                      }}
+                    />
+                    <span
+                      title="Accent"
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        background: activeBrandKit.accentColor,
+                        border: '1px solid rgba(24,32,45,0.12)',
+                      }}
+                    />
+                    <span className="muted-copy" style={{ fontFamily: activeBrandKit.fontFamily }}>
+                      Aa {activeBrandKit.fontFamily}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="muted-copy" style={{ marginTop: '12px' }}>
+                  No Brand Kit for <strong>{activeOrganizationName}</strong> yet. Open{' '}
+                  <strong>Company Brain → Brand</strong> to add colors, font, and an optional logo file from
+                  this workspace.
+                </p>
+              )}
+
               <div className="form-grid" style={{ marginTop: '14px', opacity: 0.72 }}>
                 <label className="field-group">
-                  <span className="field-label">Brand kit</span>
-                  <input type="text" disabled value={setup.brandKitId ?? ''} placeholder="Coming soon" />
+                  <span className="field-label">Brand kit id (read-only)</span>
+                  <input type="text" readOnly value={setup.brandKitId ?? ''} placeholder="Not linked" />
                 </label>
                 <label className="field-group">
                   <span className="field-label">Approved messaging IDs</span>

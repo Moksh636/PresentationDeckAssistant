@@ -1,5 +1,6 @@
 import { getSourceTraceKey } from './sourceTrace'
 import type {
+  CompanyBrandKit,
   Deck,
   DeckReportDecision,
   DeckReportKeyPoint,
@@ -18,6 +19,8 @@ interface GenerateDeckReportInput {
   slides: Slide[]
   fileAssets: FileAsset[]
   reportType: ReportType
+  /** Resolved Brand Kit for this deck (same org + setup.brandKitId), if any. */
+  intelBriefBrandKit?: CompanyBrandKit
 }
 
 function normalizeWhitespace(value: string) {
@@ -205,8 +208,18 @@ export function generateDeckReport({
   slides,
   fileAssets,
   reportType,
+  intelBriefBrandKit,
 }: GenerateDeckReportInput): GeneratedDeckReport {
   const sourceReferences = collectSourceReferences(slides)
+  const intelBriefTheme = intelBriefBrandKit
+    ? {
+        primaryColor: intelBriefBrandKit.primaryColor,
+        accentColor: intelBriefBrandKit.accentColor,
+        secondaryColor: intelBriefBrandKit.secondaryColor,
+        fontFamily: intelBriefBrandKit.fontFamily,
+      }
+    : undefined
+
   const reportWithoutPlainText = {
     id: createId('report'),
     deckId: deck.id,
@@ -221,6 +234,7 @@ export function generateDeckReport({
       sourceReferences.length > 0
         ? sourceReferences
         : fileAssets.flatMap((asset) => asset.sourceTrace).slice(0, reportType === 'concise' ? 6 : 16),
+    intelBriefTheme,
   }
 
   return {

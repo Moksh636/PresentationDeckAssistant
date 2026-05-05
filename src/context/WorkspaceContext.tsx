@@ -4,6 +4,7 @@ import {
   createChartSlideFromSuggestion,
   createChartSuggestionsFromFiles,
 } from '../data/chartSuggestions'
+import { resolveBrandGenerationContext, resolveBrandKitForDeckSetup } from '../data/brandKitResolve'
 import { canCollaboratorUpload, getCommentTargetKey, getMockActor } from '../data/collaboration'
 import {
   createAlternateSlides,
@@ -694,10 +695,12 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     const previousDeck = workspace.decks
       .filter((candidate) => candidate.projectId === sourceDeck.projectId && candidate.id !== deckId)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
+    const brand = resolveBrandGenerationContext(sourceDeck.setup, workspace.companyBrain, sourceFiles)
     const result = await runMockDeckGenerationPipeline({
       sourceDeck,
       sourceFiles,
       previousDeck,
+      brand,
     })
 
     setWorkspace((current) => ({
@@ -743,11 +746,14 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       const sourceFiles = current.fileAssets.filter(
         (asset) => asset.deckId === deckId && asset.kind !== 'report',
       )
+      const intelBriefBrandKit = resolveBrandKitForDeckSetup(deck.setup, current.companyBrain)
+
       const report = generateDeckReport({
         deck,
         slides: deckSlides,
         fileAssets: sourceFiles,
         reportType,
+        intelBriefBrandKit,
       })
       const fileName = createReportFileName(deck.title, reportType)
       const sizeBytes = new TextEncoder().encode(report.plainText).length
@@ -1603,9 +1609,10 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         .filter((slide) => slide.deckId === deckId)
         .sort((left, right) => left.index - right.index)
       const deckAssets = current.fileAssets.filter((asset) => asset.deckId === deckId)
+      const brand = resolveBrandGenerationContext(deck.setup, current.companyBrain, deckAssets)
       const nextSlides = createAlternateSlides(
         deck,
-        currentSlides.length > 0 ? currentSlides : createSlidesFromDeck(deck, deckAssets),
+        currentSlides.length > 0 ? currentSlides : createSlidesFromDeck(deck, deckAssets, brand),
       )
       const nextVersionId = createId('version')
       const nextVersionNumber =

@@ -273,6 +273,7 @@ export function CompanyBrainPage() {
       {tab === 'brand' ? (
         <BrandKitSection
           activeOrgId={activeOrgId}
+          organizationName={activeOrg?.name ?? ''}
           brandKit={brandKit}
           deckFileOptions={deckFileOptions}
           workspaceApi={workspaceApi}
@@ -960,11 +961,13 @@ function KnowledgeList({
 
 function BrandKitSection({
   activeOrgId,
+  organizationName,
   brandKit,
   deckFileOptions,
   workspaceApi,
 }: {
   activeOrgId: string
+  organizationName: string
   brandKit: {
     primaryColor: string
     secondaryColor: string
@@ -996,13 +999,72 @@ function BrandKitSection({
     })
   }
 
+  const logoPickLabel = deckFileOptions.find((f) => f.id === logoId)?.name
+
   return (
     <div className="panel-card company-brain-panel">
       <h3>Brand Kit</h3>
       <p className="muted-copy">
-        Visual defaults for decks (stored locally for now). Full slide theme wiring can follow once design
-        tokens land in the editor.
+        Saved tokens for <strong>{organizationName || 'your organization'}</strong>. Pitches use them when
+        &quot;Apply organization Brand Kit&quot; is turned on in Build Pitch Deck: mock generation writes
+        colors and fonts into slide blocks, PPTX export maps those styles, and Intel Brief previews pick up
+        light header accents.
       </p>
+
+      <div
+        className="panel-card"
+        style={{
+          marginTop: '14px',
+          marginBottom: '18px',
+          padding: '14px 16px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '12px',
+          alignItems: 'center',
+        }}
+      >
+        <span className="field-label" style={{ width: '100%' }}>
+          Live preview
+        </span>
+        <span
+          title="Primary"
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: primary,
+            border: '1px solid rgba(24,32,45,0.12)',
+          }}
+        />
+        <span
+          title="Secondary"
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: secondary,
+            border: '1px solid rgba(24,32,45,0.12)',
+          }}
+        />
+        <span
+          title="Accent"
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: accent,
+            border: '1px solid rgba(24,32,45,0.12)',
+          }}
+        />
+        <span style={{ fontFamily, fontSize: '18px', fontWeight: 600 }}>Aa {fontFamily}</span>
+        <span className="muted-copy" style={{ flex: '1 1 220px' }}>
+          Logo:{' '}
+          {logoId
+            ? logoPickLabel ?? `Asset ${logoId.slice(0, 8)}…`
+            : `none selected — decks fall back to a text mark (${organizationName || 'org name'}) when no image preview exists.`}
+        </span>
+      </div>
+
       <div className="form-grid">
         <label className="field-group">
           <span className="field-label">Primary</span>
@@ -1025,7 +1087,7 @@ function BrandKitSection({
           <input value={tone} onChange={(e) => setTone(e.target.value)} placeholder="Confident & concise" />
         </label>
         <label className="field-group field-group--wide">
-          <span className="field-label">Logo from active deck file (placeholder)</span>
+          <span className="field-label">Logo from current workspace deck files</span>
           <select value={logoId} onChange={(e) => setLogoId(e.target.value)}>
             <option value="">None</option>
             {deckFileOptions.map((f) => (

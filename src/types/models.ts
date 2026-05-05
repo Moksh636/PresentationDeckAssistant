@@ -246,6 +246,13 @@ export interface GeneratedDeckReport {
   decisions: DeckReportDecision[]
   sourceReferences: SourceTrace[]
   plainText: string
+  /** When the deck had an applied Brand Kit, Intel Brief preview picks up light chrome colors. */
+  intelBriefTheme?: {
+    primaryColor: string
+    accentColor: string
+    secondaryColor: string
+    fontFamily: string
+  }
 }
 
 export interface ChartSuggestion {

@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
 import {
+  hexToRgba,
   normalizeBlockLayout,
   normalizeBlockTextStyle,
   normalizeBlockVisualStyle,
+  normalizePlaceholderVisualStyle,
 } from '../../data/slideLayout'
 import type { Slide, SlideBlock } from '../../types/models'
 
@@ -33,6 +35,10 @@ function ReadOnlySlideBlock({ block, index }: { block: SlideBlock; index: number
   const layout = normalizeBlockLayout(block, index)
   const textStyle = normalizeBlockTextStyle(block)
   const visualStyle = block.type === 'shape' ? normalizeBlockVisualStyle(block) : undefined
+  const placeholderChrome =
+    (block.type === 'visual-placeholder' || block.type === 'chart-placeholder') && !block.imageAsset
+      ? normalizePlaceholderVisualStyle(block)
+      : null
 
   return (
     <div
@@ -59,6 +65,14 @@ function ReadOnlySlideBlock({ block, index }: { block: SlideBlock; index: number
               ? 'flex-end'
               : 'flex-start',
         color: textStyle.color,
+        ...(placeholderChrome
+          ? {
+              borderStyle: 'dashed',
+              borderWidth: `${placeholderChrome.borderWidthPx}px`,
+              borderColor: hexToRgba(placeholderChrome.borderColor, 0.38),
+              backgroundColor: hexToRgba(placeholderChrome.fillColor, placeholderChrome.opacity),
+            }
+          : {}),
       }}
     >
       {block.type === 'shape' && visualStyle ? (

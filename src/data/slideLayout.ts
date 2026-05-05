@@ -25,6 +25,47 @@ const DEFAULT_VISUAL_STYLE: SlideBlockVisualStyle = {
   opacity: 0.14,
 }
 
+/** Matches legacy editor CSS for dashed placeholders when no brand overrides exist. */
+export const DEFAULT_PLACEHOLDER_VISUAL_STYLE: SlideBlockVisualStyle = {
+  fillColor: '#2457e0',
+  borderColor: '#2457e0',
+  borderWidthPx: 1,
+  opacity: 0.05,
+}
+
+/** Hex `#RRGGBB` to `rgba(r,g,b,a)` for placeholder chrome (editor / thumbnails). */
+export function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.trim().replace(/^#/, '')
+  const safeAlpha = clamp(alpha, 0, 1)
+
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) {
+    return `rgba(36, 87, 224, ${safeAlpha})`
+  }
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16)
+  const g = Number.parseInt(normalized.slice(2, 4), 16)
+  const b = Number.parseInt(normalized.slice(4, 6), 16)
+
+  return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`
+}
+
+export function normalizePlaceholderVisualStyle(block: SlideBlock): SlideBlockVisualStyle {
+  const visualStyle = block.visualStyle
+
+  return {
+    fillColor: getSafeHexColor(visualStyle?.fillColor, DEFAULT_PLACEHOLDER_VISUAL_STYLE.fillColor),
+    borderColor: getSafeHexColor(visualStyle?.borderColor, DEFAULT_PLACEHOLDER_VISUAL_STYLE.borderColor),
+    borderWidthPx:
+      typeof visualStyle?.borderWidthPx === 'number'
+        ? clamp(visualStyle.borderWidthPx, 0, 24)
+        : DEFAULT_PLACEHOLDER_VISUAL_STYLE.borderWidthPx,
+    opacity:
+      typeof visualStyle?.opacity === 'number'
+        ? clamp(visualStyle.opacity, 0, 1)
+        : DEFAULT_PLACEHOLDER_VISUAL_STYLE.opacity,
+  }
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
@@ -181,10 +222,17 @@ export function normalizeBlockLayout(block: SlideBlock, index: number): SlideBlo
 }
 
 export function normalizeSlideBlock(block: SlideBlock, index: number): SlideBlock {
+  const visualStyle =
+    block.type === 'shape'
+      ? normalizeBlockVisualStyle(block)
+      : block.type === 'visual-placeholder' || block.type === 'chart-placeholder'
+        ? normalizePlaceholderVisualStyle(block)
+        : block.visualStyle
+
   return {
     ...block,
     textStyle: normalizeBlockTextStyle(block),
-    visualStyle: block.type === 'shape' ? normalizeBlockVisualStyle(block) : block.visualStyle,
+    visualStyle,
     layout: normalizeBlockLayout(block, index),
   }
 }

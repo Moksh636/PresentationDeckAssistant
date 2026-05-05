@@ -4,17 +4,24 @@ import type {
   FileAsset,
   Slide,
   SlideBlock,
+  SlideBlockLayout,
   SlideBlockStyle,
+  SlideBlockVisualStyle,
+  SlideImageAsset,
+  SlideTextStyle,
   SourceTrace,
-} from '../types/models'
-import { createDeckInputTrace } from './sourceIngestion'
-import { normalizeSlideBlock } from './slideLayout'
-import { createId } from '../utils/ids'
+} from '../types/models.ts'
+import type { DeckBrandGenerationContext } from './brandKitResolve.ts'
+import { createDeckInputTrace } from './sourceIngestion.ts'
+import { normalizeSlideBlock } from './slideLayout.ts'
+import { createId } from '../utils/ids.ts'
 
 interface DeckGenerationRequest {
   sourceDeck: Deck
   sourceFiles: FileAsset[]
   previousDeck?: Deck
+  /** When set, mock slides pick up Company Brain colors, fonts, and optional logo. */
+  brand?: DeckBrandGenerationContext
 }
 
 interface DeckGenerationResult {
@@ -55,8 +62,14 @@ function buildBlock(
   style: SlideBlockStyle,
   sourceTrace: SourceTrace[],
   placeholder?: string,
+  extras?: {
+    textStyle?: Partial<SlideTextStyle>
+    visualStyle?: SlideBlockVisualStyle
+    imageAsset?: SlideImageAsset
+    layout?: SlideBlockLayout
+  },
 ): SlideBlock {
-  return {
+  const block: SlideBlock = {
     id: createId(`block-${type}`),
     type,
     content,
@@ -64,6 +77,24 @@ function buildBlock(
     style,
     sourceTrace: dedupeSourceTrace(sourceTrace),
   }
+
+  if (extras?.textStyle) {
+    block.textStyle = extras.textStyle as SlideTextStyle
+  }
+
+  if (extras?.visualStyle) {
+    block.visualStyle = extras.visualStyle
+  }
+
+  if (extras?.imageAsset) {
+    block.imageAsset = extras.imageAsset
+  }
+
+  if (extras?.layout) {
+    block.layout = extras.layout
+  }
+
+  return block
 }
 
 function buildSlide(
@@ -253,12 +284,34 @@ function createVisualPlaceholder(fileAssets: FileAsset[], sections: string[]) {
   }
 }
 
+function placeholderVisualBrand(brand: DeckBrandGenerationContext): SlideBlockVisualStyle {
+  return {
+    fillColor: brand.kit.primaryColor,
+    borderColor: brand.kit.accentColor,
+    borderWidthPx: 1,
+    opacity: 0.08,
+  }
+}
+
 function createGeneratedSlides(
   deck: Deck,
   fileAssets: FileAsset[],
   previousDeck?: Deck,
+  brand?: DeckBrandGenerationContext,
 ) {
   const sections = resolveSections(deck, fileAssets)
+
+  const brandText = (partial: Partial<SlideTextStyle>): Partial<SlideTextStyle> | undefined => {
+    if (!brand) {
+      return undefined
+    }
+
+    return {
+      fontFamily: brand.kit.fontFamily,
+      ...partial,
+    }
+  }
+
   const goal =
     deck.setup.goal || 'Align the audience on the core recommendation and why it matters now.'
   const audience = deck.setup.audience || 'internal stakeholders'
@@ -300,24 +353,84 @@ function createGeneratedSlides(
 
   const slides: Slide[] = []
 
+  const titleSlideBlocks: SlideBlock[] = []
+
+  if (brand?.logoSlideImage) {
+    titleSlideBlocks.push(
+      buildBlock(
+        'visual-placeholder',
+        '',
+        { align: 'center', fontSize: 'sm' },
+        [titleTrace],
+        'Logo',
+        {
+          imageAsset: brand.logoSlideImage,
+          layout: { x: 76, y: 6, width: 22, height: 14, zIndex: 40 },
+          textStyle: brandText({ alignment: 'center', verticalAlign: 'middle' }),
+        },
+      ),
+    )
+  } else if (brand && brand.organizationName.trim()) {
+    titleSlideBlocks.push(
+      buildBlock(
+        'stat',
+        brand.organizationName,
+        { align: 'right', fontSize: 'sm', bold: true },
+        [titleTrace],
+        undefined,
+        {
+          textStyle: brandText({
+            color: brand.kit.accentColor,
+            alignment: 'right',
+          }),
+          layout: { x: 58, y: 7, width: 40, height: 12, zIndex: 40 },
+        },
+      ),
+    )
+  }
+
+  titleSlideBlocks.push(
+    buildBlock(
+      'eyebrow',
+      deck.setup.presentationType || 'Generated draft',
+      { align: 'left', fontSize: 'sm' },
+      [typeTrace],
+      undefined,
+      brand ? { textStyle: brandText({ color: brand.kit.accentColor }) } : undefined,
+    ),
+    buildBlock(
+      'title',
+      deck.title || 'Untitled presentation',
+      { align: 'left', fontSize: 'xl', bold: true },
+      [titleTrace],
+      undefined,
+      brand ? { textStyle: brandText({ color: brand.kit.primaryColor }) } : undefined,
+    ),
+    buildBlock(
+      'body',
+      goal,
+      { align: 'left', fontSize: 'md' },
+      [goalTrace, audienceTrace],
+      undefined,
+      brand ? { textStyle: brandText({ color: brand.kit.secondaryColor }) } : undefined,
+    ),
+    buildBlock(
+      'stat',
+      `${sections.length} planned sections`,
+      { align: 'left', fontSize: 'lg', bold: true },
+      [sectionsTrace],
+      'Slide count marker',
+      brand ? { textStyle: brandText({ color: brand.kit.accentColor }) } : undefined,
+    ),
+  )
+
   slides.push(
     buildSlide(
       deck.id,
       slides.length + 1,
       deck.title || 'Untitled presentation',
       'Open with the promise of the presentation and orient the audience quickly.',
-      [
-        buildBlock('eyebrow', deck.setup.presentationType || 'Generated draft', { align: 'left', fontSize: 'sm' }, [typeTrace]),
-        buildBlock('title', deck.title || 'Untitled presentation', { align: 'left', fontSize: 'xl', bold: true }, [titleTrace]),
-        buildBlock('body', goal, { align: 'left', fontSize: 'md' }, [goalTrace, audienceTrace]),
-        buildBlock(
-          'stat',
-          `${sections.length} planned sections`,
-          { align: 'left', fontSize: 'lg', bold: true },
-          [sectionsTrace],
-          'Slide count marker',
-        ),
-      ],
+      titleSlideBlocks,
       [titleTrace, goalTrace, ...toggleTrace, ...fileTrace.slice(0, 2)],
     ),
   )
@@ -329,13 +442,29 @@ function createGeneratedSlides(
       'Agenda',
       'This slide should set the narrative order before details begin.',
       [
-        buildBlock('title', 'Agenda', { align: 'left', fontSize: 'lg', bold: true }, [sectionsTrace]),
-        buildBlock('bullet-list', sections, { align: 'left', fontSize: 'md' }, [sectionsTrace]),
+        buildBlock(
+          'title',
+          'Agenda',
+          { align: 'left', fontSize: 'lg', bold: true },
+          [sectionsTrace],
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.primaryColor }) } : undefined,
+        ),
+        buildBlock(
+          'bullet-list',
+          sections,
+          { align: 'left', fontSize: 'md' },
+          [sectionsTrace],
+          undefined,
+          brand ? { textStyle: brandText({}) } : undefined,
+        ),
         buildBlock(
           'body',
           `Audience: ${audience}. Tone: ${tone}.`,
           { align: 'left', fontSize: 'md' },
           [audienceTrace, toneTrace],
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.secondaryColor }) } : undefined,
         ),
       ],
       [sectionsTrace, audienceTrace, toneTrace, ...toggleTrace],
@@ -349,13 +478,36 @@ function createGeneratedSlides(
       'Executive summary',
       'Condense the main case into a few fast, decision-ready points.',
       [
-        buildBlock('title', 'Executive summary', { align: 'left', fontSize: 'lg', bold: true }, [goalTrace]),
-        buildBlock('bullet-list', executiveBullets, { align: 'left', fontSize: 'md' }, [goalTrace, audienceTrace, toneTrace, ...fileTrace.slice(0, 2)]),
+        buildBlock(
+          'title',
+          'Executive summary',
+          { align: 'left', fontSize: 'lg', bold: true },
+          [goalTrace],
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.primaryColor }) } : undefined,
+        ),
+        buildBlock(
+          'bullet-list',
+          executiveBullets,
+          { align: 'left', fontSize: 'md' },
+          [goalTrace, audienceTrace, toneTrace, ...fileTrace.slice(0, 2)],
+          undefined,
+          brand ? { textStyle: brandText({}) } : undefined,
+        ),
         buildBlock(
           'quote',
           summarizeFiles(fileAssets),
           { align: 'left', fontSize: 'md', italic: true },
           [...fileTrace.slice(0, 3), ...toggleTrace],
+          undefined,
+          brand
+            ? {
+                textStyle: brandText({
+                  color: brand.kit.accentColor,
+                  italic: true,
+                }),
+              }
+            : undefined,
         ),
       ],
       [goalTrace, audienceTrace, toneTrace, ...fileTrace.slice(0, 3), ...toggleTrace],
@@ -379,13 +531,29 @@ function createGeneratedSlides(
         section,
         'Use this as a flexible content slide for the core evidence and argument.',
         [
-          buildBlock('eyebrow', `Section ${index + 1}`, { align: 'left', fontSize: 'sm' }, [sectionTrace]),
-          buildBlock('title', section, { align: 'left', fontSize: 'lg', bold: true }, [sectionTrace]),
+          buildBlock(
+            'eyebrow',
+            `Section ${index + 1}`,
+            { align: 'left', fontSize: 'sm' },
+            [sectionTrace],
+            undefined,
+            brand ? { textStyle: brandText({ color: brand.kit.accentColor }) } : undefined,
+          ),
+          buildBlock(
+            'title',
+            section,
+            { align: 'left', fontSize: 'lg', bold: true },
+            [sectionTrace],
+            undefined,
+            brand ? { textStyle: brandText({ color: brand.kit.primaryColor }) } : undefined,
+          ),
           buildBlock(
             'body',
             getSectionSlideBody(section, index, audience, fileAssets),
             { align: 'left', fontSize: 'md' },
             [goalTrace, audienceTrace, sectionTrace, ...relatedTrace],
+            undefined,
+            brand ? { textStyle: brandText({ color: brand.kit.secondaryColor }) } : undefined,
           ),
           buildBlock(
             'bullet-list',
@@ -398,6 +566,8 @@ function createGeneratedSlides(
             ],
             { align: 'left', fontSize: 'md' },
             [goalTrace, toneTrace, ...relatedTrace],
+            undefined,
+            brand ? { textStyle: brandText({}) } : undefined,
           ),
         ],
         [sectionTrace, goalTrace, toneTrace, ...relatedTrace, ...toggleTrace],
@@ -412,19 +582,38 @@ function createGeneratedSlides(
       visualPlaceholder.title,
       'Reserve a visual beat so the deck does not become all text.',
       [
-        buildBlock('title', visualPlaceholder.title, { align: 'left', fontSize: 'lg', bold: true }, visualPlaceholder.trace),
+        buildBlock(
+          'title',
+          visualPlaceholder.title,
+          { align: 'left', fontSize: 'lg', bold: true },
+          visualPlaceholder.trace,
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.primaryColor }) } : undefined,
+        ),
         buildBlock(
           'visual-placeholder',
           visualPlaceholder.body,
           { align: 'left', fontSize: 'md' },
           visualPlaceholder.trace,
           'Describe the visual to add here',
+          brand
+            ? {
+                visualStyle: placeholderVisualBrand(brand),
+                textStyle: brandText({
+                  color: brand.kit.accentColor,
+                  verticalAlign: 'middle',
+                  alignment: 'center',
+                }),
+              }
+            : undefined,
         ),
         buildBlock(
           'body',
           'Use this space for screenshots, diagrams, product imagery, or source artifacts.',
           { align: 'left', fontSize: 'md' },
           [...visualPlaceholder.trace, ...toggleTrace],
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.secondaryColor }) } : undefined,
         ),
       ],
       [...visualPlaceholder.trace, ...toggleTrace],
@@ -438,13 +627,31 @@ function createGeneratedSlides(
       chartSuggestion.title,
       'Keep the chart slot editable so a real chart can replace this placeholder later.',
       [
-        buildBlock('title', chartSuggestion.title, { align: 'left', fontSize: 'lg', bold: true }, chartSuggestion.trace),
+        buildBlock(
+          'title',
+          chartSuggestion.title,
+          { align: 'left', fontSize: 'lg', bold: true },
+          chartSuggestion.trace,
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.primaryColor }) } : undefined,
+        ),
         buildBlock(
           'chart-placeholder',
           chartSuggestion.body,
           { align: 'left', fontSize: 'md' },
           chartSuggestion.trace,
           'Describe the chart to add here',
+          brand
+            ? {
+                visualStyle: placeholderVisualBrand(brand),
+                textStyle: brandText({
+                  color: brand.kit.accentColor,
+                  bold: true,
+                  verticalAlign: 'middle',
+                  alignment: 'center',
+                }),
+              }
+            : undefined,
         ),
         buildBlock(
           'body',
@@ -453,6 +660,8 @@ function createGeneratedSlides(
             : 'Swap this placeholder with a chart once verified metrics are attached.',
           { align: 'left', fontSize: 'md' },
           [...chartSuggestion.trace, ...toggleTrace],
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.secondaryColor }) } : undefined,
         ),
       ],
       [...chartSuggestion.trace, ...toggleTrace],
@@ -466,7 +675,14 @@ function createGeneratedSlides(
       'Next steps',
       'Close with clear ownership, timing, and the decision requested from the audience.',
       [
-        buildBlock('title', 'Next steps', { align: 'left', fontSize: 'lg', bold: true }, [notesTrace]),
+        buildBlock(
+          'title',
+          'Next steps',
+          { align: 'left', fontSize: 'lg', bold: true },
+          [notesTrace],
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.primaryColor }) } : undefined,
+        ),
         buildBlock(
           'bullet-list',
           [
@@ -476,12 +692,16 @@ function createGeneratedSlides(
           ],
           { align: 'left', fontSize: 'md' },
           [notesTrace, ...toggleTrace],
+          undefined,
+          brand ? { textStyle: brandText({}) } : undefined,
         ),
         buildBlock(
           'body',
           notes,
           { align: 'left', fontSize: 'md' },
           [notesTrace, ...fileTrace.slice(0, 1), ...toggleTrace],
+          undefined,
+          brand ? { textStyle: brandText({ color: brand.kit.secondaryColor }) } : undefined,
         ),
       ],
       [notesTrace, ...toggleTrace, ...fileTrace.slice(0, 1)],
@@ -495,6 +715,7 @@ export async function runMockDeckGenerationPipeline({
   sourceDeck,
   sourceFiles,
   previousDeck,
+  brand,
 }: DeckGenerationRequest): Promise<DeckGenerationResult> {
   const generatedAt = new Date().toISOString()
   const generatedDeckId = createId('deck')
@@ -510,7 +731,7 @@ export async function runMockDeckGenerationPipeline({
     activeVersionId: generatedVersionId,
     status: 'ready',
   }
-  const generatedSlides = createGeneratedSlides(generatedDeck, generatedFiles, previousDeck).map(
+  const generatedSlides = createGeneratedSlides(generatedDeck, generatedFiles, previousDeck, brand).map(
     (slide) => ({
       ...slide,
       deckId: generatedDeckId,
@@ -540,8 +761,12 @@ export async function runMockDeckGenerationPipeline({
   }
 }
 
-export function createSlidesFromDeck(deck: Deck, fileAssets: FileAsset[] = []): Slide[] {
-  return createGeneratedSlides(deck, fileAssets)
+export function createSlidesFromDeck(
+  deck: Deck,
+  fileAssets: FileAsset[] = [],
+  brand?: DeckBrandGenerationContext,
+): Slide[] {
+  return createGeneratedSlides(deck, fileAssets, undefined, brand)
 }
 
 export function createAlternateSlides(deck: Deck, currentSlides: Slide[]) {

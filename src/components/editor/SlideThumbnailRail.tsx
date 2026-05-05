@@ -3,9 +3,11 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import { clampThumbnailRailWidth } from '../../data/editorLayout'
 import { SLIDE_LAYOUT_PRESETS, type SlideLayoutPreset } from '../../data/slideLayoutPresets'
 import {
+  hexToRgba,
   normalizeBlockLayout,
   normalizeBlockTextStyle,
   normalizeBlockVisualStyle,
+  normalizePlaceholderVisualStyle,
 } from '../../data/slideLayout'
 import type { Slide } from '../../types/models'
 
@@ -222,30 +224,49 @@ export function SlideThumbnailRail({
                   textStyle: normalizeBlockTextStyle(block),
                 }))
                 .sort((left, right) => left.layout.zIndex - right.layout.zIndex)
-                .map(({ block, layout, textStyle }) => (
-                  <span
-                    key={block.id}
-                    className={`thumbnail-slide-object thumbnail-slide-object--${block.type} ${
-                      block.imageAsset ? 'has-image' : ''
-                    }`}
-                    style={{
-                      left: `${layout.x}%`,
-                      top: `${layout.y}%`,
-                      width: `${layout.width}%`,
-                      height: `${layout.height}%`,
-                      zIndex: layout.zIndex,
-                      fontFamily: textStyle.fontFamily,
-                      fontSize: `${Math.max(3.5, textStyle.fontSizePx * 0.16)}px`,
-                      fontWeight: textStyle.bold ? 800 : 400,
-                      fontStyle: textStyle.italic ? 'italic' : 'normal',
-                      textDecoration: textStyle.underline ? 'underline' : 'none',
-                      textAlign: textStyle.alignment,
-                      color: textStyle.color,
-                    }}
-                  >
-                    <ThumbnailBlockContent block={block} />
-                  </span>
-                ))}
+                .map(({ block, layout, textStyle }) => {
+                  const placeholderChrome =
+                    (block.type === 'visual-placeholder' || block.type === 'chart-placeholder') &&
+                    !block.imageAsset
+                      ? normalizePlaceholderVisualStyle(block)
+                      : null
+
+                  return (
+                    <span
+                      key={block.id}
+                      className={`thumbnail-slide-object thumbnail-slide-object--${block.type} ${
+                        block.imageAsset ? 'has-image' : ''
+                      }`}
+                      style={{
+                        left: `${layout.x}%`,
+                        top: `${layout.y}%`,
+                        width: `${layout.width}%`,
+                        height: `${layout.height}%`,
+                        zIndex: layout.zIndex,
+                        fontFamily: textStyle.fontFamily,
+                        fontSize: `${Math.max(3.5, textStyle.fontSizePx * 0.16)}px`,
+                        fontWeight: textStyle.bold ? 800 : 400,
+                        fontStyle: textStyle.italic ? 'italic' : 'normal',
+                        textDecoration: textStyle.underline ? 'underline' : 'none',
+                        textAlign: textStyle.alignment,
+                        color: textStyle.color,
+                        ...(placeholderChrome
+                          ? {
+                              borderStyle: 'dashed',
+                              borderWidth: `${Math.max(0.5, placeholderChrome.borderWidthPx * 0.35)}px`,
+                              borderColor: hexToRgba(placeholderChrome.borderColor, 0.38),
+                              backgroundColor: hexToRgba(
+                                placeholderChrome.fillColor,
+                                placeholderChrome.opacity,
+                              ),
+                            }
+                          : {}),
+                      }}
+                    >
+                      <ThumbnailBlockContent block={block} />
+                    </span>
+                  )
+                })}
             </span>
           </button>
         ))}

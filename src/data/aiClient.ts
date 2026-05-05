@@ -2,6 +2,8 @@ import {
   createChartSuggestionsFromFiles,
   createChartSlideFromSuggestion,
 } from './chartSuggestions.ts'
+import type { DeckBrandGenerationContext } from './brandKitResolve.ts'
+import { resolveBrandGenerationContext } from './brandKitResolve.ts'
 import {
   createAlternateSlides,
   createSlidesFromDeck,
@@ -14,7 +16,9 @@ import { supabase } from './supabaseClient.ts'
 import { generateIntelReviewWithFallback as generateIntelReviewWithFallbackBase } from './intelReviewBackendFallback.ts'
 import type {
   ChartSuggestion,
+  CompanyBrainWorkspaceSlice,
   CompanyKnowledgeItem,
+  CompanyBrandKit,
   Deck,
   DeckIntel,
   DeckSetup,
@@ -43,6 +47,7 @@ export interface GenerateDeckRequest {
   sourceDeck: Deck
   sourceFiles: FileAsset[]
   previousDeck?: Deck
+  brand?: DeckBrandGenerationContext
 }
 
 export interface GenerateIntelReviewRequest {
@@ -103,6 +108,7 @@ export interface GenerateReportRequest {
   slides: Slide[]
   fileAssets: FileAsset[]
   reportType: ReportType
+  intelBriefBrandKit?: CompanyBrandKit
 }
 
 export type GenerateReportResponse = GeneratedDeckReport
@@ -111,6 +117,10 @@ export interface CreateAlternateVersionRequest {
   deck: Deck
   currentSlides: Slide[]
   fileAssets?: FileAsset[]
+  companyBrain?: Pick<
+    CompanyBrainWorkspaceSlice,
+    'brandKits' | 'activeOrganizationId' | 'organizations'
+  >
 }
 
 export type CreateAlternateVersionResponse = Slide[]
@@ -377,7 +387,14 @@ export const aiClient: AiBackendClient = {
       AI_BACKEND_ENDPOINTS.generateReport,
       request,
       postJson<GenerateReportResponse>,
-      () => generateDeckReport(request),
+      () =>
+        generateDeckReport({
+          deck: request.deck,
+          slides: request.slides,
+          fileAssets: request.fileAssets,
+          reportType: request.reportType,
+          intelBriefBrandKit: request.intelBriefBrandKit,
+        }),
     )
   },
 
@@ -388,10 +405,17 @@ export const aiClient: AiBackendClient = {
       request,
       postJson<CreateAlternateVersionResponse>,
       () => {
+        const brand =
+          request.companyBrain &&
+          resolveBrandGenerationContext(
+            request.deck.setup,
+            request.companyBrain,
+            request.fileAssets ?? [],
+          )
         const sourceSlides =
           request.currentSlides.length > 0
             ? request.currentSlides
-            : createSlidesFromDeck(request.deck, request.fileAssets ?? [])
+            : createSlidesFromDeck(request.deck, request.fileAssets ?? [], brand ?? undefined)
 
         return createAlternateSlides(request.deck, sourceSlides)
       },

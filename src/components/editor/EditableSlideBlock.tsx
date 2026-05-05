@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import {
   clampBlockLayout,
+  hexToRgba,
   normalizeBlockTextStyle,
   normalizeBlockVisualStyle,
+  normalizePlaceholderVisualStyle,
   resizeBlockLayout,
 } from '../../data/slideLayout'
 import { getMiniToolbarPlacement } from '../../data/editorGeometry'
@@ -121,6 +123,10 @@ export function EditableSlideBlock({
   const editable = isTextEditableBlock(block)
   const isTextEditingActive = isSelected && isEditingText
   const textStyle = normalizeBlockTextStyle(block)
+  const placeholderChrome =
+    (block.type === 'visual-placeholder' || block.type === 'chart-placeholder') && !block.imageAsset
+      ? normalizePlaceholderVisualStyle(block)
+      : null
   const activeLayout = draftLayout ?? localDraftLayout ?? layout
   const isLocked = activeLayout.locked === true
   const miniToolbarPlacement = getMiniToolbarPlacement(activeLayout)
@@ -320,6 +326,14 @@ export function EditableSlideBlock({
               ? 'flex-end'
               : 'flex-start',
         color: textStyle.color,
+        ...(placeholderChrome
+          ? {
+              borderStyle: 'dashed',
+              borderWidth: `${placeholderChrome.borderWidthPx}px`,
+              borderColor: hexToRgba(placeholderChrome.borderColor, 0.38),
+              backgroundColor: hexToRgba(placeholderChrome.fillColor, placeholderChrome.opacity),
+            }
+          : {}),
       }}
       onClick={(event) => {
         if (didDragRef.current) {

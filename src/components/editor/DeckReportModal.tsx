@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import { getAddedByLabel, getSourceTypeLabel } from '../../data/sourceTrace'
 import type { FileAsset, GeneratedDeckReport, ReportType } from '../../types/models'
 import { formatConfidence, formatShortDate } from '../../utils/formatters'
@@ -139,24 +140,50 @@ export function DeckReportModal({
 }
 
 function PrintableReport({ report }: { report: GeneratedDeckReport }) {
+  const theme = report.intelBriefTheme
+  const articleStyle: CSSProperties | undefined = theme
+    ? { fontFamily: theme.fontFamily }
+    : undefined
+  const coverStyle: CSSProperties | undefined = theme
+    ? {
+        borderBottom: `3px solid ${theme.accentColor}`,
+      }
+    : undefined
+  const eyebrowStyle: CSSProperties | undefined = theme
+    ? { color: theme.accentColor }
+    : undefined
+  const titleStyle: CSSProperties | undefined = theme ? { color: theme.primaryColor } : undefined
+  const sectionHeadingStyle: CSSProperties | undefined = theme
+    ? {
+        color: theme.primaryColor,
+        borderBottom: `1px solid ${theme.accentColor}`,
+        paddingBottom: '6px',
+      }
+    : undefined
+  const subheadingStyle: CSSProperties | undefined = theme ? { color: theme.accentColor } : undefined
+
   return (
-    <article className="printable-report" aria-label={`${report.title} printable Intel Brief`}>
-      <header className="report-document__cover">
-        <span>{report.reportType} Intel Brief</span>
-        <h1>{report.title}</h1>
+    <article
+      className="printable-report"
+      aria-label={`${report.title} printable Intel Brief`}
+      style={articleStyle}
+    >
+      <header className="report-document__cover" style={coverStyle}>
+        <span style={eyebrowStyle}>{report.reportType} Intel Brief</span>
+        <h1 style={titleStyle}>{report.title}</h1>
         <p>Generated {formatShortDate(report.generatedAt)}</p>
       </header>
 
       <section className="report-section">
-        <h2>Executive intel summary</h2>
+        <h2 style={sectionHeadingStyle}>Executive intel summary</h2>
         <p>{report.executiveSummary}</p>
       </section>
 
       <section className="report-section">
-        <h2>Account & Pitch Highlights by Slide</h2>
+        <h2 style={sectionHeadingStyle}>Account & Pitch Highlights by Slide</h2>
         {report.keyPoints.map((section) => (
           <div key={section.slideId} className="report-section__block">
-            <h3>
+            <h3 style={subheadingStyle}>
               {section.slideIndex}. {section.title}
             </h3>
             <ul>
@@ -169,11 +196,11 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
       </section>
 
       <section className="report-section">
-        <h2>Proof Points / Metrics / Chart Summaries</h2>
+        <h2 style={sectionHeadingStyle}>Proof Points / Metrics / Chart Summaries</h2>
         {report.metrics.length > 0 ? (
           report.metrics.map((metric) => (
             <div key={`${metric.slideId}-${metric.summary}`} className="report-section__block">
-              <h3>{metric.label}</h3>
+              <h3 style={subheadingStyle}>{metric.label}</h3>
               <p>
                 <strong>{metric.slideTitle}:</strong> {metric.summary}
               </p>
@@ -185,7 +212,7 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
       </section>
 
       <section className="report-section">
-        <h2>Risks / Objections / Decisions / Next Steps</h2>
+        <h2 style={sectionHeadingStyle}>Risks / Objections / Decisions / Next Steps</h2>
         {report.decisions.length > 0 ? (
           <ul>
             {report.decisions.map((decision) => (
@@ -200,7 +227,7 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
       </section>
 
       <section className="report-section report-section--sources">
-        <h2>Source References</h2>
+        <h2 style={sectionHeadingStyle}>Source References</h2>
         {report.sourceReferences.length > 0 ? (
           report.sourceReferences.map((trace, index) => (
             <div key={`${trace.fileId}-${trace.extractedSnippet}-${index}`} className="report-source">

@@ -24,6 +24,7 @@ import {
 } from '../data/editorLayout'
 import { getFitEditorZoom, getNextEditorZoom } from '../data/editorZoom'
 import { getNormalizedImageAsset } from '../data/imageControls'
+import { resolveBrandGenerationContext } from '../data/brandKitResolve'
 import {
   WORKSPACE_STORAGE_BUCKETS,
   buildWorkspaceStoragePath,
@@ -918,7 +919,20 @@ export function EditPresentationPage() {
     try {
       const { exportDeckAsPptx } = await import('../data/pptxExport')
 
-      await exportDeckAsPptx({ deck: activeDeck, slides })
+      const deckFiles = workspace.fileAssets.filter((asset) => asset.deckId === activeDeck.id)
+      const exportBrandCtx = resolveBrandGenerationContext(
+        activeDeck.setup,
+        workspace.companyBrain,
+        deckFiles,
+      )
+
+      await exportDeckAsPptx({
+        deck: activeDeck,
+        slides,
+        exportBrand: exportBrandCtx
+          ? { kit: exportBrandCtx.kit, organizationName: exportBrandCtx.organizationName }
+          : undefined,
+      })
       showToast('PPTX export started.', 'success')
     } catch {
       showToast('PPTX export failed. Try again.', 'error')

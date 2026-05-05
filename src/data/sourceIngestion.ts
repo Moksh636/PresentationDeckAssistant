@@ -9,8 +9,8 @@ import type {
   SourceTrace,
   SourceTraceType,
   WorkspaceAssetStorageRef,
-} from '../types/models'
-import { formatFileSize } from '../utils/formatters'
+} from '../types/models.ts'
+import { formatFileSize } from '../utils/formatters.ts'
 
 export const OWNER_USER_ID = 'user-owner-1'
 export const COLLABORATOR_USER_ID = 'user-collaborator-1'
