@@ -1,17 +1,17 @@
 import {
   createChartSuggestionsFromFiles,
   createChartSlideFromSuggestion,
-} from './chartSuggestions'
-import { collectSourceTracesFromAssets, generateIntelDraftFromSources } from './intelReview'
+} from './chartSuggestions.ts'
 import {
   createAlternateSlides,
   createSlidesFromDeck,
   runMockDeckGenerationPipeline,
-} from './deckGenerator'
-import { buildMockAiEditPlan, type AiEditPlan, type AiEditScope } from './aiEditor'
-import { autoFillPresentationFieldsFromFiles, createMockFileAsset } from './sourceIngestion'
-import { generateDeckReport } from './reportGenerator'
-import { supabase } from './supabaseClient'
+} from './deckGenerator.ts'
+import { buildMockAiEditPlan, type AiEditPlan, type AiEditScope } from './aiEditor.ts'
+import { autoFillPresentationFieldsFromFiles, createMockFileAsset } from './sourceIngestion.ts'
+import { generateDeckReport } from './reportGenerator.ts'
+import { supabase } from './supabaseClient.ts'
+import { generateIntelReviewWithFallback as generateIntelReviewWithFallbackBase } from './intelReviewBackendFallback.ts'
 import type {
   ChartSuggestion,
   Deck,
@@ -24,8 +24,8 @@ import type {
   ReportType,
   Slide,
   SourceTrace,
-} from '../types/models'
-import { createId } from '../utils/ids'
+} from '../types/models.ts'
+import { createId } from '../utils/ids.ts'
 
 export const AI_BACKEND_ENDPOINTS = {
   generateIntelReview: 'generate-intel-review',
@@ -143,7 +143,16 @@ export interface AiBackendClient {
 
 function isAiBackendEnabled() {
   const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
-  return env?.VITE_AI_BACKEND_ENABLED === 'true'
+  const viteFlag = env?.VITE_AI_BACKEND_ENABLED
+  if (viteFlag !== undefined) {
+    return viteFlag === 'true'
+  }
+
+  // Node-based unit tests don't have `import.meta.env` populated by Vite.
+  // This keeps `VITE_AI_BACKEND_ENABLED=true` working in test environments.
+  const nodeFlag = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
+    ?.env?.VITE_AI_BACKEND_ENABLED
+  return nodeFlag === 'true'
 }
 
 function warnAndUseMock(flowName: string, error: unknown) {
@@ -274,16 +283,6 @@ function createMockIngestedFile(request: IngestFileRequest): FileAsset {
   })
 }
 
-function createLocalIntelReviewResponse(
-  request: GenerateIntelReviewRequest,
-  warnings: string[] = [],
-): GenerateIntelReviewResponse {
-  return {
-    intel: generateIntelDraftFromSources(request.setup, request.fileAssets),
-    warnings,
-  }
-}
-
 interface GenerateIntelReviewOptions {
   backendEnabled?: boolean
   invokeBackend?: (
@@ -295,32 +294,23 @@ export async function generateIntelReviewWithFallback(
   request: GenerateIntelReviewRequest,
   options: GenerateIntelReviewOptions = {},
 ): Promise<GenerateIntelReviewResponse> {
-  const preparedRequest: GenerateIntelReviewRequest = {
-    ...request,
-    sourceTraces: request.sourceTraces ?? collectSourceTracesFromAssets(request.fileAssets),
-    webResearchEnabled: request.webResearchEnabled ?? false,
-  }
   const backendEnabled = options.backendEnabled ?? isAiBackendEnabled()
+
   const invokeBackend =
     options.invokeBackend ??
-    ((payload: GenerateIntelReviewRequest) =>
-      invokeSupabaseFunction<GenerateIntelReviewResponse>(
-        AI_BACKEND_ENDPOINTS.generateIntelReview,
-        payload as unknown as Record<string, unknown>,
-      ))
+    (async (payload: GenerateIntelReviewRequest) => {
+      try {
+        return await invokeSupabaseFunction<GenerateIntelReviewResponse>(
+          AI_BACKEND_ENDPOINTS.generateIntelReview,
+          payload as unknown as Record<string, unknown>,
+        )
+      } catch (error) {
+        warnAndUseMock('Intel Review generation', error)
+        throw error
+      }
+    })
 
-  if (!backendEnabled) {
-    return createLocalIntelReviewResponse(preparedRequest)
-  }
-
-  try {
-    return await invokeBackend(preparedRequest)
-  } catch (error) {
-    warnAndUseMock('Intel Review generation', error)
-    return createLocalIntelReviewResponse(preparedRequest, [
-      'AI backend unavailable; used local intel draft fallback.',
-    ])
-  }
+  return generateIntelReviewWithFallbackBase(request, { backendEnabled, invokeBackend })
 }
 
 export const aiClient: AiBackendClient = {
