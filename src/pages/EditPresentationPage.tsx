@@ -170,6 +170,7 @@ export function EditPresentationPage() {
     workspace,
     canUndo,
     canRedo,
+    createPresentation,
     undoWorkspace,
     redoWorkspace,
     generateSlides,
@@ -222,6 +223,9 @@ export function EditPresentationPage() {
   const [pasteOffsetCount, setPasteOffsetCount] = useState(0)
   const [zoomPercent, setZoomPercent] = useState(100)
   const [isNotesOpen, setIsNotesOpen] = useState(false)
+  const [showGrid, setShowGrid] = useState(false)
+  const [showGuides, setShowGuides] = useState(true)
+  const [snapEnabled, setSnapEnabled] = useState(true)
   const [openChromeMenu, setOpenChromeMenu] = useState<ChromeMenuId | undefined>()
   const [isThumbnailRailCollapsed, setIsThumbnailRailCollapsed] = useState(false)
   const [isThumbnailRailCompact, setIsThumbnailRailCompact] = useState(false)
@@ -1256,6 +1260,19 @@ export function EditPresentationPage() {
               setOpenChromeMenu(undefined)
               setIsShareOpen(true)
             }}
+            onCreateDeck={() => {
+              const createdDeckId = createPresentation(activeDeck.projectId)
+              if (createdDeckId) {
+                navigate('/edit')
+              }
+            }}
+            onOpenDashboard={() => navigate('/dashboard')}
+            onSaveToCloud={() =>
+              showToast('Use the account menu in the top-right to Save to Cloud.', 'info')
+            }
+            onLoadFromCloud={() =>
+              showToast('Use the account menu in the top-right to Load from Cloud.', 'info')
+            }
             startPresentationFromSlide={startPresentationFromSlide}
             startPresentation={startPresentation}
             firstSlideId={slides[0]?.id}
@@ -1286,12 +1303,28 @@ export function EditPresentationPage() {
             canPasteClipboard={clipboardBlocks.length > 0}
             deleteSelectedUnlockedBlocks={deleteSelectedUnlockedBlocks}
             handleZoom={handleZoom}
+            onSetZoom100={() => setZoomPercent(100)}
             handleFitToWindow={handleFitToWindow}
             zoomPercent={zoomPercent}
+            isNotesOpen={isNotesOpen}
+            setIsNotesOpen={setIsNotesOpen}
+            isSlideRailVisible={!isThumbnailRailCollapsed}
+            setIsSlideRailVisible={(next) =>
+              setIsThumbnailRailCollapsed((current) =>
+                typeof next === 'function' ? !next(!current) : !next,
+              )
+            }
             showSources={showSources}
             setShowSources={setShowSources}
+            showGrid={showGrid}
+            setShowGrid={setShowGrid}
+            showGuides={showGuides}
+            setShowGuides={setShowGuides}
+            snapEnabled={snapEnabled}
+            setSnapEnabled={setSnapEnabled}
             onOpenAiPanel={() => toggleUtilityPanel('assistant')}
             onOpenCommentsPanel={() => toggleUtilityPanel('comments')}
+            onOpenIntelReview={() => navigate('/build')}
             commentThreadCount={slideCommentThreads.length + deckCommentThreads.length}
             activeSidePanel={activeSidePanel}
             handleAddBlock={handleAddBlock}
@@ -1365,6 +1398,9 @@ export function EditPresentationPage() {
                 highlightedBlockIds={highlightedBlockIds}
                 showSources={showSources}
                 zoomPercent={zoomPercent}
+                showGrid={showGrid}
+                showGuides={showGuides}
+                snapEnabled={snapEnabled}
                 onSelectBlock={(blockId, options) => {
                   selectBlock(blockId, options)
                   if (selectedCommentTarget === 'selected-block') {

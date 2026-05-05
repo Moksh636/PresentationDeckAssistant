@@ -227,8 +227,8 @@ export function BuildPresentationPage() {
               <span className="section-label">Account pitch brief</span>
               <h3>Target account → tailored pitch deck</h3>
               <p className="muted-copy">
-                Capture who you are selling to and what you want out of the meeting. Legacy fields stay
-                in sync under the hood for existing decks and generation.
+                Capture who you are selling to and what outcome you need from the meeting. This brief keeps
+                your account intel and deck generation aligned.
               </p>
             </div>
 
@@ -394,7 +394,7 @@ export function BuildPresentationPage() {
             </div>
 
             <details className="builder-details">
-              <summary>Advanced: slide outline</summary>
+              <summary>Slide outline</summary>
               <div className="field-group" style={{ marginTop: '12px' }}>
                 <span className="field-label">Required sections</span>
                 <textarea
@@ -417,10 +417,10 @@ export function BuildPresentationPage() {
             </details>
 
             <details className="builder-details builder-details--muted">
-              <summary>Brand & memory placeholders</summary>
+              <summary>Brand and message library</summary>
               <p className="muted-copy" style={{ marginTop: '10px' }}>
-                Brand kit, approved messaging, case studies, and product screenshots will be available
-                for company workspaces later. Fields below are disabled for now.
+                Brand kit, approved messaging, case studies, and product screenshots can be managed from
+                the company workspace as this area expands.
               </p>
               <div className="form-grid" style={{ marginTop: '14px', opacity: 0.72 }}>
                 <label className="field-group">

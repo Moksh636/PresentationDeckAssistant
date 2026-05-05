@@ -177,11 +177,11 @@ function AuthPanelContent({
 
   if (!auth.isSupabaseConfigured) {
     return (
-      <section className="auth-card" aria-label="Local development mode">
-        <span className="auth-card__status">Local development</span>
+      <section className="auth-card" aria-label="Local workspace mode">
+        <span className="auth-card__status">Local workspace mode</span>
         <p className="muted-copy">
-          Browser-only workspace. Use “Continue in local development mode” on the sign-in screen when env
-          vars are missing—not cloud saved.
+          Browser-only workspace. Use “Continue in local workspace mode” on the sign-in screen when cloud
+          settings are unavailable.
         </p>
         <button type="button" className="ghost-button" disabled={isBusy} onClick={onSignOut}>
           Return to sign-in screen

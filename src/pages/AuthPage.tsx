@@ -134,22 +134,21 @@ export function AuthPage() {
         </div>
 
         <div className="auth-page__card auth-page__card--local">
-          <span className="auth-page__badge">Local development</span>
-          <h1 className="auth-page__title">Supabase not configured</h1>
+          <span className="auth-page__badge">Local workspace mode</span>
+          <h1 className="auth-page__title">Cloud sign-in unavailable</h1>
           <p className="auth-page__lede">
-            No <code className="auth-page__code">VITE_SUPABASE_URL</code> or{' '}
-            <code className="auth-page__code">VITE_SUPABASE_ANON_KEY</code> was found. Data stays in this
-            browser only—it is not saved to the cloud.
+            Cloud settings are not present. Work saved in this mode stays in this browser and is not
+            synced to your cloud workspace.
           </p>
           <button
             type="button"
             className="primary-button primary-button--full"
             onClick={handleLocalDevContinue}
           >
-            Continue in local development mode
+            Continue in local workspace mode
           </button>
           <p className="auth-page__fine-print">
-            Use this only on trusted machines. Add Supabase env vars for real login and cloud snapshots.
+            Use this only on trusted machines. Enable cloud settings for sign-in and cloud workspace sync.
           </p>
         </div>
       </div>
@@ -272,8 +271,7 @@ export function AuthPage() {
         ) : null}
 
         <p className="auth-page__fine-print">
-          Private workspace—no public marketing site yet. By continuing you agree to use Deckspace for your
-          own account content.
+          Private company workspace. Continue only with account content you are authorized to use.
         </p>
       </div>
     </div>

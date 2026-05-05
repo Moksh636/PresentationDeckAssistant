@@ -93,6 +93,8 @@ export function FormattingToolbar({
   const textStyle = selectedBlock ? normalizeBlockTextStyle(selectedBlock) : undefined
   const visualStyle = selectedBlock?.type === 'shape' ? normalizeBlockVisualStyle(selectedBlock) : undefined
   const canReplaceImage = selectedBlock?.type === 'visual-placeholder'
+  const isShapeSelected = selectedBlock?.type === 'shape'
+  const isTextSelected = canFormatText(selectedBlock)
   const selectedImageAsset = selectedBlock?.imageAsset
   const hasSelectedObjects = selectedBlockCount > 0
   const canArrangeObjects = hasSelectedObjects && !selectedBlockLocked
@@ -208,7 +210,23 @@ export function FormattingToolbar({
         </button>
       </div>
 
-      <div className="toolbar__group toolbar__group--font">
+      {!hasSelectedObjects ? (
+        <div className="toolbar__group toolbar__group--font">
+          <span className="toolbar__group-label">Slide</span>
+          <button type="button" disabled title="Coming soon">
+            Layout
+          </button>
+          <button type="button" disabled title="Coming soon">
+            Background
+          </button>
+          <button type="button" disabled title="Coming soon">
+            Theme
+          </button>
+        </div>
+      ) : null}
+
+      {isTextSelected ? (
+        <div className="toolbar__group toolbar__group--font">
         <span className="toolbar__group-label">Text</span>
         <select
           aria-label="Font family"
@@ -357,9 +375,11 @@ export function FormattingToolbar({
           <option value="middle">Mid</option>
           <option value="bottom">Bot</option>
         </select>
-      </div>
+        </div>
+      ) : null}
 
-      <div className="toolbar__group toolbar__group--object-align" ref={arrangeMenuRef}>
+      {hasSelectedObjects ? (
+        <div className="toolbar__group toolbar__group--object-align" ref={arrangeMenuRef}>
         <span className="toolbar__group-label">Arrange</span>
         <button
           ref={arrangeTriggerRef}
@@ -422,9 +442,10 @@ export function FormattingToolbar({
             {option.label}
           </button>
         ))}
-      </div>
+        </div>
+      ) : null}
 
-      {visualStyle ? (
+      {visualStyle && isShapeSelected ? (
         <div className="toolbar__group toolbar__group--visual">
           <span className="toolbar__group-label">Shape/Image</span>
           <label className="toolbar__color-control">

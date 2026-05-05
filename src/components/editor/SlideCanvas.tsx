@@ -15,6 +15,9 @@ interface SlideCanvasProps {
   highlightedBlockIds: string[]
   showSources: boolean
   zoomPercent: number
+  showGrid: boolean
+  showGuides: boolean
+  snapEnabled: boolean
   onSelectBlock: (
     blockId: string,
     options?: { addToSelection?: boolean; preserveSelection?: boolean },
@@ -46,6 +49,9 @@ export function SlideCanvas({
   highlightedBlockIds,
   showSources,
   zoomPercent,
+  showGrid,
+  showGuides,
+  snapEnabled,
   onSelectBlock,
   onClearSelectedBlocks,
   onOpenComments,
@@ -108,7 +114,7 @@ export function SlideCanvas({
           </button>
         ) : null}
         <div
-          className="slide-surface"
+          className={`slide-surface ${showGrid ? 'is-grid-visible' : ''} ${showGuides ? 'is-guides-visible' : ''}`}
           tabIndex={0}
           onClick={(event) => {
             event.currentTarget.focus({ preventScroll: true })
@@ -149,7 +155,7 @@ export function SlideCanvas({
                 onLayoutChange={(nextLayout) => onBlockLayoutChange(block.id, nextLayout)}
                 onGroupLayoutDraftChange={(layouts, guides) => {
                   setDraftLayouts(layouts)
-                  setSnapGuides(guides)
+                  setSnapGuides(snapEnabled ? guides : [])
                 }}
                 onGroupLayoutCommit={onBlockLayoutsChange}
                 onDelete={() => onDeleteBlock(block.id)}
@@ -161,7 +167,8 @@ export function SlideCanvas({
               />
             ))}
 
-          {snapGuides.map((guide) => (
+          {showGuides
+            ? snapGuides.map((guide) => (
             <span
               key={guide.id}
               className={`snap-guide snap-guide--${guide.orientation}`}
@@ -171,7 +178,8 @@ export function SlideCanvas({
                   : { top: `${guide.position}%` }
               }
             />
-          ))}
+              ))
+            : null}
         </div>
       </div>
     </section>

@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import type { ComponentProps, Dispatch, RefObject, SetStateAction } from 'react'
 import { AuthControls } from '../auth/AuthControls'
 import { AnchoredMenu } from '../ui/AnchoredMenu'
@@ -52,6 +53,10 @@ export interface EditorMainChromeProps {
   undoWorkspace: () => void
   redoWorkspace: () => void
   onShare: () => void
+  onCreateDeck: () => void
+  onOpenDashboard: () => void
+  onSaveToCloud: () => void
+  onLoadFromCloud: () => void
   startPresentationFromSlide: (slideId?: string) => void
   startPresentation: () => void
   firstSlideId?: string
@@ -79,12 +84,24 @@ export interface EditorMainChromeProps {
   canPasteClipboard: boolean
   deleteSelectedUnlockedBlocks: () => void
   handleZoom: (direction: 'in' | 'out') => void
+  onSetZoom100: () => void
   handleFitToWindow: () => void
   zoomPercent: number
+  isNotesOpen: boolean
+  setIsNotesOpen: Dispatch<SetStateAction<boolean>>
+  isSlideRailVisible: boolean
+  setIsSlideRailVisible: Dispatch<SetStateAction<boolean>>
   showSources: boolean
   setShowSources: Dispatch<SetStateAction<boolean>>
+  showGrid: boolean
+  setShowGrid: Dispatch<SetStateAction<boolean>>
+  showGuides: boolean
+  setShowGuides: Dispatch<SetStateAction<boolean>>
+  snapEnabled: boolean
+  setSnapEnabled: Dispatch<SetStateAction<boolean>>
   onOpenAiPanel: () => void
   onOpenCommentsPanel: () => void
+  onOpenIntelReview: () => void
   commentThreadCount: number
   activeSidePanel?: EditorSidePanelMode
   handleAddBlock: (kind: ManualBlockKind) => void
@@ -139,6 +156,10 @@ export function EditorMainChrome({
   undoWorkspace,
   redoWorkspace,
   onShare,
+  onCreateDeck,
+  onOpenDashboard,
+  onSaveToCloud,
+  onLoadFromCloud,
   startPresentationFromSlide,
   startPresentation,
   firstSlideId,
@@ -166,12 +187,24 @@ export function EditorMainChrome({
   canPasteClipboard,
   deleteSelectedUnlockedBlocks,
   handleZoom,
+  onSetZoom100,
   handleFitToWindow,
   zoomPercent,
+  isNotesOpen,
+  setIsNotesOpen,
+  isSlideRailVisible,
+  setIsSlideRailVisible,
   showSources,
   setShowSources,
+  showGrid,
+  setShowGrid,
+  showGuides,
+  setShowGuides,
+  snapEnabled,
+  setSnapEnabled,
   onOpenAiPanel,
   onOpenCommentsPanel,
+  onOpenIntelReview,
   commentThreadCount,
   activeSidePanel,
   handleAddBlock,
@@ -194,6 +227,34 @@ export function EditorMainChrome({
 }: EditorMainChromeProps) {
   const textStyle = selectedBlock ? normalizeBlockTextStyle(selectedBlock) : undefined
   const closeMenu = () => setOpenChromeMenu(undefined)
+  const [menuQuery, setMenuQuery] = useState('')
+  const commandItems = useMemo(
+    () => [
+      { label: 'Add text box', keywords: 'add text', action: () => handleAddBlock('text-box') },
+      { label: 'Add slide', keywords: 'new slide insert', action: handleAddSlide },
+      { label: 'Export PPTX', keywords: 'export', action: () => void onExportPptx() },
+      { label: 'Present', keywords: 'fullscreen present', action: startPresentation },
+      { label: 'Comments', keywords: 'comments thread', action: onOpenCommentsPanel },
+      { label: 'AI Assistant', keywords: 'assistant ai', action: onOpenAiPanel },
+      { label: 'Fit to window', keywords: 'fit zoom', action: handleFitToWindow },
+      { label: 'Save to Cloud', keywords: 'save cloud', action: onSaveToCloud },
+      { label: 'Load from Cloud', keywords: 'load cloud', action: onLoadFromCloud },
+    ],
+    [
+      handleAddBlock,
+      handleAddSlide,
+      handleFitToWindow,
+      onExportPptx,
+      onLoadFromCloud,
+      onOpenAiPanel,
+      onOpenCommentsPanel,
+      onSaveToCloud,
+      startPresentation,
+    ],
+  )
+  const filteredCommands = commandItems.filter((item) =>
+    `${item.label} ${item.keywords}`.toLowerCase().includes(menuQuery.trim().toLowerCase()),
+  )
 
   return (
     <div className="editor-chrome">
@@ -301,6 +362,30 @@ export function EditorMainChrome({
           <div className="editor-overflow-menu__popover editor-overflow-menu__popover--portal">
             <button
               type="button"
+              onClick={() => {
+                closeMenu()
+                onCreateDeck()
+              }}
+            >
+              New deck
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                onOpenDashboard()
+              }}
+            >
+              Open dashboard
+            </button>
+            <button type="button" onClick={() => { closeMenu(); onSaveToCloud() }}>
+              Save to Cloud
+            </button>
+            <button type="button" onClick={() => { closeMenu(); onLoadFromCloud() }}>
+              Load from Cloud
+            </button>
+            <button
+              type="button"
               disabled={isExportingPptx}
               onClick={() => {
                 closeMenu()
@@ -335,6 +420,18 @@ export function EditorMainChrome({
               }}
             >
               Alternate version
+            </button>
+            <button type="button" disabled title="Available soon">
+              Version history
+            </button>
+            <button type="button" disabled title="Available soon">
+              Move to trash
+            </button>
+            <button type="button" disabled title="Available soon">
+              Page setup
+            </button>
+            <button type="button" disabled title="Available soon">
+              Print
             </button>
           </div>
         </AnchoredMenu>
@@ -408,6 +505,29 @@ export function EditorMainChrome({
             >
               Delete
             </button>
+            <button
+              type="button"
+              disabled={selectedBlockCount === 0}
+              onClick={() => {
+                closeMenu()
+                copySelectedBlocks()
+                pasteClipboardBlocks()
+              }}
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                showToast('Use Shift+click or Ctrl/Cmd+A in canvas focus for full selection.', 'info')
+              }}
+            >
+              Select all
+            </button>
+            <button type="button" disabled title="Available soon">
+              Find and replace
+            </button>
           </div>
         </AnchoredMenu>
 
@@ -451,10 +571,52 @@ export function EditorMainChrome({
               type="button"
               onClick={() => {
                 closeMenu()
+                onSetZoom100()
+              }}
+            >
+              100%
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                setIsNotesOpen((current) => !current)
+              }}
+            >
+              {isNotesOpen ? 'Hide speaker notes' : 'Show speaker notes'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                setIsSlideRailVisible((current) => !current)
+              }}
+            >
+              {isSlideRailVisible ? 'Hide slide rail' : 'Show slide rail'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
                 setShowSources((current) => !current)
               }}
             >
               {showSources ? 'Hide sources' : 'Show sources'}
+            </button>
+            <button type="button" onClick={() => { closeMenu(); setShowGrid((current) => !current) }}>
+              {showGrid ? 'Hide grid' : 'Show grid'}
+            </button>
+            <button type="button" onClick={() => { closeMenu(); setShowGuides((current) => !current) }}>
+              {showGuides ? 'Hide guides' : 'Show guides'}
+            </button>
+            <button type="button" onClick={() => { closeMenu(); setSnapEnabled((current) => !current) }}>
+              {snapEnabled ? 'Snap off' : 'Snap on'}
+            </button>
+            <button type="button" disabled title="Available soon">
+              Show ruler
+            </button>
+            <button type="button" onClick={() => { closeMenu(); startPresentation() }}>
+              Fullscreen / present
             </button>
           </div>
         </AnchoredMenu>
@@ -468,6 +630,15 @@ export function EditorMainChrome({
         />
         <AnchoredMenu isOpen={openChromeMenu === 'insert'} triggerRef={insertMenuRef} align="start">
           <div className="editor-overflow-menu__popover editor-overflow-menu__popover--portal">
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                handleAddSlide()
+              }}
+            >
+              New slide
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -512,6 +683,21 @@ export function EditorMainChrome({
               }}
             >
               Chart
+            </button>
+            <button type="button" disabled title="Available soon">
+              Line
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                onOpenCommentsPanel()
+              }}
+            >
+              Comment
+            </button>
+            <button type="button" disabled title="Available soon">
+              Source citation
             </button>
           </div>
         </AnchoredMenu>
@@ -623,6 +809,46 @@ export function EditorMainChrome({
             >
               Align right
             </button>
+            <button
+              type="button"
+              disabled={!canApplyMenuTextFormat}
+              onClick={() => {
+                closeMenu()
+                onMenuTextStyleChange({ listStyle: 'bullet' })
+              }}
+            >
+              Bullets
+            </button>
+            <button
+              type="button"
+              disabled={!canApplyMenuTextFormat}
+              onClick={() => {
+                closeMenu()
+                onMenuTextStyleChange({ listStyle: 'number' })
+              }}
+            >
+              Numbering
+            </button>
+            <button
+              type="button"
+              disabled={!canApplyMenuTextFormat}
+              onClick={() => {
+                closeMenu()
+                onMenuTextStyleChange({ lineHeight: 1.4 })
+              }}
+            >
+              Line spacing
+            </button>
+            <button
+              type="button"
+              disabled={!canApplyMenuTextFormat}
+              onClick={() => {
+                closeMenu()
+                onMenuTextStyleChange({ verticalAlign: 'middle' })
+              }}
+            >
+              Vertical align
+            </button>
             <label className="editor-menu-bar__color-row">
               Text color
               <input
@@ -635,6 +861,9 @@ export function EditorMainChrome({
                 }}
               />
             </label>
+            <button type="button" disabled title="Available soon">
+              Clear formatting
+            </button>
           </div>
         </AnchoredMenu>
 
@@ -689,6 +918,18 @@ export function EditorMainChrome({
                 {preset.label}
               </button>
             ))}
+            <button type="button" disabled title="Available soon">
+              Skip slide
+            </button>
+            <button type="button" disabled title="Available soon">
+              Change background
+            </button>
+            <button type="button" disabled title="Available soon">
+              Change theme
+            </button>
+            <button type="button" disabled title="Available soon">
+              Transition
+            </button>
           </div>
         </AnchoredMenu>
 
@@ -775,6 +1016,15 @@ export function EditorMainChrome({
             >
               Send to back
             </button>
+            <button type="button" disabled={selectedBlockCount === 0} onClick={() => { closeMenu(); alignSelectedBlocks('center') }}>
+              Center on page
+            </button>
+            <button type="button" disabled title="Available soon">
+              Group
+            </button>
+            <button type="button" disabled title="Available soon">
+              Ungroup
+            </button>
           </div>
         </AnchoredMenu>
 
@@ -805,6 +1055,30 @@ export function EditorMainChrome({
             >
               Comments{commentThreadCount > 0 ? ` (${commentThreadCount})` : ''}
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                onOpenIntelReview()
+              }}
+            >
+              Open Intel Review
+            </button>
+            <button type="button" disabled title="Available soon">
+              Accessibility
+            </button>
+            <button type="button" disabled title="Available soon">
+              Preferences
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                showToast('Shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Y redo, Ctrl/Cmd+D duplicate.', 'info')
+              }}
+            >
+              Keyboard shortcuts
+            </button>
           </div>
         </AnchoredMenu>
 
@@ -817,6 +1091,9 @@ export function EditorMainChrome({
         />
         <AnchoredMenu isOpen={openChromeMenu === 'help'} triggerRef={helpMenuRef} align="start">
           <div className="editor-overflow-menu__popover editor-overflow-menu__popover--portal">
+            <button type="button" disabled title="Available soon">
+              Search menus / commands
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -829,11 +1106,55 @@ export function EditorMainChrome({
             >
               Keyboard shortcuts
             </button>
+            <button type="button" disabled title="Available soon">
+              App help
+            </button>
+            <button type="button" disabled title="Available soon">
+              Training / docs
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                showToast('Deckspace editor workspace.', 'info')
+              }}
+            >
+              About Deckspace
+            </button>
           </div>
         </AnchoredMenu>
       </nav>
 
       <div className="editor-toolstrip">
+        <div className="editor-toolstrip__group editor-toolstrip__group--commands">
+          <input
+            type="search"
+            className="editor-command-search"
+            placeholder="Menus"
+            value={menuQuery}
+            onChange={(event) => setMenuQuery(event.target.value)}
+            aria-label="Search commands"
+          />
+          {menuQuery.trim() ? (
+            <div className="editor-command-results">
+              {filteredCommands.slice(0, 8).map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => {
+                    item.action()
+                    setMenuQuery('')
+                    closeMenu()
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+              {filteredCommands.length === 0 ? <span>No commands found</span> : null}
+            </div>
+          ) : null}
+        </div>
+        <span className="editor-toolstrip__sep" aria-hidden />
         <div className="editor-toolstrip__group">
           <button
             type="button"
@@ -896,6 +1217,12 @@ export function EditorMainChrome({
             {commentThreadCount > 0 ? (
               <span className="editor-toolstrip__pill">{commentThreadCount}</span>
             ) : null}
+          </button>
+          <button type="button" title="Share deck" onClick={onShare}>
+            Share
+          </button>
+          <button type="button" title="Present slideshow" onClick={startPresentation}>
+            Present
           </button>
         </div>
       </div>
