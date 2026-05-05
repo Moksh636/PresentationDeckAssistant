@@ -1,4 +1,4 @@
-import type { DeckIntel, DeckSetup, FileAsset } from '../../types/models'
+import type { CompanyKnowledgeItem, DeckIntel, DeckSetup, FileAsset } from '../../types/models'
 import { useToast } from '../feedback/toastContext'
 import { aiClient } from '../../data/aiClient'
 import {
@@ -21,10 +21,17 @@ interface IntelReviewPanelProps {
   deckId: string
   setup: DeckSetup
   fileAssets: FileAsset[]
+  companyKnowledgeItems?: CompanyKnowledgeItem[]
   updateDeckSetup: (deckId: string, updates: Partial<DeckSetup>) => void
 }
 
-export function IntelReviewPanel({ deckId, setup, fileAssets, updateDeckSetup }: IntelReviewPanelProps) {
+export function IntelReviewPanel({
+  deckId,
+  setup,
+  fileAssets,
+  companyKnowledgeItems,
+  updateDeckSetup,
+}: IntelReviewPanelProps) {
   const { showToast } = useToast()
   const intel = setup.intel ?? {}
 
@@ -38,6 +45,7 @@ export function IntelReviewPanel({ deckId, setup, fileAssets, updateDeckSetup }:
       fileAssets,
       sourceTraces: collectSourceTracesFromAssets(fileAssets),
       webResearchEnabled: setup.webResearch,
+      companyKnowledgeItems,
     })
     const merged = mergeIntelDraftWithExisting(intel, response.intel)
     updateDeckSetup(deckId, { intel: merged })

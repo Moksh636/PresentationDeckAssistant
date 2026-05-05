@@ -74,7 +74,8 @@ This workspace should be initialized as a Git repository before connecting to Gi
 3. Keep `SUPABASE_SERVICE_ROLE_KEY` only in backend/serverless environments.
 4. Review `supabase/migrations/0001_foundation.sql` before applying it.
 5. Apply `supabase/migrations/0002_workspace_snapshots.sql` for the `workspace_snapshots` table and RLS tied to `auth.uid()`.
-6. Add real row-level policies for normalized tables when collaboration rules are ready.
+6. Apply `supabase/migrations/0003_company_brain.sql` for the **Company Brain** relational scaffold (organizations, memberships, knowledge folders/items, brand kit, messaging snippets, case studies, product/service bullets, activity logs).
+7. Add real row-level policies for normalized tables when collaboration rules are ready.
 
 The browser client is `src/data/supabaseClient.ts` and uses only the public anon key.
 
@@ -115,6 +116,18 @@ Public buckets still require **insert/update** policies for authenticated users;
 - **Signed in with Supabase:** the build flow uploads each selected file to `source-files` when possible and stores a `storage` reference on the `FileAsset`. The editor uploads slide images to `deck-assets` and prefers the cloud URL for `SlideImageAsset.dataUrl`. If Storage is missing, misconfigured, or the upload fails, the app **falls back** to the previous local-only behavior and shows an informational toast.
 
 Helpers live in `src/data/workspaceStorage.ts` (`uploadWorkspaceAsset`, `getWorkspaceAssetUrl`, `deleteWorkspaceAsset`). Existing workspace JSON and localStorage data are **not** auto-migrated to buckets.
+
+### Company Brain (org memory scaffold)
+
+Deckspace ships a lightweight **company workspace / knowledge library** scaffold so reps can accumulate shared narratives, proofs, approvals, brand defaults, offerings, and case studies locally while Supabase relational tables mature.
+
+- **Frontend route**: `/company` (**Company Brain** in the sidebar) hosts tabs for overview, knowledge, review queue, brand kit, messaging, casework, catalogs, membership, and an activity timeline.
+- **Local/mock behavior**: all Company Brain payloads live inside the existing `workspace` JSON persisted to `localStorage` (same as decks). Older snapshots **auto-normalize**: missing `workspace.companyBrain` backfills empty arrays/objects so nothing breaks offline.
+- **Role-aware retrieval (mock heuristic)**: `getRelevantCompanyKnowledgeForUser` ranks knowledge items during the **Build Pitch Deck** flow using approval flags, visibility, department/title matchers, deck brief keywords (target company / buyer persona / offerings), tags, and source types. No embeddings / no vector search yet.
+- **Intel Review integration**: when you toggle knowledge selections in Build, `/generate-intel-review` mocks include those excerpts in local intel drafts via `generateIntelDraftFromSources`, and citations only hydrate when linked `FileAsset` traces exist.
+- **Supabase rollout**: migrations `supabase/migrations/0003_company_brain.sql` define the Postgres tables plus RLS aligned to owners/admins/members. Wired cloud sync UI + policies can land later without changing the UX contract modeled here.
+
+> **Important:** there are still **no paid AI APIs**, **no Stripe billing**, **no embeddings / vector search**, and **no OCR / parsing pipelines** bundled with this scaffold—purposefully safe for prototyping.
 
 ### Auth and workspace snapshots
 
@@ -183,7 +196,9 @@ Future AI provider integration should use **Supabase Function Secrets** (server-
 - `src/data/deckGenerator.ts`  
   Deterministic mock slide generation.
 - `src/pages/*`  
-  Dashboard, build, editor, auth.
+  Dashboard, build, editor, auth, `/company`.
+- `src/pages/CompanyBrainPage.tsx`  
+  Company Brain workspace scaffold (tabs, mock CRUD, activity log).
 - `src/components/editor/*`  
   Slide editing, comments, Present Mode, export.
 - `src/data/pptxExport.ts`  

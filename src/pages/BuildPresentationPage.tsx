@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CompanyKnowledgeSuggestPanel } from '../components/builder/CompanyKnowledgeSuggestPanel'
 import { ChartSuggestionsPanel } from '../components/builder/ChartSuggestionsPanel'
 import { IntelReviewPanel } from '../components/builder/IntelReviewPanel'
 import { SourceMaterialsSummary } from '../components/builder/SourceMaterialsSummary'
@@ -7,7 +8,11 @@ import { SourceUploadDropzone } from '../components/builder/SourceUploadDropzone
 import { ToggleField } from '../components/builder/ToggleField'
 import { UploadedFileList } from '../components/builder/UploadedFileList'
 import { CommentsPanel } from '../components/collaboration/CommentsPanel'
+import { useAuth } from '../context/useAuth'
 import { useWorkspace } from '../context/useWorkspace'
+import { getMembershipForOrgUser } from '../data/companyBrainMutations'
+import { getRelevantCompanyKnowledgeForUser } from '../data/companyKnowledgeRetrieval'
+import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import {
   canCollaboratorCommentOnSetup,
   canCollaboratorUpload,
@@ -104,6 +109,11 @@ function deckTypeSelectOptions(currentValue: string): string[] {
 
 export function BuildPresentationPage() {
   const navigate = useNavigate()
+  const { user, isLocalDevBypass } = useAuth()
+  const profile = useMemo(
+    () => workspaceUserProfileFromAuth(user ?? null, isLocalDevBypass),
+    [user, isLocalDevBypass],
+  )
   const [isGenerating, setIsGenerating] = useState(false)
   const [uploadRole, setUploadRole] = useState<FileContributorRole>('owner')
   const [commentRole, setCommentRole] = useState<FileContributorRole>('owner')
@@ -123,6 +133,50 @@ export function BuildPresentationPage() {
 
   const activeDeck =
     workspace.decks.find((deck) => deck.id === workspace.activeDeckId) ?? workspace.decks[0]
+
+  const organizationId =
+    workspace.companyBrain.activeOrganizationId ||
+    workspace.companyBrain.organizations[0]?.id ||
+    ''
+
+  const membership = useMemo(
+    () =>
+      organizationId
+        ? getMembershipForOrgUser(workspace, organizationId, profile.userId)
+        : undefined,
+    [workspace, organizationId, profile.userId],
+  )
+
+  const companyKnowledgeSuggestions = useMemo(() => {
+    if (!organizationId || !activeDeck) {
+      return []
+    }
+
+    return getRelevantCompanyKnowledgeForUser({
+      organizationId,
+      userRoleTitle: membership?.roleTitle ?? '',
+      department: membership?.department ?? '',
+      accessRole: membership?.accessRole ?? 'viewer',
+      currentUserId: profile.userId,
+      deckSetup: activeDeck.setup,
+      knowledgeItems: workspace.companyBrain.knowledgeItems,
+    })
+  }, [organizationId, membership, profile.userId, workspace.companyBrain.knowledgeItems, activeDeck])
+
+  const selectedCompanyKnowledgeItems = useMemo(() => {
+    if (!activeDeck) {
+      return undefined
+    }
+
+    const ids = activeDeck.setup.selectedCompanyKnowledgeItemIds ?? []
+
+    if (!ids.length) {
+      return undefined
+    }
+
+    const known = new Set(ids)
+    return workspace.companyBrain.knowledgeItems.filter((item) => known.has(item.id))
+  }, [activeDeck, workspace.companyBrain.knowledgeItems])
   const activeProject = workspace.projects.find((project) => project.id === activeDeck?.projectId)
   const deckAssets = workspace.fileAssets.filter((asset) => asset.deckId === activeDeck?.id)
   const chartSuggestions = workspace.chartSuggestions
@@ -419,8 +473,9 @@ export function BuildPresentationPage() {
             <details className="builder-details builder-details--muted">
               <summary>Brand and message library</summary>
               <p className="muted-copy" style={{ marginTop: '10px' }}>
-                Brand kit, approved messaging, case studies, and product screenshots can be managed from
-                the company workspace as this area expands.
+                Manage shared brand cues, narratives, proof, and case studies from{' '}
+                <strong>Company Brain</strong>—local/mock for now, with Supabase tables ready for relational
+                sync.
               </p>
               <div className="form-grid" style={{ marginTop: '14px', opacity: 0.72 }}>
                 <label className="field-group">
@@ -458,10 +513,18 @@ export function BuildPresentationPage() {
             </details>
           </div>
 
+          <CompanyKnowledgeSuggestPanel
+            deckId={activeDeck.id}
+            setup={setup}
+            suggestions={companyKnowledgeSuggestions}
+            updateDeckSetup={updateDeckSetup}
+          />
+
           <IntelReviewPanel
             deckId={activeDeck.id}
             setup={setup}
             fileAssets={deckAssets}
+            companyKnowledgeItems={selectedCompanyKnowledgeItems}
             updateDeckSetup={updateDeckSetup}
           />
 

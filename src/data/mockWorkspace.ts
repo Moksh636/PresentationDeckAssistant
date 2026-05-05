@@ -1,4 +1,5 @@
 import type { Deck, DeckVersion, WorkspaceState, Slide, FileAsset, Comment, Project } from '../types/models'
+import { createEmptyCompanyBrainWorkspaceSlice } from './companyBrainNormalize'
 import { createChartSuggestionsFromFiles } from './chartSuggestions'
 import {
   COLLABORATOR_USER_NAME,
@@ -322,5 +323,6 @@ export function seedWorkspaceState(): WorkspaceState {
     chartSuggestions: createChartSuggestionsFromFiles(fileAssets),
     comments: buildSeedComments(slides),
     deckVersions: buildSeedVersions(decksWithAssets, slides),
+    companyBrain: createEmptyCompanyBrainWorkspaceSlice(),
   }
 }

@@ -227,6 +227,13 @@ export function normalizeDeckSetup(rawSetup: Record<string, unknown>): DeckSetup
     setup.caseStudyIds = caseStudyIds
   }
 
+  const selectedCompanyKnowledgeItemIds = normalizeScreenshotAssetIdsForDeck(
+    rawSetup.selectedCompanyKnowledgeItemIds,
+  )
+  if (selectedCompanyKnowledgeItemIds) {
+    setup.selectedCompanyKnowledgeItemIds = selectedCompanyKnowledgeItemIds
+  }
+
   const intel = normalizeIntel(rawSetup.intel)
   if (intel) {
     setup.intel = intel

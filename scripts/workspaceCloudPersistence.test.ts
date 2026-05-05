@@ -4,6 +4,7 @@ import {
   loadWorkspaceSnapshot,
   saveWorkspaceSnapshot,
 } from '../src/data/workspaceCloudPersistence.ts'
+import { createEmptyCompanyBrainWorkspaceSlice } from '../src/data/companyBrainNormalize.ts'
 import type { WorkspaceState } from '../src/types/models.ts'
 
 const workspace: WorkspaceState = {
@@ -15,6 +16,7 @@ const workspace: WorkspaceState = {
   chartSuggestions: [],
   comments: [],
   deckVersions: [],
+  companyBrain: createEmptyCompanyBrainWorkspaceSlice(),
 }
 
 assert.deepEqual(getCloudPersistenceStatus({ isConfigured: false, userId: 'user-1' }), {

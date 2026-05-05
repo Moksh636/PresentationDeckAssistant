@@ -4,6 +4,17 @@ import type { ManualBlockKind } from '../data/slideLayout'
 import type { SlideLayoutPreset } from '../data/slideLayoutPresets'
 import type { WorkspaceLibraryItemType } from '../data/workspaceLibrary'
 import type {
+  CompleteCompanyOnboardingInput,
+  UpsertKnowledgeItemInput,
+} from '../data/companyBrainMutations'
+import type {
+  ApprovedMessagingItem,
+  CaseStudyItem,
+  CompanyBrandKit,
+  KnowledgeApprovalStatus,
+  KnowledgeFolder,
+  OrganizationMembership,
+  ProductServiceItem,
   Deck,
   DeckSetup,
   FileContributorRole,
@@ -120,6 +131,51 @@ export interface WorkspaceContextValue {
   updateSlideNotes: (slideId: string, notes: string) => void
   applyAiEditPlan: (deckId: string, plan: AiEditPlan) => void
   createAlternateVersion: (deckId: string) => void
+  dismissCompanyOnboarding: () => void
+  setCompanyActiveOrganization: (organizationId: string) => void
+  completeCompanyBrainOnboarding: (input: CompleteCompanyOnboardingInput) => void
+  upsertCompanyKnowledgeFolder: (organizationId: string, folder: Pick<KnowledgeFolder, 'name'> & { id?: string }) => void
+  upsertCompanyKnowledgeItem: (organizationId: string, input: UpsertKnowledgeItemInput) => void
+  deleteCompanyKnowledgeItem: (organizationId: string, itemId: string) => void
+  setCompanyKnowledgeApproval: (
+    organizationId: string,
+    itemId: string,
+    approvalStatus: KnowledgeApprovalStatus,
+    detail?: string,
+  ) => void
+  markCompanyKnowledgeReviewed: (organizationId: string, itemId: string) => void
+  upsertCompanyBrandKit: (
+    organizationId: string,
+    input: Partial<
+      Pick<
+        CompanyBrandKit,
+        'primaryColor' | 'secondaryColor' | 'accentColor' | 'fontFamily' | 'defaultDeckTone' | 'logoAssetId'
+      >
+    > & { id?: string },
+  ) => void
+  upsertCompanyApprovedMessaging: (
+    organizationId: string,
+    input: Pick<ApprovedMessagingItem, 'title' | 'content' | 'category' | 'tags' | 'approvalStatus'> & {
+      id?: string
+    },
+  ) => void
+  deleteCompanyApprovedMessaging: (organizationId: string, messageId: string) => void
+  upsertCompanyCaseStudy: (
+    organizationId: string,
+    input: Omit<CaseStudyItem, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => void
+  deleteCompanyCaseStudy: (organizationId: string, caseStudyId: string) => void
+  upsertCompanyProductService: (
+    organizationId: string,
+    input: Omit<ProductServiceItem, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => void
+  deleteCompanyProductService: (organizationId: string, productId: string) => void
+  addCompanyMember: (
+    organizationId: string,
+    member: Omit<OrganizationMembership, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'> & {
+      id?: string
+    },
+  ) => void
 }
 
 export const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)

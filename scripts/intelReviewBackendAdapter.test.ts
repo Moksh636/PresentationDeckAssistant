@@ -4,7 +4,10 @@ import {
   sanitizeIntelReviewRequest,
   sanitizeSourceTraces,
 } from '../supabase/functions/_shared/intelReviewShared.ts'
-import { generateIntelReviewWithFallback } from '../src/data/intelReviewBackendFallback.ts'
+import {
+  type GenerateIntelReviewRequest,
+  generateIntelReviewWithFallback,
+} from '../src/data/intelReviewBackendFallback.ts'
 
 assert.throws(() => sanitizeIntelReviewRequest({}), /setup is required/i)
 
@@ -65,7 +68,7 @@ const baseSetup = {
   knownPainPoints: ['Fuel variance'],
 }
 
-const request = { setup: baseSetup, fileAssets: [] }
+const request: GenerateIntelReviewRequest = { setup: baseSetup, fileAssets: [] }
 const previousFlag = process.env.VITE_AI_BACKEND_ENABLED
 
 const invokeBackendThrows = async () => {
@@ -73,11 +76,11 @@ const invokeBackendThrows = async () => {
 }
 
 process.env.VITE_AI_BACKEND_ENABLED = 'false'
-const disabled = await generateIntelReviewWithFallback(request as any, { invokeBackend: invokeBackendThrows })
+const disabled = await generateIntelReviewWithFallback(request, { invokeBackend: invokeBackendThrows })
 assert.equal(disabled.warnings.length, 0)
 
 process.env.VITE_AI_BACKEND_ENABLED = 'true'
-const enabledAndMissingSupabase = await generateIntelReviewWithFallback(request as any, {
+const enabledAndMissingSupabase = await generateIntelReviewWithFallback(request, {
   invokeBackend: invokeBackendThrows,
 })
 assert.equal(enabledAndMissingSupabase.warnings.length, 1)

@@ -8,6 +8,7 @@ import {
   sortWorkspaceLibraryItems,
   trashWorkspaceItem,
 } from '../src/data/workspaceLibrary.ts'
+import { createEmptyCompanyBrainWorkspaceSlice } from '../src/data/companyBrainNormalize.ts'
 import type { WorkspaceState } from '../src/types/models.ts'
 
 const workspace: WorkspaceState = {
@@ -130,6 +131,7 @@ const workspace: WorkspaceState = {
   chartSuggestions: [],
   comments: [],
   deckVersions: [],
+  companyBrain: createEmptyCompanyBrainWorkspaceSlice(),
 }
 
 const allItems = buildWorkspaceLibraryItems(workspace)

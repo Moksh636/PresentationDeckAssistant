@@ -14,6 +14,7 @@ import { supabase } from './supabaseClient.ts'
 import { generateIntelReviewWithFallback as generateIntelReviewWithFallbackBase } from './intelReviewBackendFallback.ts'
 import type {
   ChartSuggestion,
+  CompanyKnowledgeItem,
   Deck,
   DeckIntel,
   DeckSetup,
@@ -49,6 +50,7 @@ export interface GenerateIntelReviewRequest {
   fileAssets: FileAsset[]
   sourceTraces?: SourceTrace[]
   webResearchEnabled?: boolean
+  companyKnowledgeItems?: CompanyKnowledgeItem[]
 }
 
 export interface GenerateIntelReviewResponse {

@@ -59,6 +59,12 @@ assert.equal(rich.brandKitId, 'brand-1')
 assert.deepEqual(rich.knownPainPoints, ['Latency', 'Cost'])
 assert.deepEqual(rich.approvedMessagingIds, ['m1', 'm2'])
 assert.deepEqual(rich.caseStudyIds, ['c1'])
+
+const brainSelection = normalizeDeckSetup({
+  ...legacySetup,
+  selectedCompanyKnowledgeItemIds: ['cb-1', '', 'cb-2'],
+})
+assert.deepEqual(brainSelection.selectedCompanyKnowledgeItemIds, ['cb-1', 'cb-2'])
 assert.ok(rich.intel)
 assert.equal(rich.intel.companySummary, 'Enterprise SaaS')
 assert.deepEqual(rich.intel.inferredPriorities, ['Speed', 'Security'])

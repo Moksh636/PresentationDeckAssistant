@@ -6,6 +6,7 @@ import { RootRedirect } from './components/auth/RootRedirect'
 import { AuthProvider } from './context/AuthContext'
 import { WorkspaceProvider } from './context/WorkspaceContext'
 import { BuildPresentationPage } from './pages/BuildPresentationPage'
+import { CompanyBrainPage } from './pages/CompanyBrainPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { EditPresentationPage } from './pages/EditPresentationPage'
 import { AuthPage } from './pages/AuthPage'
@@ -21,6 +22,7 @@ function App() {
             <Route element={<ProtectedLayout />}>
               <Route element={<AppShell />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/company" element={<CompanyBrainPage />} />
                 <Route path="/build" element={<BuildPresentationPage />} />
                 <Route path="/edit" element={<EditPresentationPage />} />
               </Route>

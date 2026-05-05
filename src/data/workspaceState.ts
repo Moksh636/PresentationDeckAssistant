@@ -4,6 +4,7 @@ import { normalizeDeckSetup, normalizeScreenshotAssetIdsForDeck } from './deckSe
 import { normalizeSlideBlock } from './slideLayout'
 import { normalizeWorkspaceAssetStorageRef } from './workspaceStorage'
 import { createMockFileAsset, normalizeSourceTrace } from './sourceIngestion'
+import { normalizeCompanyBrainWorkspaceSlice } from './companyBrainNormalize'
 import type {
   ChartSuggestion,
   ChartSuggestionStatus,
@@ -415,5 +416,8 @@ export function normalizeWorkspaceState(state: WorkspaceState | RawWorkspaceStat
           normalizeDeckVersion(version as DeckVersion | Record<string, unknown>),
         )
       : [],
+    companyBrain: normalizeCompanyBrainWorkspaceSlice(
+      (state as Record<string, unknown>).companyBrain,
+    ),
   }
 }

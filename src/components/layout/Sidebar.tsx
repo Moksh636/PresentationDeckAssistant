@@ -53,6 +53,12 @@ export function Sidebar({ variant = 'full' }: SidebarProps) {
           </span>
           <span className="sidebar__nav-text">Build pitch deck</span>
         </NavLink>
+        <NavLink to="/company" className="sidebar__nav-link" title="Company Brain">
+          <span className="sidebar__nav-icon" aria-hidden="true">
+            C
+          </span>
+          <span className="sidebar__nav-text">Company Brain</span>
+        </NavLink>
         <NavLink to="/edit" className="sidebar__nav-link" title="Edit deck">
           <span className="sidebar__nav-icon" aria-hidden="true">
             E

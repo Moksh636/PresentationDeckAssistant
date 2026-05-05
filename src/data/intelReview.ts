@@ -1,4 +1,4 @@
-import type { DeckIntel, DeckSetup, FileAsset, SourceTrace } from '../types/models'
+import type { CompanyKnowledgeItem, DeckIntel, DeckSetup, FileAsset, SourceTrace } from '../types/models'
 
 function meetingGoalText(setup: DeckSetup): string {
   const m = setup.meetingGoal?.trim()
@@ -37,11 +37,20 @@ export function collectSourceTracesFromAssets(assets: FileAsset[], max = 12): So
   return out
 }
 
+export interface IntelDraftGenerationOptions {
+  /** Company Brain items included for this pitch; only file-linked items can add citations. */
+  companyKnowledgeItems?: CompanyKnowledgeItem[]
+}
+
 /**
  * Mock/local intel draft from pitch brief + file metadata (no web scrape, no AI).
  * Citations are only populated when real traces exist on assets.
  */
-export function generateIntelDraftFromSources(setup: DeckSetup, assets: FileAsset[]): DeckIntel {
+export function generateIntelDraftFromSources(
+  setup: DeckSetup,
+  assets: FileAsset[],
+  options: IntelDraftGenerationOptions = {},
+): DeckIntel {
   const company = setup.targetCompany?.trim()
   const buyer = (setup.buyerPersona ?? setup.audience).trim()
   const offering = setup.offeringSummary?.trim()
@@ -98,6 +107,17 @@ export function generateIntelDraftFromSources(setup: DeckSetup, assets: FileAsse
     }
   }
 
+  const knowledgeItems = options.companyKnowledgeItems ?? []
+  for (const item of knowledgeItems.slice(0, 8)) {
+    const excerpt = item.description?.trim() || item.tags.join(', ')
+    if (excerpt) {
+      const clipped = excerpt.length > 220 ? `${excerpt.slice(0, 220)}…` : excerpt
+      proofPoints.push(`[Company Brain] ${item.title}: ${clipped}`)
+    } else {
+      proofPoints.push(`[Company Brain] ${item.title} (${item.sourceType})`)
+    }
+  }
+
   if (proofPoints.length === 0) {
     proofPoints.push('Upload parsed sources to surface proof-ready snippets here.')
   }
@@ -114,7 +134,26 @@ export function generateIntelDraftFromSources(setup: DeckSetup, assets: FileAsse
         ? `Anchor the narrative on the meeting goal: ${goal}`
         : 'Open with account-specific context, then align proof to the buyer’s top initiative.'
 
-  const traces = collectSourceTracesFromAssets(assets)
+  const linkedAssetIds = new Set(
+    knowledgeItems.map((item) => item.fileAssetId).filter((id): id is string => Boolean(id)),
+  )
+  const linkedAssets = linkedAssetIds.size > 0 ? assets.filter((a) => linkedAssetIds.has(a.id)) : []
+
+  const tracesFromUploads = collectSourceTracesFromAssets(assets)
+  const tracesFromLinkedKnowledge =
+    linkedAssets.length > 0 ? collectSourceTracesFromAssets(linkedAssets) : []
+  const mergedTraces = [...tracesFromUploads]
+  const seenKeys = new Set(tracesFromUploads.map(traceDedupeKey))
+  for (const trace of tracesFromLinkedKnowledge) {
+    const key = traceDedupeKey(trace)
+    if (seenKeys.has(key)) {
+      continue
+    }
+    seenKeys.add(key)
+    mergedTraces.push(trace)
+  }
+
+  const traces = mergedTraces
   const intel: DeckIntel = {
     companySummary,
     inferredPriorities,

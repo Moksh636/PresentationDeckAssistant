@@ -75,6 +75,8 @@ export interface DeckSetup {
   brandKitId?: string
   approvedMessagingIds?: string[]
   caseStudyIds?: string[]
+  /** Company Brain: knowledge item ids included as context for this pitch (local/mock). */
+  selectedCompanyKnowledgeItemIds?: string[]
 }
 
 export type SetupFieldKey = keyof DeckSetup
@@ -291,6 +293,179 @@ export interface DeckVersion {
   slideSnapshot: Slide[]
 }
 
+/** Company Brain (shared organizational memory scaffolding; local/mock + future Supabase). */
+export type MembershipAccessRole = 'owner' | 'admin' | 'member' | 'viewer'
+export type CompanyRole = MembershipAccessRole
+export type CompanyDepartment = string
+export type KnowledgeApprovalStatus = 'approved' | 'needs-review' | 'rejected' | 'archived'
+
+export interface KnowledgeVisibilityRule {
+  scope: KnowledgeVisibilityScope
+  allowedDepartments?: CompanyDepartment[]
+  allowedRoleTitles?: string[]
+}
+
+export type KnowledgeVisibilityScope = 'company' | 'department' | 'role' | 'private'
+
+export type CompanyKnowledgeSourceType =
+  | 'contract'
+  | 'deck'
+  | 'proposal'
+  | 'notes'
+  | 'case-study'
+  | 'product-doc'
+  | 'policy'
+  | 'transcript'
+  | 'other'
+
+export interface KnowledgeTag {
+  id: string
+  label: string
+}
+
+export interface Organization {
+  id: string
+  name: string
+  slug: string
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OrganizationMembership {
+  id: string
+  organizationId: string
+  userId: string
+  email: string
+  displayName: string
+  roleTitle: string
+  department: CompanyDepartment
+  accessRole: MembershipAccessRole
+  createdAt: string
+  updatedAt: string
+}
+
+export interface KnowledgeFolder {
+  id: string
+  organizationId: string
+  name: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CompanyKnowledgeItem {
+  id: string
+  organizationId: string
+  folderId?: string
+  uploadedByUserId: string
+  title: string
+  description: string
+  fileAssetId?: string
+  sourceType: CompanyKnowledgeSourceType
+  tags: string[]
+  approvalStatus: KnowledgeApprovalStatus
+  visibility: KnowledgeVisibilityScope
+  allowedDepartments?: string[]
+  allowedRoleTitles?: string[]
+  createdAt: string
+  updatedAt: string
+  lastReviewedAt?: string
+}
+
+export interface CompanyBrandKit {
+  id: string
+  organizationId: string
+  logoAssetId?: string
+  primaryColor: string
+  secondaryColor: string
+  accentColor: string
+  fontFamily: string
+  defaultDeckTone: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApprovedMessagingItem {
+  id: string
+  organizationId: string
+  title: string
+  content: string
+  category: string
+  tags: string[]
+  approvalStatus: KnowledgeApprovalStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CaseStudyItem {
+  id: string
+  organizationId: string
+  title: string
+  customerName: string
+  industry: string
+  challenge: string
+  solution: string
+  outcome: string
+  approvedQuote?: string
+  sourceKnowledgeItemIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProductServiceItem {
+  id: string
+  organizationId: string
+  name: string
+  description: string
+  targetBuyer: string
+  keyBenefits: string[]
+  proofPoints: string[]
+  commonObjections: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type CompanyActivityKind =
+  | 'knowledge-item-created'
+  | 'knowledge-item-approved'
+  | 'knowledge-item-rejected'
+  | 'brand-kit-updated'
+  | 'approved-messaging-added'
+  | 'case-study-added'
+  | 'product-service-added'
+  | 'member-added'
+
+export interface CompanyActivityLog {
+  id: string
+  organizationId: string
+  actorUserId: string
+  kind: CompanyActivityKind
+  detail: string
+  createdAt: string
+}
+
+export interface CompanyBrainOnboardingDraft {
+  dismissed: boolean
+  companyName?: string
+  roleTitle?: string
+  department?: CompanyDepartment
+  setupCompletedAt?: string
+}
+
+export interface CompanyBrainWorkspaceSlice {
+  activeOrganizationId: string
+  organizations: Organization[]
+  organizationMemberships: OrganizationMembership[]
+  knowledgeFolders: KnowledgeFolder[]
+  knowledgeItems: CompanyKnowledgeItem[]
+  brandKits: CompanyBrandKit[]
+  approvedMessaging: ApprovedMessagingItem[]
+  caseStudies: CaseStudyItem[]
+  productsServices: ProductServiceItem[]
+  activityLogs: CompanyActivityLog[]
+  onboarding: CompanyBrainOnboardingDraft
+}
+
 export interface WorkspaceState {
   activeDeckId: string
   projects: Project[]
@@ -300,4 +475,5 @@ export interface WorkspaceState {
   chartSuggestions: ChartSuggestion[]
   comments: Comment[]
   deckVersions: DeckVersion[]
+  companyBrain: CompanyBrainWorkspaceSlice
 }

@@ -29,7 +29,26 @@ import {
 } from '../data/slideLayout'
 import { createSlideFromLayoutPreset } from '../data/slideLayoutPresets'
 import { supabase } from '../data/supabaseClient'
+import {
+  addOrganizationMember,
+  completeCompanyOnboarding,
+  deleteApprovedMessaging,
+  deleteCaseStudy,
+  deleteCompanyKnowledgeItem as applyDeleteCompanyKnowledgeItem,
+  deleteProductService,
+  dismissCompanyOnboarding as applyDismissCompanyOnboarding,
+  markKnowledgeReviewed,
+  setActiveOrganization,
+  setKnowledgeApproval,
+  upsertApprovedMessaging,
+  upsertBrandKit,
+  upsertCaseStudy,
+  upsertCompanyKnowledgeItem,
+  upsertKnowledgeFolder,
+  upsertProductService,
+} from '../data/companyBrainMutations'
 import { normalizeWorkspaceState } from '../data/workspaceState'
+import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import {
   WORKSPACE_STORAGE_BUCKETS,
   buildWorkspaceStoragePath,
@@ -1656,6 +1675,124 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     })
   }
 
+  const resolveActorProfile = () => workspaceUserProfileFromAuth(user ?? null, isLocalDevBypass)
+
+  const dismissCompanyOnboarding: WorkspaceContextValue['dismissCompanyOnboarding'] = () => {
+    commitWorkspace((current) => applyDismissCompanyOnboarding(current))
+  }
+
+  const setCompanyActiveOrganization: WorkspaceContextValue['setCompanyActiveOrganization'] = (
+    organizationId,
+  ) => {
+    commitWorkspace((current) => setActiveOrganization(current, organizationId))
+  }
+
+  const completeCompanyBrainOnboarding: WorkspaceContextValue['completeCompanyBrainOnboarding'] = (
+    input,
+  ) => {
+    commitWorkspace((current) => completeCompanyOnboarding(current, input, resolveActorProfile()))
+  }
+
+  const upsertCompanyKnowledgeFolder: WorkspaceContextValue['upsertCompanyKnowledgeFolder'] = (
+    organizationId,
+    folder,
+  ) => {
+    commitWorkspace((current) => upsertKnowledgeFolder(current, organizationId, folder))
+  }
+
+  const upsertCompanyKnowledgeItemMutation: WorkspaceContextValue['upsertCompanyKnowledgeItem'] = (
+    organizationId,
+    input,
+  ) => {
+    commitWorkspace((current) =>
+      upsertCompanyKnowledgeItem(current, organizationId, resolveActorProfile(), input),
+    )
+  }
+
+  const deleteCompanyKnowledgeItemMutation: WorkspaceContextValue['deleteCompanyKnowledgeItem'] = (
+    organizationId,
+    itemId,
+  ) => {
+    commitWorkspace((current) => applyDeleteCompanyKnowledgeItem(current, organizationId, itemId))
+  }
+
+  const setCompanyKnowledgeApproval: WorkspaceContextValue['setCompanyKnowledgeApproval'] = (
+    organizationId,
+    itemId,
+    approvalStatus,
+    detail,
+  ) => {
+    commitWorkspace((current) =>
+      setKnowledgeApproval(current, organizationId, resolveActorProfile(), itemId, approvalStatus, detail),
+    )
+  }
+
+  const markCompanyKnowledgeReviewed: WorkspaceContextValue['markCompanyKnowledgeReviewed'] = (
+    organizationId,
+    itemId,
+  ) => {
+    commitWorkspace((current) => markKnowledgeReviewed(current, organizationId, itemId))
+  }
+
+  const upsertCompanyBrandKit: WorkspaceContextValue['upsertCompanyBrandKit'] = (
+    organizationId,
+    input,
+  ) => {
+    commitWorkspace((current) => upsertBrandKit(current, organizationId, resolveActorProfile(), input))
+  }
+
+  const upsertCompanyApprovedMessaging: WorkspaceContextValue['upsertCompanyApprovedMessaging'] = (
+    organizationId,
+    input,
+  ) => {
+    commitWorkspace((current) =>
+      upsertApprovedMessaging(current, organizationId, resolveActorProfile(), input),
+    )
+  }
+
+  const deleteCompanyApprovedMessaging: WorkspaceContextValue['deleteCompanyApprovedMessaging'] = (
+    organizationId,
+    messageId,
+  ) => {
+    commitWorkspace((current) => deleteApprovedMessaging(current, organizationId, messageId))
+  }
+
+  const upsertCompanyCaseStudy: WorkspaceContextValue['upsertCompanyCaseStudy'] = (
+    organizationId,
+    input,
+  ) => {
+    commitWorkspace((current) => upsertCaseStudy(current, organizationId, resolveActorProfile(), input))
+  }
+
+  const deleteCompanyCaseStudy: WorkspaceContextValue['deleteCompanyCaseStudy'] = (
+    organizationId,
+    caseStudyId,
+  ) => {
+    commitWorkspace((current) => deleteCaseStudy(current, organizationId, caseStudyId))
+  }
+
+  const upsertCompanyProductService: WorkspaceContextValue['upsertCompanyProductService'] = (
+    organizationId,
+    input,
+  ) => {
+    commitWorkspace((current) =>
+      upsertProductService(current, organizationId, resolveActorProfile(), input),
+    )
+  }
+
+  const deleteCompanyProductService: WorkspaceContextValue['deleteCompanyProductService'] = (
+    organizationId,
+    productId,
+  ) => {
+    commitWorkspace((current) => deleteProductService(current, organizationId, productId))
+  }
+
+  const addCompanyMember: WorkspaceContextValue['addCompanyMember'] = (organizationId, member) => {
+    commitWorkspace((current) =>
+      addOrganizationMember(current, organizationId, resolveActorProfile(), member),
+    )
+  }
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -1711,6 +1848,22 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         updateSlideNotes,
         applyAiEditPlan,
         createAlternateVersion,
+        dismissCompanyOnboarding,
+        setCompanyActiveOrganization,
+        completeCompanyBrainOnboarding,
+        upsertCompanyKnowledgeFolder,
+        upsertCompanyKnowledgeItem: upsertCompanyKnowledgeItemMutation,
+        deleteCompanyKnowledgeItem: deleteCompanyKnowledgeItemMutation,
+        setCompanyKnowledgeApproval,
+        markCompanyKnowledgeReviewed,
+        upsertCompanyBrandKit,
+        upsertCompanyApprovedMessaging,
+        deleteCompanyApprovedMessaging,
+        upsertCompanyCaseStudy,
+        deleteCompanyCaseStudy,
+        upsertCompanyProductService,
+        deleteCompanyProductService,
+        addCompanyMember,
       }}
     >
       {children}

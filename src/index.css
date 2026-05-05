@@ -5693,3 +5693,261 @@ select:focus-visible {
     box-shadow: none;
   }
 }
+
+/* --- Company Brain (local/mock workspace) --- */
+.company-setup-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(21, 25, 32, 0.45);
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 3vw, 28px);
+  z-index: 70;
+}
+
+.company-setup-modal {
+  width: min(520px, 100%);
+  padding: clamp(18px, 3vw, 26px);
+  border-radius: var(--radius-xl);
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.company-setup-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.page--company {
+  max-width: var(--content-max);
+  padding: clamp(18px, 4vw, 28px);
+  margin: 0 auto;
+}
+
+.company-brain-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.company-brain-org-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.company-brain-org-select select {
+  min-width: 220px;
+  height: var(--control-height);
+}
+
+.company-brain-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.company-brain-tabs button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.company-brain-tabs button.is-active {
+  color: var(--ink);
+  background: var(--panel-muted);
+  border-color: var(--line);
+}
+
+.company-brain-panel {
+  padding: clamp(16px, 3vw, 22px);
+}
+
+.company-brain-panel__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.company-brain-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.company-brain-register {
+  margin-bottom: 16px;
+}
+
+.company-brain-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel-muted);
+}
+
+.company-brain-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.company-brain-filters input,
+.company-brain-filters select {
+  height: 34px;
+}
+
+.company-brain-check {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.company-brain-list,
+.company-brain-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.company-brain-grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.company-brain-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: var(--panel);
+}
+
+.company-brain-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.company-brain-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.company-chip {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.company-chip--approved {
+  color: var(--success);
+  border-color: rgba(17, 102, 73, 0.3);
+}
+
+.company-chip--needs-review {
+  color: var(--accent-strong);
+  border-color: rgba(17, 53, 158, 0.25);
+}
+
+.company-chip--rejected {
+  color: var(--muted);
+}
+
+.company-chip--archived {
+  color: var(--muted);
+}
+
+.company-brain-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.company-brain-activity {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.company-brain-activity__kind {
+  display: inline-block;
+  margin-right: 8px;
+  font-weight: 700;
+}
+
+.company-knowledge-suggest-panel {
+  margin-bottom: clamp(14px, 3vw, 22px);
+}
+
+.company-knowledge-suggest-actions {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.company-knowledge-suggest-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.company-knowledge-suggest-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.company-knowledge-suggest-row__title {
+  font-weight: 700;
+}
+
+.company-knowledge-tags {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.helper-inset {
+  margin-top: 8px;
+}
+
+.secondary-button--sm {
+  padding: 6px 10px;
+  font-size: 13px;
+  height: 34px;
+}

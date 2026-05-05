@@ -1,5 +1,11 @@
 import { collectSourceTracesFromAssets, generateIntelDraftFromSources } from './intelReview.ts'
-import type { DeckIntel, DeckSetup, FileAsset, SourceTrace } from '../types/models.ts'
+import type {
+  CompanyKnowledgeItem,
+  DeckIntel,
+  DeckSetup,
+  FileAsset,
+  SourceTrace,
+} from '../types/models.ts'
 import { isAiBackendEnabled } from './aiBackendFlags.ts'
 
 export interface GenerateIntelReviewRequest {
@@ -7,6 +13,7 @@ export interface GenerateIntelReviewRequest {
   fileAssets: FileAsset[]
   sourceTraces?: SourceTrace[]
   webResearchEnabled?: boolean
+  companyKnowledgeItems?: CompanyKnowledgeItem[]
 }
 
 export interface GenerateIntelReviewResponse {
@@ -19,7 +26,9 @@ function createLocalIntelReviewResponse(
   warnings: string[] = [],
 ): GenerateIntelReviewResponse {
   return {
-    intel: generateIntelDraftFromSources(request.setup, request.fileAssets),
+    intel: generateIntelDraftFromSources(request.setup, request.fileAssets, {
+      companyKnowledgeItems: request.companyKnowledgeItems,
+    }),
     warnings,
   }
 }

@@ -8,6 +8,7 @@ import {
   filterWorkspaceLibraryItems,
   sortWorkspaceLibraryItems,
 } from '../data/workspaceLibrary'
+import { CompanySetupModal } from '../components/company/CompanySetupModal'
 import type {
   WorkspaceLibraryItem,
   WorkspaceLibraryItemType,
@@ -402,6 +403,8 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const {
     workspace,
+    dismissCompanyOnboarding,
+    completeCompanyBrainOnboarding,
     createPresentation,
     setActiveDeck,
     updateProjectCollaboration,
@@ -551,8 +554,17 @@ export function DashboardPage() {
     setShareProjectId(workspace.projects[0]?.id)
   }
 
+  const showCompanySetup =
+    workspace.companyBrain.organizations.length === 0 && !workspace.companyBrain.onboarding.dismissed
+
   return (
     <section className="page page--workspace">
+      <CompanySetupModal
+        open={showCompanySetup}
+        onDismiss={() => dismissCompanyOnboarding()}
+        onComplete={(input) => completeCompanyBrainOnboarding(input)}
+      />
+
       <div className="workspace-dashboard">
         <aside className="workspace-drive-sidebar" aria-label="Workspace sections">
           <div className="workspace-drive-sidebar__header">
