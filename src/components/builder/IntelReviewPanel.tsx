@@ -1,7 +1,8 @@
 import type { DeckIntel, DeckSetup, FileAsset } from '../../types/models'
+import { useToast } from '../feedback/toastContext'
+import { aiClient } from '../../data/aiClient'
 import {
   collectSourceTracesFromAssets,
-  generateIntelDraftFromSources,
   mergeIntelDraftWithExisting,
 } from '../../data/intelReview'
 
@@ -24,16 +25,26 @@ interface IntelReviewPanelProps {
 }
 
 export function IntelReviewPanel({ deckId, setup, fileAssets, updateDeckSetup }: IntelReviewPanelProps) {
+  const { showToast } = useToast()
   const intel = setup.intel ?? {}
 
   const patchIntel = (partial: Partial<DeckIntel>) => {
     updateDeckSetup(deckId, { intel: { ...intel, ...partial } })
   }
 
-  const handleGenerateDraft = () => {
-    const draft = generateIntelDraftFromSources(setup, fileAssets)
-    const merged = mergeIntelDraftWithExisting(intel, draft)
+  const handleGenerateDraft = async () => {
+    const response = await aiClient.generateIntelReview({
+      setup,
+      fileAssets,
+      sourceTraces: collectSourceTracesFromAssets(fileAssets),
+      webResearchEnabled: setup.webResearch,
+    })
+    const merged = mergeIntelDraftWithExisting(intel, response.intel)
     updateDeckSetup(deckId, { intel: merged })
+
+    if (response.warnings.length > 0) {
+      showToast(response.warnings[0], 'info')
+    }
   }
 
   const handleRefreshCitations = () => {

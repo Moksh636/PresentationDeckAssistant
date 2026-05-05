@@ -2,6 +2,7 @@ import {
   createChartSuggestionsFromFiles,
   createChartSlideFromSuggestion,
 } from './chartSuggestions'
+import { collectSourceTracesFromAssets, generateIntelDraftFromSources } from './intelReview'
 import {
   createAlternateSlides,
   createSlidesFromDeck,
@@ -10,9 +11,11 @@ import {
 import { buildMockAiEditPlan, type AiEditPlan, type AiEditScope } from './aiEditor'
 import { autoFillPresentationFieldsFromFiles, createMockFileAsset } from './sourceIngestion'
 import { generateDeckReport } from './reportGenerator'
+import { supabase } from './supabaseClient'
 import type {
   ChartSuggestion,
   Deck,
+  DeckIntel,
   DeckSetup,
   DeckVersion,
   FileAsset,
@@ -20,10 +23,12 @@ import type {
   GeneratedDeckReport,
   ReportType,
   Slide,
+  SourceTrace,
 } from '../types/models'
 import { createId } from '../utils/ids'
 
 export const AI_BACKEND_ENDPOINTS = {
+  generateIntelReview: 'generate-intel-review',
   generateDeck: '/api/ai/decks/generate',
   proposeEditorEdit: '/api/ai/editor/propose',
   autofillSetupFromFiles: '/api/ai/setup/autofill',
@@ -37,6 +42,18 @@ export interface GenerateDeckRequest {
   sourceDeck: Deck
   sourceFiles: FileAsset[]
   previousDeck?: Deck
+}
+
+export interface GenerateIntelReviewRequest {
+  setup: DeckSetup
+  fileAssets: FileAsset[]
+  sourceTraces?: SourceTrace[]
+  webResearchEnabled?: boolean
+}
+
+export interface GenerateIntelReviewResponse {
+  intel: DeckIntel
+  warnings: string[]
 }
 
 export interface GenerateDeckResponse {
@@ -106,6 +123,9 @@ export interface CreateChartSlideRequest {
 export type CreateChartSlideResponse = Slide
 
 export interface AiBackendClient {
+  generateIntelReview: (
+    request: GenerateIntelReviewRequest,
+  ) => Promise<GenerateIntelReviewResponse>
   generateDeck: (request: GenerateDeckRequest) => Promise<GenerateDeckResponse>
   proposeEditorEdit: (
     request: ProposeEditorEditRequest,
@@ -122,7 +142,8 @@ export interface AiBackendClient {
 }
 
 function isAiBackendEnabled() {
-  return import.meta.env.VITE_AI_BACKEND_ENABLED === 'true'
+  const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
+  return env?.VITE_AI_BACKEND_ENABLED === 'true'
 }
 
 function warnAndUseMock(flowName: string, error: unknown) {
@@ -168,6 +189,25 @@ async function postJson<Response>(endpoint: string, payload: unknown): Promise<R
   }
 
   return response.json() as Promise<Response>
+}
+
+async function invokeSupabaseFunction<Response>(
+  functionName: string,
+  payload: string | File | Blob | ArrayBuffer | FormData | Record<string, unknown>,
+): Promise<Response> {
+  if (!supabase) {
+    throw new Error('Supabase client not configured.')
+  }
+
+  const { data, error } = await supabase.functions.invoke(functionName, {
+    body: payload,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return data as Response
 }
 
 async function postFile<Response>(
@@ -234,7 +274,60 @@ function createMockIngestedFile(request: IngestFileRequest): FileAsset {
   })
 }
 
+function createLocalIntelReviewResponse(
+  request: GenerateIntelReviewRequest,
+  warnings: string[] = [],
+): GenerateIntelReviewResponse {
+  return {
+    intel: generateIntelDraftFromSources(request.setup, request.fileAssets),
+    warnings,
+  }
+}
+
+interface GenerateIntelReviewOptions {
+  backendEnabled?: boolean
+  invokeBackend?: (
+    request: GenerateIntelReviewRequest,
+  ) => Promise<GenerateIntelReviewResponse>
+}
+
+export async function generateIntelReviewWithFallback(
+  request: GenerateIntelReviewRequest,
+  options: GenerateIntelReviewOptions = {},
+): Promise<GenerateIntelReviewResponse> {
+  const preparedRequest: GenerateIntelReviewRequest = {
+    ...request,
+    sourceTraces: request.sourceTraces ?? collectSourceTracesFromAssets(request.fileAssets),
+    webResearchEnabled: request.webResearchEnabled ?? false,
+  }
+  const backendEnabled = options.backendEnabled ?? isAiBackendEnabled()
+  const invokeBackend =
+    options.invokeBackend ??
+    ((payload: GenerateIntelReviewRequest) =>
+      invokeSupabaseFunction<GenerateIntelReviewResponse>(
+        AI_BACKEND_ENDPOINTS.generateIntelReview,
+        payload as unknown as Record<string, unknown>,
+      ))
+
+  if (!backendEnabled) {
+    return createLocalIntelReviewResponse(preparedRequest)
+  }
+
+  try {
+    return await invokeBackend(preparedRequest)
+  } catch (error) {
+    warnAndUseMock('Intel Review generation', error)
+    return createLocalIntelReviewResponse(preparedRequest, [
+      'AI backend unavailable; used local intel draft fallback.',
+    ])
+  }
+}
+
 export const aiClient: AiBackendClient = {
+  async generateIntelReview(request) {
+    return generateIntelReviewWithFallback(request)
+  },
+
   async generateDeck(request) {
     return maybeUseBackend(
       'Deck generation',
@@ -327,6 +420,7 @@ export async function createChartSlide(
 
 export type GenerateDeckInput = GenerateDeckRequest
 export type GenerateDeckResult = GenerateDeckResponse
+export type GenerateIntelReviewInput = GenerateIntelReviewRequest
 export type ProposeEditorEditInput = ProposeEditorEditRequest
 export type IngestFileInput = IngestFileRequest
 export type SuggestChartsInput = SuggestChartsRequest

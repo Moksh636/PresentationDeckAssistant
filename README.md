@@ -49,6 +49,12 @@ Only variables prefixed with `VITE_` are exposed to frontend code by Vite:
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_AI_BACKEND_ENABLED`
 
+For testing Supabase Edge Function AI scaffolding from the frontend:
+
+- set `VITE_AI_BACKEND_ENABLED=true`
+- keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` configured
+- no AI provider key is required yet
+
 Backend-only secrets must stay in serverless functions, Supabase Edge Functions, or the host’s non-`VITE_` environment:
 
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -132,6 +138,35 @@ Vite does not provide app server routes by itself. The placeholder backend route
 Recommended first backend path: Supabase Edge Functions for AI proxy calls.
 
 `src/data/aiClient.ts` is the frontend adapter seam. With `VITE_AI_BACKEND_ENABLED=false`, it keeps calling local mock functions.
+
+### Supabase Edge Functions (AI scaffold)
+
+Mock AI backend function scaffold (no paid provider calls yet):
+
+- `supabase/functions/generate-intel-review/index.ts`
+- shared sanitization + response builder: `supabase/functions/_shared/intelReviewShared.ts`
+
+Deploy function:
+
+```bash
+supabase functions deploy generate-intel-review
+```
+
+Serve locally while developing:
+
+```bash
+supabase functions serve generate-intel-review
+```
+
+Current behavior:
+
+- verifies Supabase JWT and rejects unauthenticated requests (`401`)
+- validates/sanitizes request payloads (`400` on malformed input)
+- returns structured mock intel JSON and warnings
+- never fabricates citations (returns only sanitized `sourceTraces` from request)
+- if `webResearchEnabled=true`, returns a warning that web research is not connected yet
+
+Future AI provider integration should use **Supabase Function Secrets** (server-side only), not frontend `VITE_` variables.
 
 ## Architecture
 
