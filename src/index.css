@@ -5991,6 +5991,119 @@ select:focus-visible {
   font-weight: 700;
 }
 
+.company-knowledge-suggest-body {
+  min-width: 0;
+}
+
+.company-knowledge-suggest-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+}
+
+.company-knowledge-band {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-elevated, rgba(255, 255, 255, 0.04));
+  white-space: nowrap;
+}
+
+.company-knowledge-band--high {
+  border-color: rgba(46, 160, 110, 0.55);
+  color: #9fd9b8;
+}
+
+.company-knowledge-band--medium {
+  border-color: rgba(210, 170, 80, 0.45);
+  color: #e6cf8c;
+}
+
+.company-knowledge-band--low {
+  opacity: 0.85;
+}
+
+.company-knowledge-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 12px 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.company-knowledge-filter-chip {
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.company-knowledge-why {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.company-knowledge-why-label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.company-knowledge-why ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.company-knowledge-preview {
+  margin-top: 10px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px dashed var(--line);
+  padding: 6px 10px;
+}
+
+.company-knowledge-preview summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.company-knowledge-preview-dl {
+  margin: 10px 0 4px;
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) 1fr;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+
+.company-knowledge-preview-dl dt {
+  margin: 0;
+  color: var(--muted);
+}
+
+.company-knowledge-preview-dl dd {
+  margin: 0;
+}
+
+.intel-company-knowledge-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.intel-company-knowledge-list li {
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.08);
+}
+
 .company-knowledge-tags {
   margin-top: 4px;
   font-size: 12px;

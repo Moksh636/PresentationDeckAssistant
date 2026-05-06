@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { CompanyKnowledgeItem, DeckIntel, DeckSetup, FileAsset } from '../../types/models'
 import { useToast } from '../feedback/toastContext'
 import { aiClient } from '../../data/aiClient'
@@ -145,6 +146,29 @@ export function IntelReviewPanel({
               onChange={(event) => patchIntel({ recommendedPitchAngle: event.target.value })}
             />
           </label>
+
+          <div className="field-group field-group--wide">
+            <span className="field-label">Company Brain sources used</span>
+            {companyKnowledgeItems && companyKnowledgeItems.length > 0 ? (
+              <ul className="intel-company-knowledge-list">
+                {companyKnowledgeItems.map((item) => (
+                  <li key={item.id}>
+                    <strong>{item.title}</strong>
+                    <span className="intel-citation-meta">{item.sourceType}</span>
+                    <p className="muted-copy">
+                      Company knowledge — not a file citation trace. Proof points above may quote this
+                      library entry; citations below stay tied to uploaded assets when traces exist.
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted-copy">
+                No Company Brain items selected for this pitch. Choose suggestions under Company knowledge
+                above, or pull collateral from <Link to="/company">Company Brain</Link>.
+              </p>
+            )}
+          </div>
 
           <div className="field-group field-group--wide">
             <span className="field-label">Citations / supporting sources</span>

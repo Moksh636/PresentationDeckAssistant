@@ -12,7 +12,7 @@ import { useAuth } from '../context/useAuth'
 import { useWorkspace } from '../context/useWorkspace'
 import { getMembershipForOrgUser } from '../data/companyBrainMutations'
 import { getActiveOrganizationBrandKit } from '../data/brandKitResolve'
-import { getRelevantCompanyKnowledgeForUser } from '../data/companyKnowledgeRetrieval'
+import { getRelevantCompanyKnowledgeForUserWithExplanations } from '../data/companyKnowledgeRetrieval'
 import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import {
   canCollaboratorCommentOnSetup,
@@ -174,12 +174,12 @@ export function BuildPresentationPage() {
       .map((d) => d.name)
   }, [workspace.companyBrain.companyDepartments, organizationId])
 
-  const companyKnowledgeSuggestions = useMemo(() => {
+  const companyKnowledgeRankedSuggestions = useMemo(() => {
     if (!organizationId || !activeDeck) {
       return []
     }
 
-    return getRelevantCompanyKnowledgeForUser({
+    return getRelevantCompanyKnowledgeForUserWithExplanations({
       organizationId,
       userRoleTitle: membership?.roleTitle ?? '',
       department: membership?.department ?? '',
@@ -625,7 +625,11 @@ export function BuildPresentationPage() {
           <CompanyKnowledgeSuggestPanel
             deckId={activeDeck.id}
             setup={setup}
-            suggestions={companyKnowledgeSuggestions}
+            rankedSuggestions={companyKnowledgeRankedSuggestions}
+            membership={{
+              roleTitle: membership?.roleTitle ?? '',
+              department: membership?.department ?? '',
+            }}
             updateDeckSetup={updateDeckSetup}
           />
 
