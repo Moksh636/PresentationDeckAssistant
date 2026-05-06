@@ -1,18 +1,32 @@
 import { useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { RolesDepartmentsCatalogTab } from '../components/companyBrain/RolesDepartmentsCatalogTab'
+import {
+  OwnerAiOrganizationSection,
+  OwnerFolderStructureSection,
+  OwnerKnowledgeMoveSection,
+  OwnerKnowledgeUploadSection,
+  OwnerWorkerPrepSection,
+} from '../components/owner/OwnerConsolePanels'
 import { useAuth } from '../context/useAuth'
 import { useWorkspace } from '../context/useWorkspace'
+import { canManageCompanyBrain, getMembershipForOrgUser } from '../data/companyBrainMutations'
 import { suggestCompanyKnowledgeOrganization } from '../data/companyKnowledgeOrganization'
+import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import { formatShortDate } from '../utils/formatters'
 
 export function OwnerDashboardPage() {
   const auth = useAuth()
-  const { workspace } = useWorkspace()
+  const workspaceApi = useWorkspace()
+  const { workspace } = workspaceApi
+  const profile = workspaceUserProfileFromAuth(auth.user ?? null, auth.isLocalDevBypass)
+
   const orgId = workspace.companyBrain.activeOrganizationId
   const organization = workspace.companyBrain.organizations.find((o) => o.id === orgId)
-  const membership = workspace.companyBrain.organizationMemberships.find(
-    (m) => m.organizationId === orgId && m.userId === auth.user?.id,
-  )
+  const membership = orgId
+    ? getMembershipForOrgUser(workspace, orgId, profile.userId)
+    : undefined
+  const admin = Boolean(orgId && canManageCompanyBrain(workspace, orgId, profile.userId))
 
   const knowledgeItems = useMemo(
     () => workspace.companyBrain.knowledgeItems.filter((k) => k.organizationId === orgId),
@@ -24,9 +38,39 @@ export function OwnerDashboardPage() {
     [orgId, workspace.companyBrain.knowledgeFolders],
   )
 
+  const departments = useMemo(
+    () => workspace.companyBrain.companyDepartments.filter((d) => d.organizationId === orgId),
+    [orgId, workspace.companyBrain.companyDepartments],
+  )
+
+  const catalogRoles = useMemo(
+    () => workspace.companyBrain.companyRoles.filter((r) => r.organizationId === orgId),
+    [orgId, workspace.companyBrain.companyRoles],
+  )
+
   const suggestionPlan = useMemo(() => suggestCompanyKnowledgeOrganization(knowledgeItems), [knowledgeItems])
 
-  const activity = workspace.companyBrain.activityLogs.filter((a) => a.organizationId === orgId).slice(0, 6)
+  const deckFileOptions = workspace.fileAssets.filter((a) => a.deckId === workspace.activeDeckId)
+
+  const activity = workspace.companyBrain.activityLogs.filter((a) => a.organizationId === orgId).slice(0, 8)
+
+  if (!orgId || !organization) {
+    return (
+      <section className="page page--workspace owner-dashboard">
+        <header className="owner-dashboard__hero">
+          <p className="section-label">Owner console</p>
+          <h1>Company administration</h1>
+          <p className="muted-copy">
+            Configure an organization from the dashboard onboarding flow first—your pitch decks stay untouched until you
+            attach Company Brain data.
+          </p>
+          <Link className="primary-button" to="/dashboard">
+            Back to workspace
+          </Link>
+        </header>
+      </section>
+    )
+  }
 
   const sections: Array<{ id: string; title: string; body: ReactNode }> = [
     {
@@ -40,8 +84,8 @@ export function OwnerDashboardPage() {
             <strong>{membership?.accessRole ?? '—'}</strong>
           </p>
           <p>
-            Active organization: <strong>{organization?.name ?? 'Not configured'}</strong>
-            {organization?.website ? (
+            Active organization: <strong>{organization.name}</strong>
+            {organization.website ? (
               <>
                 {' '}
                 ·{' '}
@@ -55,103 +99,89 @@ export function OwnerDashboardPage() {
             Knowledge preference:{' '}
             <strong>{workspace.companyBrain.onboarding.knowledgeOrgPreference ?? 'hybrid'}</strong>
           </p>
-        </>
-      ),
-    },
-    {
-      id: 'knowledge-library',
-      title: 'Knowledge Library',
-      body: (
-        <p>
-          Curate approved sources inside{' '}
-          <Link to="/company">
-            Company Brain → Knowledge Library
-          </Link>
-          . {knowledgeItems.length} items tracked locally for this org preview.
-        </p>
-      ),
-    },
-    {
-      id: 'folder-organizer',
-      title: 'Folder Organizer',
-      body: (
-        <>
-          <p>
-            {folders.length} folders · nested IDs supported via <code>parentFolderId</code> in data.
-          </p>
           <p className="muted-copy">
-            Drag-and-drop UI lands later—today folders hydrate from normalized workspace JSON just like production.
+            Deep taxonomy editing also lives in <Link to="/company">Company Brain</Link>—this console focuses on owner
+            controls.
           </p>
         </>
       ),
     },
     {
       id: 'upload',
-      title: 'Upload',
+      title: 'Documents & deck links',
       body: (
-        <p>
-          Upload flows reuse Company Brain registration + Storage adapters when configured. Jump to{' '}
-          <Link to="/company">Company Brain</Link> to add mock items immediately.
-        </p>
+        <OwnerKnowledgeUploadSection
+          activeOrgId={orgId}
+          admin={admin}
+          workspaceApi={workspaceApi}
+          folders={folders}
+          deckFileOptions={deckFileOptions}
+        />
+      ),
+    },
+    {
+      id: 'folder-structure',
+      title: 'Folder tree',
+      body: (
+        <OwnerFolderStructureSection
+          activeOrgId={orgId}
+          admin={admin}
+          workspaceApi={workspaceApi}
+          folders={folders}
+        />
+      ),
+    },
+    {
+      id: 'assign-folders',
+      title: 'Move items into folders',
+      body: (
+        <OwnerKnowledgeMoveSection
+          activeOrgId={orgId}
+          admin={admin}
+          workspaceApi={workspaceApi}
+          knowledgeItems={knowledgeItems}
+          folders={folders}
+        />
       ),
     },
     {
       id: 'suggested-organization',
-      title: 'Suggested Organization (mock AI)',
+      title: 'Offline organization suggestions',
       body: (
-        <>
-          <p className="muted-copy">
-            Deterministic, offline heuristics—no paid AI APIs. Suggested folder names for your current items:
-          </p>
-          <ul className="owner-dash-list">
-            {suggestionPlan.folders.map((f) => (
-              <li key={f.key}>
-                <strong>{f.name}</strong>
-                {f.description ? <span className="muted-copy"> — {f.description}</span> : null}
-              </li>
-            ))}
-          </ul>
-          {suggestionPlan.items.length === 0 ? (
-            <p className="muted-copy">Add knowledge items to see suggested mappings.</p>
-          ) : (
-            <ul className="owner-dash-list owner-dash-list--compact">
-              {suggestionPlan.items.slice(0, 8).map((row) => (
-                <li key={row.itemId}>
-                  Item <code>{row.itemId}</code> → {row.suggestedFolderKey}
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+        <OwnerAiOrganizationSection
+          activeOrgId={orgId}
+          admin={admin}
+          workspaceApi={workspaceApi}
+          knowledgeItems={knowledgeItems}
+          folders={folders}
+          suggestionPlan={suggestionPlan}
+        />
       ),
     },
     {
-      id: 'departments',
-      title: 'Departments',
+      id: 'catalog',
+      title: 'Departments & roles catalog',
       body: (
-        <p>
-          Manage catalog departments under{' '}
-          <Link to="/company">Company Brain → Departments &amp; roles</Link>.
-        </p>
+        <RolesDepartmentsCatalogTab
+          activeOrgId={orgId}
+          admin={admin}
+          departments={departments}
+          roles={catalogRoles}
+          workspaceApi={workspaceApi}
+        />
       ),
     },
     {
-      id: 'roles',
-      title: 'Roles',
+      id: 'worker-prep',
+      title: 'Worker profile prep (mock)',
       body: (
-        <p>
-          Configure job-title catalogs so invites lock to the right responsibilities—same surface as departments.
-        </p>
-      ),
-    },
-    {
-      id: 'workers',
-      title: 'Workers',
-      body: (
-        <p>
-          Invite operators from the membership tab. Workers route to the pitch <Link to="/dashboard">dashboard</Link>{' '}
-          by default.
-        </p>
+        <OwnerWorkerPrepSection
+          activeOrgId={orgId}
+          admin={admin}
+          workspaceApi={workspaceApi}
+          departments={departments}
+          roles={catalogRoles}
+        />
       ),
     },
     {
@@ -169,7 +199,8 @@ export function OwnerDashboardPage() {
       title: 'Messaging',
       body: (
         <p>
-          Approved snippets for AE consistency live alongside knowledge items; open the messaging tab in Company Brain.
+          Approved snippets for AE consistency live alongside knowledge items; open the messaging tab in{' '}
+          <Link to="/company">Company Brain</Link>.
         </p>
       ),
     },
@@ -188,7 +219,7 @@ export function OwnerDashboardPage() {
       title: 'Activity',
       body:
         activity.length === 0 ? (
-          <p className="muted-copy">No activity yet—actions like uploads and approvals show up here.</p>
+          <p className="muted-copy">No activity yet—uploads, staging, and approvals surface here.</p>
         ) : (
           <ul className="owner-activity-list">
             {activity.map((log) => (
@@ -217,10 +248,9 @@ export function OwnerDashboardPage() {
     <section className="page page--workspace owner-dashboard">
       <header className="owner-dashboard__hero">
         <p className="section-label">Owner console</p>
-        <h1>Company administration</h1>
+        <h1>Company brain control center</h1>
         <p className="muted-copy">
-          Distinct from the pitch deck dashboard: configure knowledge, governance, and org primitives before reps ship
-          decks.
+          Configure knowledge, folders, catalog structure, and mock worker invites before reps ship decks.
         </p>
       </header>
 

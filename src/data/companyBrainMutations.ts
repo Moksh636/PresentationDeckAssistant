@@ -18,8 +18,10 @@ import type {
   WorkspaceState,
 } from '../types/models'
 import { createId } from '../utils/ids.ts'
+import type { CompanyKnowledgeOrganizationPlan } from './companyKnowledgeOrganization.ts'
 import { seedCompanyCatalogForOrganization } from './companyCatalogSeed.ts'
 import { createEmptyCompanyBrainWorkspaceSlice, slugifyOrganizationName } from './companyBrainNormalize.ts'
+import { normalizeKnowledgeFolderParent } from './knowledgeFolderTree.ts'
 
 function nowIso() {
   return new Date().toISOString()
@@ -400,14 +402,82 @@ export interface UpsertKnowledgeItemInput {
   description?: string
   sourceType?: CompanyKnowledgeSourceType
   tags?: string[]
-  folderId?: string
-  suggestedFolderId?: string
-  ownerApprovedFolder?: boolean
+  /** Pass `null` to remove the item from its folder. */
+  folderId?: string | null
+  /** Pass `null` to clear the AI suggestion target without moving the item. */
+  suggestedFolderId?: string | null
+  /** Pass `null` to clear the owner-approved-folder flag. */
+  ownerApprovedFolder?: boolean | null
   visibility?: CompanyKnowledgeItem['visibility']
   approvalStatus?: KnowledgeApprovalStatus
   allowedDepartments?: string[]
   allowedRoleTitles?: string[]
   fileAssetId?: string
+}
+
+export function stablePlanFolderId(organizationId: string, planKey: string): string {
+  const safeKey = planKey.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 56)
+  const orgPart = organizationId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24)
+  return `kfolder-plan_${orgPart}_${safeKey}`
+}
+
+/**
+ * Creates deterministic “AI suggestion” folders and sets `suggestedFolderId` on items (does not move `folderId` yet).
+ */
+export function stageKnowledgeOrganizationPlan(
+  workspace: WorkspaceState,
+  organizationId: string,
+  profile: UserProfileRef,
+  plan: CompanyKnowledgeOrganizationPlan,
+): WorkspaceState {
+  let next = workspace
+  const keyToId = new Map<string, string>()
+
+  for (const f of plan.folders) {
+    const id = stablePlanFolderId(organizationId, f.key)
+    keyToId.set(f.key, id)
+    const folderMap = new Map(next.companyBrain.knowledgeFolders.map((x) => [x.id, x]))
+    const parentResolved =
+      f.parentFolderId !== undefined && f.parentFolderId !== ''
+        ? normalizeKnowledgeFolderParent(id, f.parentFolderId, folderMap)
+        : undefined
+
+    next = upsertKnowledgeFolder(next, organizationId, {
+      id,
+      name: f.name,
+      description: f.description,
+      parentFolderId: parentResolved,
+      suggestedByAi: true,
+      ownerApproved: false,
+    })
+  }
+
+  for (const row of plan.items) {
+    const suggestedId = keyToId.get(row.suggestedFolderKey)
+    if (!suggestedId) continue
+    const item = next.companyBrain.knowledgeItems.find(
+      (k) => k.id === row.itemId && k.organizationId === organizationId,
+    )
+    if (!item) continue
+
+    next = upsertCompanyKnowledgeItem(next, organizationId, profile, {
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      sourceType: item.sourceType,
+      tags: item.tags,
+      folderId: item.folderId,
+      suggestedFolderId: suggestedId,
+      ownerApprovedFolder: false,
+      visibility: item.visibility,
+      approvalStatus: item.approvalStatus,
+      allowedDepartments: item.allowedDepartments,
+      allowedRoleTitles: item.allowedRoleTitles,
+      fileAssetId: item.fileAssetId,
+    })
+  }
+
+  return next
 }
 
 export function upsertCompanyKnowledgeItem(
@@ -426,13 +496,24 @@ export function upsertCompanyKnowledgeItem(
     ? {
         ...existing,
         organizationId,
-        folderId: input.folderId ?? existing.folderId,
+        folderId:
+          input.folderId === null
+            ? undefined
+            : input.folderId !== undefined
+              ? input.folderId
+              : existing.folderId,
         suggestedFolderId:
-          input.suggestedFolderId !== undefined ? input.suggestedFolderId : existing.suggestedFolderId,
+          input.suggestedFolderId === null
+            ? undefined
+            : input.suggestedFolderId !== undefined
+              ? input.suggestedFolderId
+              : existing.suggestedFolderId,
         ownerApprovedFolder:
-          input.ownerApprovedFolder !== undefined
-            ? input.ownerApprovedFolder
-            : existing.ownerApprovedFolder,
+          input.ownerApprovedFolder === null
+            ? undefined
+            : input.ownerApprovedFolder !== undefined
+              ? input.ownerApprovedFolder
+              : existing.ownerApprovedFolder,
         title: input.title.trim() || existing.title,
         description: typeof input.description === 'string' ? input.description : existing.description,
         sourceType: input.sourceType ?? existing.sourceType,
@@ -447,9 +528,11 @@ export function upsertCompanyKnowledgeItem(
     : {
         id,
         organizationId,
-        folderId: input.folderId,
-        suggestedFolderId: input.suggestedFolderId,
-        ownerApprovedFolder: input.ownerApprovedFolder,
+        folderId: input.folderId === null ? undefined : input.folderId,
+        suggestedFolderId:
+          input.suggestedFolderId === null ? undefined : input.suggestedFolderId,
+        ownerApprovedFolder:
+          input.ownerApprovedFolder === null ? undefined : input.ownerApprovedFolder,
         uploadedByUserId: profile.userId,
         title: input.title.trim() || 'Untitled',
         description: input.description?.trim() ?? '',

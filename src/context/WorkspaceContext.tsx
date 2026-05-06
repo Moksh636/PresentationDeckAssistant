@@ -48,6 +48,7 @@ import {
   upsertCaseStudy,
   upsertCompanyCatalogDepartment as applyUpsertCompanyCatalogDepartment,
   upsertCompanyCatalogRole as applyUpsertCompanyCatalogRole,
+  stageKnowledgeOrganizationPlan,
   upsertCompanyKnowledgeItem,
   upsertKnowledgeFolder,
   upsertProductService,
@@ -1804,6 +1805,15 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     )
   }
 
+  const stageCompanyKnowledgeOrganizationPlan: WorkspaceContextValue['stageCompanyKnowledgeOrganizationPlan'] = (
+    organizationId,
+    plan,
+  ) => {
+    commitWorkspace((current) =>
+      stageKnowledgeOrganizationPlan(current, organizationId, resolveActorProfile(), plan),
+    )
+  }
+
   const upsertCatalogDepartment: WorkspaceContextValue['upsertCompanyCatalogDepartment'] = (
     organizationId,
     input,
@@ -1905,6 +1915,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         archiveCompanyCatalogDepartment: archiveCatalogDepartment,
         upsertCompanyCatalogRole: upsertCatalogRole,
         archiveCompanyCatalogRole: archiveCatalogRole,
+        stageCompanyKnowledgeOrganizationPlan,
       }}
     >
       {children}

@@ -7,6 +7,7 @@ import type {
   CompleteCompanyOnboardingInput,
   UpsertKnowledgeItemInput,
 } from '../data/companyBrainMutations'
+import type { CompanyKnowledgeOrganizationPlan } from '../data/companyKnowledgeOrganization'
 import type {
   ApprovedMessagingItem,
   CaseStudyItem,
@@ -199,6 +200,10 @@ export interface WorkspaceContextValue {
     member: Omit<OrganizationMembership, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'> & {
       id?: string
     },
+  ) => void
+  stageCompanyKnowledgeOrganizationPlan: (
+    organizationId: string,
+    plan: CompanyKnowledgeOrganizationPlan,
   ) => void
 }
 
