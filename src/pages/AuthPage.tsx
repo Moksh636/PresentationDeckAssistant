@@ -2,20 +2,25 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
+import { useWorkspace } from '../context/useWorkspace'
 import { AuthLoadingScreen } from '../components/auth/AuthLoadingScreen'
+import { resolveDefaultAuthenticatedPath } from '../data/postAuthRedirect'
 import { supabase } from '../data/supabaseClient'
 
 type AuthMode = 'signin' | 'signup'
 
 export function AuthPage() {
   const auth = useAuth()
+  const { workspace } = useWorkspace()
   const navigate = useNavigate()
   const location = useLocation()
   const fromState = (location.state as { from?: string } | null)?.from
   const destination =
     fromState && fromState.length > 0 && !fromState.startsWith('/auth')
       ? fromState
-      : '/dashboard'
+      : auth.user
+        ? resolveDefaultAuthenticatedPath(workspace, auth.user.id)
+        : '/dashboard'
 
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
@@ -50,7 +55,16 @@ export function AuthPage() {
     try {
       if (mode === 'signin') {
         await auth.signInWithPassword(trimmedEmail, password)
-        navigate(destination, { replace: true })
+        const sessionUserId = (await supabase?.auth.getSession())?.data.session?.user?.id
+        if (sessionUserId) {
+          const nextPath =
+            fromState && fromState.length > 0 && !fromState.startsWith('/auth')
+              ? fromState
+              : resolveDefaultAuthenticatedPath(workspace, sessionUserId)
+          navigate(nextPath, { replace: true })
+        } else {
+          navigate(destination, { replace: true })
+        }
       } else {
         await auth.signUpWithPassword(trimmedEmail, password)
         const nextSession = await supabase?.auth.getSession()

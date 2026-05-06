@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
-import type { CompleteCompanyOnboardingInput } from '../../data/companyBrainMutations'
+import type {
+  CompanyOnboardingVariant,
+  CompleteCompanyOnboardingInput,
+} from '../../data/companyBrainMutations'
 
 export interface CatalogPickerOption {
   id: string
@@ -22,7 +25,9 @@ interface CompanySetupModalProps {
   open: boolean
   onDismiss: () => void
   onComplete: (input: CompleteCompanyOnboardingInput) => void
-  /** Non-archived catalog entries (template or org). */
+  /** Workspace creators skip IC role/department pickers (worker join flows keep catalog UX). */
+  variant?: CompanyOnboardingVariant
+  /** Non-archived catalog entries (template or org). Used when `variant` is `worker-profile`. */
   roleOptions: CatalogPickerOption[]
   departmentOptions: CatalogPickerOption[]
   invitedRoleTitle?: string
@@ -35,6 +40,7 @@ export function CompanySetupModal({
   open,
   onDismiss,
   onComplete,
+  variant = 'worker-profile',
   roleOptions,
   departmentOptions,
   invitedRoleTitle,
@@ -43,6 +49,8 @@ export function CompanySetupModal({
   departmentLocked,
 }: CompanySetupModalProps) {
   const [companyName, setCompanyName] = useState('')
+  const [website, setWebsite] = useState('')
+  const [ownerDisplayName, setOwnerDisplayName] = useState('')
   const [roleSelectId, setRoleSelectId] = useState(() => {
     const invited = invitedRoleTitle?.trim() ?? ''
     return findMatchingPickerOption(invited, roleOptions)?.id ?? ''
@@ -109,22 +117,36 @@ export function CompanySetupModal({
   }
 
   const canSubmit =
-    Boolean(companyName.trim()) &&
-    Boolean(chosenRoleTitle.trim()) &&
-    Boolean(chosenDepartment.trim())
+    variant === 'owner-create'
+      ? Boolean(companyName.trim())
+      : Boolean(companyName.trim()) &&
+        Boolean(chosenRoleTitle.trim()) &&
+        Boolean(chosenDepartment.trim())
 
   const handleSubmit = () => {
     if (!canSubmit) {
       return
     }
 
-    onComplete({
-      companyName: companyName.trim(),
-      roleTitle: chosenRoleTitle.trim(),
-      department: chosenDepartment.trim(),
-    })
+    if (variant === 'owner-create') {
+      onComplete({
+        variant: 'owner-create',
+        companyName: companyName.trim(),
+        website: website.trim(),
+        ownerDisplayName: ownerDisplayName.trim(),
+      })
+    } else {
+      onComplete({
+        variant: 'worker-profile',
+        companyName: companyName.trim(),
+        roleTitle: chosenRoleTitle.trim(),
+        department: chosenDepartment.trim(),
+      })
+    }
 
     setCompanyName('')
+    setWebsite('')
+    setOwnerDisplayName('')
     setRoleSelectId('')
     setDepartmentSelectId('')
     setManualRoleTitle('')
@@ -225,8 +247,9 @@ export function CompanySetupModal({
           <span className="section-label">Company Brain</span>
           <h2 id="company-setup-heading">Set up your workspace</h2>
           <p className="muted-copy">
-            Capture your company name and how you show up in the org. Company-managed roles and Company
-            departments keep everyone aligned—you can skip anytime; your decks and workspace keep working.
+            {variant === 'owner-create'
+              ? 'Create your company workspace with a few basics. You can configure departments and worker roles later from the owner console.'
+              : 'Capture your company name and how you show up in the org. Company-managed roles and Company departments keep everyone aligned—you can skip anytime; your decks and workspace keep working.'}
           </p>
         </header>
 
@@ -241,19 +264,45 @@ export function CompanySetupModal({
             />
           </label>
 
-          <div className="field-group field-group--wide">
-            <h3 className="company-setup-modal__subtitle">Roles / titles</h3>
-            <p className="muted-copy">Company-managed roles</p>
-            <p className="muted-copy">
-              Your role helps Deckspace choose the right company knowledge for your work.
-            </p>
-            {roleControl}
-          </div>
+          {variant === 'owner-create' ? (
+            <>
+              <label className="field-group field-group--wide">
+                <span className="field-label">Company website (optional)</span>
+                <input
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://"
+                  autoComplete="url"
+                  inputMode="url"
+                />
+              </label>
+              <label className="field-group field-group--wide">
+                <span className="field-label">Your name (optional)</span>
+                <input
+                  value={ownerDisplayName}
+                  onChange={(e) => setOwnerDisplayName(e.target.value)}
+                  placeholder="How you want to appear internally"
+                  autoComplete="name"
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              <div className="field-group field-group--wide">
+                <h3 className="company-setup-modal__subtitle">Roles / titles</h3>
+                <p className="muted-copy">Company-managed roles</p>
+                <p className="muted-copy">
+                  Your role helps Deckspace choose the right company knowledge for your work.
+                </p>
+                {roleControl}
+              </div>
 
-          <div className="field-group field-group--wide">
-            <h3 className="company-setup-modal__subtitle">Department</h3>
-            {deptControl}
-          </div>
+              <div className="field-group field-group--wide">
+                <h3 className="company-setup-modal__subtitle">Department</h3>
+                {deptControl}
+              </div>
+            </>
+          )}
         </div>
 
         <footer className="company-setup-modal__actions">

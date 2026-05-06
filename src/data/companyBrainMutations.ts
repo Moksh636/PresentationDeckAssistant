@@ -11,6 +11,7 @@ import type {
   CompanyKnowledgeSourceType,
   KnowledgeApprovalStatus,
   KnowledgeFolder,
+  KnowledgeOrgPreferenceMode,
   Organization,
   OrganizationMembership,
   ProductServiceItem,
@@ -90,10 +91,21 @@ export function setActiveOrganization(workspace: WorkspaceState, organizationId:
   }
 }
 
+export type CompanyOnboardingVariant = 'owner-create' | 'worker-profile'
+
 export interface CompleteCompanyOnboardingInput {
   companyName: string
-  roleTitle: string
-  department: string
+  /** Defaults to worker-profile for backward compatibility with earlier callers. */
+  variant?: CompanyOnboardingVariant
+  /** Required when `variant` is `worker-profile` (default). */
+  roleTitle?: string
+  /** Required when `variant` is `worker-profile` (default). */
+  department?: string
+  /** Owner-first company creation (company website). */
+  website?: string
+  /** Optional label stored on the owner membership row for display. */
+  ownerDisplayName?: string
+  knowledgeOrgPreference?: KnowledgeOrgPreferenceMode
 }
 
 export interface UserProfileRef {
@@ -115,6 +127,19 @@ export function completeCompanyOnboarding(
     return workspace
   }
 
+  const variant: CompanyOnboardingVariant = input.variant ?? 'worker-profile'
+  const ownerRoleTitle =
+    input.ownerDisplayName?.trim() ||
+    profile.displayName.trim() ||
+    'Owner'
+  const resolvedRoleTitle =
+    variant === 'owner-create' ? ownerRoleTitle : (input.roleTitle ?? '').trim()
+  const resolvedDepartment = variant === 'owner-create' ? '' : (input.department ?? '').trim()
+
+  if (variant === 'worker-profile' && (!resolvedRoleTitle || !resolvedDepartment)) {
+    return workspace
+  }
+
   const orgId = createId('organization')
   const slugBase = slugifyOrganizationName(trimmedName)
   const slug = uniqueOrgSlug(slugBase, slice.organizations)
@@ -122,6 +147,7 @@ export function completeCompanyOnboarding(
     id: orgId,
     name: trimmedName,
     slug,
+    website: input.website?.trim() || undefined,
     createdByUserId: profile.userId,
     createdAt: iso,
     updatedAt: iso,
@@ -135,8 +161,8 @@ export function completeCompanyOnboarding(
     userId: profile.userId,
     email: profile.email,
     displayName: profile.displayName,
-    roleTitle: input.roleTitle.trim(),
-    department: input.department.trim(),
+    roleTitle: resolvedRoleTitle,
+    department: resolvedDepartment,
     accessRole: 'owner',
     createdAt: iso,
     updatedAt: iso,
@@ -152,9 +178,10 @@ export function completeCompanyOnboarding(
     onboarding: {
       dismissed: slice.onboarding.dismissed,
       companyName: trimmedName,
-      roleTitle: input.roleTitle.trim(),
-      department: input.department.trim(),
+      roleTitle: resolvedRoleTitle,
+      department: resolvedDepartment,
       setupCompletedAt: iso,
+      knowledgeOrgPreference: input.knowledgeOrgPreference ?? slice.onboarding.knowledgeOrgPreference,
     },
   }
 
@@ -321,18 +348,36 @@ export function archiveCompanyCatalogRole(
 export function upsertKnowledgeFolder(
   workspace: WorkspaceState,
   organizationId: string,
-  folder: Pick<KnowledgeFolder, 'name'> & { id?: string },
+  folder: Pick<KnowledgeFolder, 'name'> &
+    Partial<Pick<KnowledgeFolder, 'parentFolderId' | 'description' | 'suggestedByAi' | 'ownerApproved'>> & {
+      id?: string
+    },
 ): WorkspaceState {
   const iso = nowIso()
   const slice = workspace.companyBrain
   const id = folder.id ?? createId('kfolder')
   const existing = slice.knowledgeFolders.find((f) => f.id === id)
   const nextRow: KnowledgeFolder = existing
-    ? { ...existing, name: folder.name.trim() || existing.name, updatedAt: iso }
+    ? {
+        ...existing,
+        name: folder.name.trim() || existing.name,
+        parentFolderId:
+          folder.parentFolderId !== undefined ? folder.parentFolderId : existing.parentFolderId,
+        description: folder.description !== undefined ? folder.description : existing.description,
+        suggestedByAi:
+          folder.suggestedByAi !== undefined ? folder.suggestedByAi : existing.suggestedByAi,
+        ownerApproved:
+          folder.ownerApproved !== undefined ? folder.ownerApproved : existing.ownerApproved,
+        updatedAt: iso,
+      }
     : {
         id,
         organizationId,
         name: folder.name.trim() || 'Folder',
+        parentFolderId: folder.parentFolderId,
+        description: folder.description,
+        suggestedByAi: folder.suggestedByAi,
+        ownerApproved: folder.ownerApproved,
         createdAt: iso,
         updatedAt: iso,
       }
@@ -356,6 +401,8 @@ export interface UpsertKnowledgeItemInput {
   sourceType?: CompanyKnowledgeSourceType
   tags?: string[]
   folderId?: string
+  suggestedFolderId?: string
+  ownerApprovedFolder?: boolean
   visibility?: CompanyKnowledgeItem['visibility']
   approvalStatus?: KnowledgeApprovalStatus
   allowedDepartments?: string[]
@@ -380,6 +427,12 @@ export function upsertCompanyKnowledgeItem(
         ...existing,
         organizationId,
         folderId: input.folderId ?? existing.folderId,
+        suggestedFolderId:
+          input.suggestedFolderId !== undefined ? input.suggestedFolderId : existing.suggestedFolderId,
+        ownerApprovedFolder:
+          input.ownerApprovedFolder !== undefined
+            ? input.ownerApprovedFolder
+            : existing.ownerApprovedFolder,
         title: input.title.trim() || existing.title,
         description: typeof input.description === 'string' ? input.description : existing.description,
         sourceType: input.sourceType ?? existing.sourceType,
@@ -395,6 +448,8 @@ export function upsertCompanyKnowledgeItem(
         id,
         organizationId,
         folderId: input.folderId,
+        suggestedFolderId: input.suggestedFolderId,
+        ownerApprovedFolder: input.ownerApprovedFolder,
         uploadedByUserId: profile.userId,
         title: input.title.trim() || 'Untitled',
         description: input.description?.trim() ?? '',

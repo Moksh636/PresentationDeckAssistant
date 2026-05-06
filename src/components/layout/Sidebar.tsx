@@ -1,6 +1,8 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { AuthControls } from '../auth/AuthControls'
+import { useAuth } from '../../context/useAuth'
 import { useWorkspace } from '../../context/useWorkspace'
+import { isOwnerOrAdmin } from '../../data/postAuthRedirect'
 import { formatCountLabel, formatShortDate } from '../../utils/formatters'
 
 interface SidebarProps {
@@ -9,7 +11,10 @@ interface SidebarProps {
 
 export function Sidebar({ variant = 'full' }: SidebarProps) {
   const navigate = useNavigate()
+  const auth = useAuth()
   const { workspace, createPresentation } = useWorkspace()
+  const showOwnerConsole =
+    Boolean(auth.user) && isOwnerOrAdmin(workspace, auth.user?.id ?? '')
 
   const activeDeck = workspace.decks.find((deck) => deck.id === workspace.activeDeckId)
 
@@ -47,6 +52,14 @@ export function Sidebar({ variant = 'full' }: SidebarProps) {
           </span>
           <span className="sidebar__nav-text">Dashboard</span>
         </NavLink>
+        {showOwnerConsole ? (
+          <NavLink to="/owner" className="sidebar__nav-link" title="Owner console">
+            <span className="sidebar__nav-icon" aria-hidden="true">
+              O
+            </span>
+            <span className="sidebar__nav-text">Owner console</span>
+          </NavLink>
+        ) : null}
         <NavLink to="/build" className="sidebar__nav-link" title="Build pitch deck">
           <span className="sidebar__nav-icon" aria-hidden="true">
             B

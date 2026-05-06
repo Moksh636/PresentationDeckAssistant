@@ -118,4 +118,27 @@ assert.ok(!ids.includes('k-private'))
 assert.ok(!ids.includes('k-dept-blocked'))
 assert.ok(ids.indexOf('k-approved') <= ids.indexOf('k-role'))
 
+const ownerCreated = completeCompanyOnboarding(
+  migrated,
+  {
+    variant: 'owner-create',
+    companyName: 'Blue Crane Films',
+    website: 'https://bluecranefilms.example',
+    ownerDisplayName: 'Jamie Owner',
+    knowledgeOrgPreference: 'hybrid',
+  },
+  { userId: 'owner-2', email: 'jamie@example.com', displayName: 'Jamie Owner' },
+)
+
+const craneOrg = ownerCreated.companyBrain.organizations.find((org) => org.name === 'Blue Crane Films')
+assert.ok(craneOrg)
+assert.equal(craneOrg?.website, 'https://bluecranefilms.example')
+const ownerMembership = ownerCreated.companyBrain.organizationMemberships.find(
+  (m) => m.organizationId === craneOrg?.id && m.userId === 'owner-2',
+)
+assert.ok(ownerMembership)
+assert.equal(ownerMembership?.department, '')
+assert.equal(ownerMembership?.roleTitle, 'Jamie Owner')
+assert.equal(ownerCreated.companyBrain.onboarding.knowledgeOrgPreference, 'hybrid')
+
 console.log('companyBrain tests passed')

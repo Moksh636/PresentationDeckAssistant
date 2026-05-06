@@ -11,6 +11,7 @@ import type {
   CompanyKnowledgeSourceType,
   KnowledgeApprovalStatus,
   KnowledgeFolder,
+  KnowledgeOrgPreferenceMode,
   KnowledgeVisibilityScope,
   MembershipAccessRole,
   Organization,
@@ -32,6 +33,13 @@ const SOURCE_TYPES: CompanyKnowledgeSourceType[] = [
   'transcript',
   'other',
 ]
+
+const KNOWLEDGE_ORG_PREFS = new Set<KnowledgeOrgPreferenceMode>([
+  'auto',
+  'manual',
+  'hybrid',
+  'drive-like',
+])
 
 const ACTIVITY_KINDS = new Set<CompanyActivityKind>([
   'knowledge-item-created',
@@ -121,6 +129,7 @@ export function normalizeCompanyBrainWorkspaceSlice(
           id: typeof r.id === 'string' ? r.id : `organization-legacy-${index + 1}`,
           name: typeof r.name === 'string' ? r.name : 'Workspace',
           slug: typeof r.slug === 'string' ? r.slug : slugifyOrganizationName(typeof r.name === 'string' ? r.name : 'workspace'),
+          website: typeof r.website === 'string' ? r.website : undefined,
           createdByUserId: typeof r.createdByUserId === 'string' ? r.createdByUserId : 'user-owner-1',
           createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
           updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
@@ -196,6 +205,10 @@ export function normalizeCompanyBrainWorkspaceSlice(
           id: typeof r.id === 'string' ? r.id : `kfolder-legacy-${index + 1}`,
           organizationId: typeof r.organizationId === 'string' ? r.organizationId : organizations[0]?.id ?? '',
           name: typeof r.name === 'string' ? r.name : 'General',
+          parentFolderId: typeof r.parentFolderId === 'string' ? r.parentFolderId : undefined,
+          description: typeof r.description === 'string' ? r.description : undefined,
+          suggestedByAi: r.suggestedByAi === true ? true : undefined,
+          ownerApproved: r.ownerApproved === true ? true : undefined,
           createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
           updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
         }
@@ -216,6 +229,8 @@ export function normalizeCompanyBrainWorkspaceSlice(
           id: typeof r.id === 'string' ? r.id : `know-legacy-${index + 1}`,
           organizationId: typeof r.organizationId === 'string' ? r.organizationId : organizations[0]?.id ?? '',
           folderId: typeof r.folderId === 'string' ? r.folderId : undefined,
+          suggestedFolderId: typeof r.suggestedFolderId === 'string' ? r.suggestedFolderId : undefined,
+          ownerApprovedFolder: r.ownerApprovedFolder === true ? true : undefined,
           uploadedByUserId: typeof r.uploadedByUserId === 'string' ? r.uploadedByUserId : 'user-owner-1',
           title: typeof r.title === 'string' ? r.title : 'Untitled item',
           description: typeof r.description === 'string' ? r.description : '',
@@ -336,6 +351,7 @@ export function normalizeCompanyBrainWorkspaceSlice(
     typeof record.onboarding === 'object' && record.onboarding && !Array.isArray(record.onboarding)
       ? (record.onboarding as Record<string, unknown>)
       : {}
+  const rawOrgPref = onboardingRaw.knowledgeOrgPreference
   const onboarding = {
     dismissed: onboardingRaw.dismissed === true,
     companyName: typeof onboardingRaw.companyName === 'string' ? onboardingRaw.companyName : undefined,
@@ -343,6 +359,10 @@ export function normalizeCompanyBrainWorkspaceSlice(
     department: typeof onboardingRaw.department === 'string' ? onboardingRaw.department : undefined,
     setupCompletedAt:
       typeof onboardingRaw.setupCompletedAt === 'string' ? onboardingRaw.setupCompletedAt : undefined,
+    knowledgeOrgPreference:
+      typeof rawOrgPref === 'string' && KNOWLEDGE_ORG_PREFS.has(rawOrgPref as KnowledgeOrgPreferenceMode)
+        ? (rawOrgPref as KnowledgeOrgPreferenceMode)
+        : undefined,
   }
 
   return {

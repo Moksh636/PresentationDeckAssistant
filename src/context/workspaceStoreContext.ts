@@ -152,7 +152,13 @@ export interface WorkspaceContextValue {
       },
   ) => void
   archiveCompanyCatalogRole: (organizationId: string, roleId: string) => void
-  upsertCompanyKnowledgeFolder: (organizationId: string, folder: Pick<KnowledgeFolder, 'name'> & { id?: string }) => void
+  upsertCompanyKnowledgeFolder: (
+    organizationId: string,
+    folder: Pick<KnowledgeFolder, 'name'> &
+      Partial<Pick<KnowledgeFolder, 'parentFolderId' | 'description' | 'suggestedByAi' | 'ownerApproved'>> & {
+        id?: string
+      },
+  ) => void
   upsertCompanyKnowledgeItem: (organizationId: string, input: UpsertKnowledgeItemInput) => void
   deleteCompanyKnowledgeItem: (organizationId: string, itemId: string) => void
   setCompanyKnowledgeApproval: (

@@ -353,10 +353,15 @@ export interface KnowledgeTag {
   label: string
 }
 
+/** How the company wants AI-assisted vs manual knowledge filing to behave (owner onboarding preference). */
+export type KnowledgeOrgPreferenceMode = 'auto' | 'manual' | 'hybrid' | 'drive-like'
+
 export interface Organization {
   id: string
   name: string
   slug: string
+  /** Company marketing site — captured during owner onboarding when provided. */
+  website?: string
   createdByUserId: string
   createdAt: string
   updatedAt: string
@@ -384,6 +389,13 @@ export interface KnowledgeFolder {
   id: string
   organizationId: string
   name: string
+  /** When set, folder renders as a child in the library tree. */
+  parentFolderId?: string
+  description?: string
+  /** Mock AI folder planner — folders proposed by local heuristics, not a remote model. */
+  suggestedByAi?: boolean
+  /** Owner acknowledged this folder’s placement (paired with `suggestedByAi`). */
+  ownerApproved?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -392,6 +404,10 @@ export interface CompanyKnowledgeItem {
   id: string
   organizationId: string
   folderId?: string
+  /** Mock AI suggestion — target folder before owner confirms `folderId`. */
+  suggestedFolderId?: string
+  /** Owner approved moving this item into `folderId` (clears suggestion friction in UI). */
+  ownerApprovedFolder?: boolean
   uploadedByUserId: string
   title: string
   description: string
@@ -485,6 +501,8 @@ export interface CompanyBrainOnboardingDraft {
   roleTitle?: string
   department?: CompanyDepartment
   setupCompletedAt?: string
+  /** Persisted owner wizard preference once onboarding completes. */
+  knowledgeOrgPreference?: KnowledgeOrgPreferenceMode
 }
 
 export interface CompanyBrainWorkspaceSlice {

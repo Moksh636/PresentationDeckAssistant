@@ -569,6 +569,7 @@ export function DashboardPage() {
       <CompanySetupModal
         key={showCompanySetup ? 'company-setup-active' : 'company-setup-idle'}
         open={showCompanySetup}
+        variant="owner-create"
         onDismiss={() => dismissCompanyOnboarding()}
         onComplete={(input) => completeCompanyBrainOnboarding(input)}
         roleOptions={setupRolePickerOptions}

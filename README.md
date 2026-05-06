@@ -2,18 +2,34 @@
 
 Frontend MVP shell for an AI-native sales deck workspace. The app provides routed surfaces for dashboard, pitch deck build (account brief + intel review), and slide editing.
 
-## Authentication
+## Authentication & routing
 
-The deployed app is **private-login-first**: visitors land on a **sign-in / sign-up** screen and cannot open dashboard, build, editor, or workspace features until authenticated.
+### Public routes (signed-out visitors)
 
-- **Production / hosted (Supabase configured)**  
-  Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Users must sign in (email + password, optional magic link and password reset) before using the app. Sessions persist across refreshes via the Supabase client.
+- **`/`** — Marketing landing (hero, product sections, trust content). **Sign in** / **Sign up** navigate to `/auth` and `/signup`.
+- **`/auth`** — Existing Supabase email + password flow (magic link + reset preserved). Signed-in users are redirected according to role rules below.
+- **`/signup`** — Owner-focused signup entry (same Supabase password signup). After a session exists, continue with **`/onboarding/company`**.
 
-- **Local development (env vars missing)**  
-  If those variables are not set, the app shows a **local development** path: an explicit **Continue in local development mode** action stores a session flag and opens the app **without** cloud login. Data remains in the browser only.
+Static assets load as usual; there is **no Stripe**, **no paid AI APIs**, and **no external site builders**—everything ships from this Vite app.
 
-- A **public marketing site** is not part of this repo and can be added separately later.
-- **Billing / subscriptions** are not implemented.
+### Private routes (authenticated)
+
+Protected by `ProtectedLayout`: **`/dashboard`**, **`/build`**, **`/edit`**, **`/company`**, **`/owner`**, and all **`/onboarding/*`** wizard steps. Guests are redirected to **`/auth`** with a `from` state payload.
+
+- **`/dashboard`** — Pitch deck workspace library (existing Deck Drive experience).
+- **`/owner`** — **Owner / company admin console** (knowledge governance, org scaffolding, mock AI folder suggestions). Only **owner** or **admin** membership on the active organization can view this route; others are redirected to `/dashboard`.
+- **`/company`** — Company Brain (shared memory scaffold).
+- **`/build`**, **`/edit`** — Pitch deck build + editor surfaces.
+
+### Role-aware defaults
+
+After sign-in, **owners** and **admins** default to **`/owner`**; **members** and **viewers** default to **`/dashboard`**, unless a deep-link `from` state points elsewhere. The landing page and `/signup` route signed-in users through `resolvePostSignupPath`: net-new companies without a local org record go to **`/onboarding/company`**.
+
+### Local development bypass
+
+If `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are missing, **Continue in local workspace mode** on `/auth` still unlocks the private app without cloud login; data stays in the browser.
+
+**Billing / subscriptions** are not implemented.
 
 ### Required Vercel (or host) environment variables
 
@@ -122,12 +138,21 @@ Helpers live in `src/data/workspaceStorage.ts` (`uploadWorkspaceAsset`, `getWork
 Deckspace ships a lightweight **company workspace / knowledge library** scaffold so reps can accumulate shared narratives, proofs, approvals, brand defaults, offerings, and case studies locally while Supabase relational tables mature.
 
 - **Frontend route**: `/company` (**Company Brain** in the sidebar) hosts tabs for overview, knowledge, review queue, brand kit, messaging, casework, catalogs, membership, and an activity timeline.
+- **`/owner` owner console**: complements `/company` with an administration-focused overview (sections for knowledge library, catalogs, mock AI folder suggestions, activity, etc.). It reads the same normalized workspace JSON—no duplicate datastore.
+- **Knowledge folders (nested + suggestions)**: `KnowledgeFolder` supports `parentFolderId`, optional `description`, and mock AI metadata (`suggestedByAi`, `ownerApproved`). Items may carry `suggestedFolderId` / `ownerApprovedFolder` while owners reconcile placements.
+- **Mock AI organization**: `suggestCompanyKnowledgeOrganization` in `src/data/companyKnowledgeOrganization.ts` proposes folder targets using deterministic rules (source type + light keyword cues). **No remote models**—safe for prototyping.
 - **Local/mock behavior**: all Company Brain payloads live inside the existing `workspace` JSON persisted to `localStorage` (same as decks). Older snapshots **auto-normalize**: missing `workspace.companyBrain` backfills empty arrays/objects so nothing breaks offline.
 - **Role-aware retrieval (mock heuristic)**: `getRelevantCompanyKnowledgeForUser` ranks knowledge items during the **Build Pitch Deck** flow using approval flags, visibility, department/title matchers, deck brief keywords (target company / buyer persona / offerings), tags, and source types. No embeddings / no vector search yet.
 - **Intel Review integration**: when you toggle knowledge selections in Build, `/generate-intel-review` mocks include those excerpts in local intel drafts via `generateIntelDraftFromSources`, and citations only hydrate when linked `FileAsset` traces exist.
 - **Supabase rollout**: migrations `supabase/migrations/0003_company_brain.sql` define the Postgres tables plus RLS aligned to owners/admins/members. Wired cloud sync UI + policies can land later without changing the UX contract modeled here.
 
 > **Important:** there are still **no paid AI APIs**, **no Stripe billing**, **no embeddings / vector search**, and **no OCR / parsing pipelines** bundled with this scaffold—purposefully safe for prototyping.
+
+### Owner onboarding wizard
+
+Guided steps live at **`/onboarding/company` → `/onboarding/company-info` → `/onboarding/company-knowledge` → `/onboarding/review`**. Step 1 is Supabase signup (`/signup`). Steps 2–5 capture company basics, optional narrative copy, mock upload labels, knowledge-library preference (`auto` / `manual` / `hybrid` / `drive-like`), and a confirmation that seeds the local organization via `completeCompanyBrainOnboarding` with `variant: 'owner-create'`. Draft answers persist in **`sessionStorage`** until completion.
+
+Workers invited into an existing organization continue to use the **catalog-based Company Setup modal** (`worker-profile` variant) when they need to declare department/title assignments—owners creating a net-new company only supply company name, optional website, and optional display name.
 
 ### Auth and workspace snapshots
 
@@ -196,7 +221,7 @@ Future AI provider integration should use **Supabase Function Secrets** (server-
 - `src/data/deckGenerator.ts`  
   Deterministic mock slide generation.
 - `src/pages/*`  
-  Dashboard, build, editor, auth, `/company`.
+  Dashboard, build, editor, auth, `/company`, marketing landing (`/`), `/signup`, owner onboarding steps, `/owner`.
 - `src/pages/CompanyBrainPage.tsx`  
   Company Brain workspace scaffold (tabs, mock CRUD, activity log).
 - `src/components/editor/*`  
@@ -229,4 +254,4 @@ Editor toolbar `Export PPTX` downloads a widescreen `.pptx` from the deck title.
 - Replace local mock generation with async backend jobs returning the same slide JSON contract
 - Real file parsing and source trace metadata on `FileAsset`
 - Collaboration and version restore flows
-- Public marketing site (separate from this private app)
+- Deeper owner-console CRUD and Supabase sync for org metadata
