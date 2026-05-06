@@ -321,6 +321,11 @@ function normalizeGeneratedReport(rawReport: unknown): GeneratedDeckReport | und
       : [],
     plainText:
       typeof reportRecord.plainText === 'string' ? reportRecord.plainText : '',
+    ...(Array.isArray(reportRecord.companyBrainSources)
+      ? {
+          companyBrainSources: reportRecord.companyBrainSources as GeneratedDeckReport['companyBrainSources'],
+        }
+      : {}),
   }
 }
 

@@ -1,4 +1,5 @@
 import type {
+  CompanyKnowledgeItem,
   Deck,
   DeckVersion,
   FileAsset,
@@ -12,6 +13,7 @@ import type {
   SourceTrace,
 } from '../types/models.ts'
 import type { DeckBrandGenerationContext } from './brandKitResolve.ts'
+import { buildCompanyKnowledgeDeckInfluence, mergeAssetsForKnowledgeTraceLookup } from './companyBrainDeckPipeline.ts'
 import { createDeckInputTrace } from './sourceIngestion.ts'
 import { normalizeSlideBlock } from './slideLayout.ts'
 import { createId } from '../utils/ids.ts'
@@ -22,6 +24,10 @@ interface DeckGenerationRequest {
   previousDeck?: Deck
   /** When set, mock slides pick up Company Brain colors, fonts, and optional logo. */
   brand?: DeckBrandGenerationContext
+  /** Company Brain rows selected on the pitch setup (local/mock deck builder). */
+  companyKnowledgeItems?: CompanyKnowledgeItem[]
+  /** Needed to resolve `fileAssetId` on knowledge rows that point at workspace library uploads. */
+  workspaceFileAssets?: FileAsset[]
 }
 
 interface DeckGenerationResult {
@@ -298,8 +304,17 @@ function createGeneratedSlides(
   fileAssets: FileAsset[],
   previousDeck?: Deck,
   brand?: DeckBrandGenerationContext,
+  companyBrain?: { items: CompanyKnowledgeItem[]; workspaceFileAssets?: FileAsset[] },
 ) {
   const sections = resolveSections(deck, fileAssets)
+  const assetIndexForBrain = mergeAssetsForKnowledgeTraceLookup(
+    fileAssets,
+    companyBrain?.workspaceFileAssets ?? [],
+  )
+  const brainInfluence =
+    companyBrain?.items && companyBrain.items.length > 0
+      ? buildCompanyKnowledgeDeckInfluence(companyBrain.items, assetIndexForBrain)
+      : undefined
 
   const brandText = (partial: Partial<SlideTextStyle>): Partial<SlideTextStyle> | undefined => {
     if (!brand) {
@@ -341,13 +356,23 @@ function createGeneratedSlides(
     0.95,
   )
   const notesTrace = createDeckInputTrace('Notes and context', notes, 'deck-input', 0.88)
-  const executiveBullets = getExecutiveSummaryBullets(
+  let executiveBullets = getExecutiveSummaryBullets(
     goal,
     audience,
     tone,
     fileAssets,
     sections,
   )
+  if (brainInfluence) {
+    const extraBrainBullets = [
+      ...brainInfluence.proofLines.slice(0, 2).map((line) => `Proof (Company Brain): ${line}`),
+      ...brainInfluence.solutionLines.slice(0, 2).map((line) => `Solution (Company Brain): ${line}`),
+      ...brainInfluence.valueLines.slice(0, 2).map((line) => `Value / proposal (Company Brain): ${line}`),
+      ...brainInfluence.contextLines.slice(0, 2).map((line) => `Context (Company Brain): ${line}`),
+    ]
+    executiveBullets = [...executiveBullets, ...extraBrainBullets].slice(0, 12)
+  }
+  const brainCitationTraces = dedupeSourceTrace(brainInfluence?.citedTraces ?? [])
   const visualPlaceholder = createVisualPlaceholder(fileAssets, sections)
   const chartSuggestion = createChartSuggestion(fileAssets, goal)
 
@@ -424,14 +449,26 @@ function createGeneratedSlides(
     ),
   )
 
+  const titleSlideNotes = [
+    'Open with the promise of the presentation and orient the audience quickly.',
+    brainInfluence?.memoryOnlyTitles.length
+      ? `Company knowledge, not citation-backed (see Intel Review): ${brainInfluence.memoryOnlyTitles.slice(0, 8).join('; ')}${brainInfluence.memoryOnlyTitles.length > 8 ? '…' : ''}`
+      : '',
+    brainInfluence?.legalTitles.length
+      ? `Legal / policy sources in play: ${brainInfluence.legalTitles.join(', ')} — keep precise claims in speaker notes until reviewed.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+
   slides.push(
     buildSlide(
       deck.id,
       slides.length + 1,
       deck.title || 'Untitled presentation',
-      'Open with the promise of the presentation and orient the audience quickly.',
+      titleSlideNotes,
       titleSlideBlocks,
-      [titleTrace, goalTrace, ...toggleTrace, ...fileTrace.slice(0, 2)],
+      [titleTrace, goalTrace, ...toggleTrace, ...fileTrace.slice(0, 2), ...brainCitationTraces.slice(0, 4)],
     ),
   )
 
@@ -490,7 +527,13 @@ function createGeneratedSlides(
           'bullet-list',
           executiveBullets,
           { align: 'left', fontSize: 'md' },
-          [goalTrace, audienceTrace, toneTrace, ...fileTrace.slice(0, 2)],
+          [
+            goalTrace,
+            audienceTrace,
+            toneTrace,
+            ...fileTrace.slice(0, 2),
+            ...brainCitationTraces.slice(0, 8),
+          ],
           undefined,
           brand ? { textStyle: brandText({}) } : undefined,
         ),
@@ -510,7 +553,14 @@ function createGeneratedSlides(
             : undefined,
         ),
       ],
-      [goalTrace, audienceTrace, toneTrace, ...fileTrace.slice(0, 3), ...toggleTrace],
+      [
+        goalTrace,
+        audienceTrace,
+        toneTrace,
+        ...fileTrace.slice(0, 3),
+        ...toggleTrace,
+        ...brainCitationTraces.slice(0, 4),
+      ],
     ),
   )
 
@@ -523,13 +573,29 @@ function createGeneratedSlides(
       0.9,
     )
     const relatedTrace = relatedAsset?.sourceTrace ?? []
+    const proofAngle =
+      brainInfluence?.proofLines[0] && index === 0
+        ? `Company Brain proof cue: ${brainInfluence.proofLines[0]}`
+        : undefined
+    const solutionAngle =
+      brainInfluence?.solutionLines[0] && index === 1
+        ? `Company Brain solution cue: ${brainInfluence.solutionLines[0]}`
+        : undefined
+    const sectionBodyExtra = [proofAngle, solutionAngle].filter(Boolean).join(' ')
 
     slides.push(
       buildSlide(
         deck.id,
         slides.length + 1,
         section,
-        'Use this as a flexible content slide for the core evidence and argument.',
+        [
+          'Use this as a flexible content slide for the core evidence and argument.',
+          brainInfluence?.legalTitles.length && index === sections.length - 1
+            ? `Risk / terms note: ${brainInfluence.legalTitles.join(', ')} — align claims with approved legal language.`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
         [
           buildBlock(
             'eyebrow',
@@ -549,7 +615,9 @@ function createGeneratedSlides(
           ),
           buildBlock(
             'body',
-            getSectionSlideBody(section, index, audience, fileAssets),
+            [getSectionSlideBody(section, index, audience, fileAssets), sectionBodyExtra]
+              .filter(Boolean)
+              .join(' '),
             { align: 'left', fontSize: 'md' },
             [goalTrace, audienceTrace, sectionTrace, ...relatedTrace],
             undefined,
@@ -668,12 +736,24 @@ function createGeneratedSlides(
     ),
   )
 
+  const nextStepsNotes = [
+    'Close with clear ownership, timing, and the decision requested from the audience.',
+    brainInfluence?.legalTitles.length
+      ? `Policy / contractual items selected in Company Brain: ${brainInfluence.legalTitles.join(', ')} — double-check wording on slides vs. canonical legal documents.`
+      : '',
+    brainInfluence?.valueLines[0]
+      ? `Commercial anchor from Company Brain: ${brainInfluence.valueLines[0]}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+
   slides.push(
     buildSlide(
       deck.id,
       slides.length + 1,
       'Next steps',
-      'Close with clear ownership, timing, and the decision requested from the audience.',
+      nextStepsNotes,
       [
         buildBlock(
           'title',
@@ -716,6 +796,8 @@ export async function runMockDeckGenerationPipeline({
   sourceFiles,
   previousDeck,
   brand,
+  companyKnowledgeItems,
+  workspaceFileAssets,
 }: DeckGenerationRequest): Promise<DeckGenerationResult> {
   const generatedAt = new Date().toISOString()
   const generatedDeckId = createId('deck')
@@ -731,12 +813,20 @@ export async function runMockDeckGenerationPipeline({
     activeVersionId: generatedVersionId,
     status: 'ready',
   }
-  const generatedSlides = createGeneratedSlides(generatedDeck, generatedFiles, previousDeck, brand).map(
-    (slide) => ({
-      ...slide,
-      deckId: generatedDeckId,
-    }),
-  )
+  const companyBrainSlice =
+    companyKnowledgeItems && companyKnowledgeItems.length > 0
+      ? { items: companyKnowledgeItems, workspaceFileAssets }
+      : undefined
+  const generatedSlides = createGeneratedSlides(
+    generatedDeck,
+    generatedFiles,
+    previousDeck,
+    brand,
+    companyBrainSlice,
+  ).map((slide) => ({
+    ...slide,
+    deckId: generatedDeckId,
+  }))
   const generatedVersion: DeckVersion = {
     id: generatedVersionId,
     deckId: generatedDeckId,
@@ -765,8 +855,13 @@ export function createSlidesFromDeck(
   deck: Deck,
   fileAssets: FileAsset[] = [],
   brand?: DeckBrandGenerationContext,
+  companyBrain?: { items?: CompanyKnowledgeItem[]; workspaceFileAssets?: FileAsset[] },
 ): Slide[] {
-  return createGeneratedSlides(deck, fileAssets, undefined, brand)
+  const slice =
+    companyBrain?.items && companyBrain.items.length > 0
+      ? { items: companyBrain.items, workspaceFileAssets: companyBrain.workspaceFileAssets }
+      : undefined
+  return createGeneratedSlides(deck, fileAssets, undefined, brand, slice)
 }
 
 export function createAlternateSlides(deck: Deck, currentSlides: Slide[]) {

@@ -1,10 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  knowledgeItemHasCitationBackedTraces,
+  mergeAssetsForKnowledgeTraceLookup,
+  formatCompanyKnowledgeVisibilityBrief,
+} from '../../data/companyBrainDeckPipeline'
 import type {
   CompanyKnowledgeRelevanceBand,
   RankedCompanyKnowledgeEntry,
 } from '../../data/companyKnowledgeRetrieval'
-import type { DeckSetup } from '../../types/models'
+import type { DeckSetup, FileAsset } from '../../types/models'
 
 interface MembershipBrief {
   roleTitle: string
@@ -16,6 +21,7 @@ interface CompanyKnowledgeSuggestPanelProps {
   setup: DeckSetup
   rankedSuggestions: RankedCompanyKnowledgeEntry[]
   membership: MembershipBrief
+  workspaceFileAssets: FileAsset[]
   updateDeckSetup: (deckId: string, updates: Partial<DeckSetup>) => void
 }
 
@@ -106,9 +112,11 @@ export function CompanyKnowledgeSuggestPanel({
   setup,
   rankedSuggestions,
   membership,
+  workspaceFileAssets,
   updateDeckSetup,
 }: CompanyKnowledgeSuggestPanelProps) {
   const selectedIds = new Set(setup.selectedCompanyKnowledgeItemIds ?? [])
+  const assetLookupForBrain = mergeAssetsForKnowledgeTraceLookup([], workspaceFileAssets)
 
   const [approvedOnly, setApprovedOnly] = useState(false)
   const [myRoleOnly, setMyRoleOnly] = useState(false)
@@ -179,6 +187,19 @@ export function CompanyKnowledgeSuggestPanel({
     })
   }
 
+  const selectAllHighRelevanceFiltered = () => {
+    const highIds = filtered.filter((entry) => entry.band === 'high').map((entry) => entry.item.id)
+    const merged = new Set<string>([...(setup.selectedCompanyKnowledgeItemIds ?? []), ...highIds])
+    const nextIds = [...merged]
+    updateDeckSetup(deckId, {
+      selectedCompanyKnowledgeItemIds: nextIds.length > 0 ? nextIds : undefined,
+    })
+  }
+
+  const clearSelectedKnowledge = () => {
+    updateDeckSetup(deckId, { selectedCompanyKnowledgeItemIds: undefined })
+  }
+
   return (
     <section className="panel-card company-knowledge-suggest-panel">
       <div className="section-heading">
@@ -191,8 +212,22 @@ export function CompanyKnowledgeSuggestPanel({
           </p>
         </div>
         <div className="company-knowledge-suggest-actions">
+          <span className="company-knowledge-selected-count pill-muted" aria-live="polite">
+            Selected for this deck: {selectedIds.size}
+          </span>
+          <button type="button" className="secondary-button secondary-button--sm" onClick={selectAllHighRelevanceFiltered}>
+            Select all high relevance
+          </button>
+          <button
+            type="button"
+            className="ghost-button"
+            disabled={selectedIds.size === 0}
+            onClick={clearSelectedKnowledge}
+          >
+            Clear selected
+          </button>
           <button type="button" className="ghost-button" onClick={applyTopSuggestions}>
-            Select top picks
+            Select top 5 from filter
           </button>
           <Link to="/company" className="secondary-button secondary-button--sm">
             Open Company Brain
@@ -267,6 +302,7 @@ export function CompanyKnowledgeSuggestPanel({
               key={row.item.id}
               row={row}
               membership={membership}
+              assetLookup={assetLookupForBrain}
               selected={selectedIds.has(row.item.id)}
               onToggle={() => toggle(row.item.id)}
             />
@@ -280,26 +316,42 @@ export function CompanyKnowledgeSuggestPanel({
 function SuggestedKnowledgeRow({
   row,
   membership,
+  assetLookup,
   selected,
   onToggle,
 }: {
   row: RankedCompanyKnowledgeEntry
   membership: MembershipBrief
+  assetLookup: Map<string, FileAsset>
   selected: boolean
   onToggle: () => void
 }) {
   const { item, score, band, explanation } = row
   const bullets = whySuggestedLines(row, membership)
+  const hasFileTrace = knowledgeItemHasCitationBackedTraces(item, assetLookup)
 
   return (
-    <li>
+    <li className={selected ? 'company-knowledge-suggest-item--picked' : undefined}>
       <div className="company-knowledge-suggest-row">
         <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${item.title}`} />
         <div className="company-knowledge-suggest-body">
           <div className="company-knowledge-suggest-heading">
             <div className="company-knowledge-suggest-row__title">{item.title}</div>
+            {selected ? (
+              <span className="company-knowledge-selected-pill">Selected for this deck</span>
+            ) : null}
             <span className={`company-knowledge-band company-knowledge-band--${band}`}>
               {bandLabel(band)} · score {Math.round(score)}
+            </span>
+          </div>
+          <div className="company-knowledge-meta-chips" aria-label="Knowledge metadata">
+            <span className="company-knowledge-meta-chip">{item.sourceType}</span>
+            <span className="company-knowledge-meta-chip">{item.approvalStatus}</span>
+            <span className="company-knowledge-meta-chip">{formatCompanyKnowledgeVisibilityBrief(item)}</span>
+            <span
+              className={`company-knowledge-meta-chip company-knowledge-meta-chip--${hasFileTrace ? 'trace' : 'memory'}`}
+            >
+              {hasFileTrace ? 'Linked file · trace available' : 'Company-memory only'}
             </span>
           </div>
           <div className="muted-copy">{item.description || item.sourceType}</div>

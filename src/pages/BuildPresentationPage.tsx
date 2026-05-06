@@ -216,6 +216,21 @@ export function BuildPresentationPage() {
     const known = new Set(ids)
     return workspace.companyBrain.knowledgeItems.filter((item) => known.has(item.id))
   }, [activeDeck, workspace.companyBrain.knowledgeItems])
+
+  const rankedSelectedCompanyKnowledge = useMemo(() => {
+    if (!activeDeck) {
+      return undefined
+    }
+
+    const ids = activeDeck.setup.selectedCompanyKnowledgeItemIds ?? []
+
+    if (!ids.length) {
+      return undefined
+    }
+
+    const selected = new Set(ids)
+    return companyKnowledgeRankedSuggestions.filter((entry) => selected.has(entry.item.id))
+  }, [activeDeck, companyKnowledgeRankedSuggestions])
   const activeProject = workspace.projects.find((project) => project.id === activeDeck?.projectId)
   const deckAssets = workspace.fileAssets.filter((asset) => asset.deckId === activeDeck?.id)
   const chartSuggestions = workspace.chartSuggestions
@@ -630,6 +645,7 @@ export function BuildPresentationPage() {
               roleTitle: membership?.roleTitle ?? '',
               department: membership?.department ?? '',
             }}
+            workspaceFileAssets={workspace.fileAssets}
             updateDeckSetup={updateDeckSetup}
           />
 
@@ -637,7 +653,9 @@ export function BuildPresentationPage() {
             deckId={activeDeck.id}
             setup={setup}
             fileAssets={deckAssets}
+            workspaceFileAssets={workspace.fileAssets}
             companyKnowledgeItems={selectedCompanyKnowledgeItems}
+            rankedSelectedKnowledge={rankedSelectedCompanyKnowledge}
             updateDeckSetup={updateDeckSetup}
           />
 

@@ -10,7 +10,7 @@ import {
 } from '../../data/slideLayout'
 import { getMiniToolbarPlacement } from '../../data/editorGeometry'
 import { snapBlockLayout, type BlockLayoutEntry, type SnapGuide } from '../../data/slideObjectTools'
-import { getAddedByLabel, getSourceTypeLabel } from '../../data/sourceTrace'
+import { getAddedByLabel, getSlideBlockSourceChipPresentation, getSourceTypeLabel } from '../../data/sourceTrace'
 import type { SlideBlock, SlideBlockLayout } from '../../types/models'
 import { formatConfidence } from '../../utils/formatters'
 
@@ -556,6 +556,7 @@ function SourceChip({
   onClose: () => void
 }) {
   const traceCount = block.sourceTrace.length
+  const chip = getSlideBlockSourceChipPresentation(block.sourceTrace)
 
   return (
     <div
@@ -565,8 +566,9 @@ function SourceChip({
     >
       <button
         type="button"
-        className="slide-block__trace-indicator"
-        aria-label={`${traceCount} source trace${traceCount === 1 ? '' : 's'}`}
+        className={`slide-block__trace-indicator slide-block__trace-indicator--${chip.variant}`}
+        aria-label={`${chip.chipLabel}: ${traceCount} source trace${traceCount === 1 ? '' : 's'}`}
+        title={`${chip.chipLabel} — uploaded citations vs pitch input vs summaries vary by trace type`}
         onClick={(event) => {
           event.stopPropagation()
           onOpen()

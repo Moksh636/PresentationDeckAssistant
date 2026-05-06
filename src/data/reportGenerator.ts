@@ -2,6 +2,7 @@ import { getSourceTraceKey } from './sourceTrace'
 import type {
   CompanyBrandKit,
   Deck,
+  DeckReportCompanyBrainEntry,
   DeckReportDecision,
   DeckReportKeyPoint,
   DeckReportMetric,
@@ -21,6 +22,8 @@ interface GenerateDeckReportInput {
   reportType: ReportType
   /** Resolved Brand Kit for this deck (same org + setup.brandKitId), if any. */
   intelBriefBrandKit?: CompanyBrandKit
+  /** Rows from pitch setup Brain selections (optional; produced in workspace hook). */
+  companyBrainSources?: DeckReportCompanyBrainEntry[]
 }
 
 function normalizeWhitespace(value: string) {
@@ -168,7 +171,30 @@ function buildDecisions(slides: Slide[], reportType: ReportType): DeckReportDeci
     .slice(0, maxItems)
 }
 
+function formatCompanyBrainRow(row: DeckReportCompanyBrainEntry) {
+  const rel =
+    row.relevanceBand !== undefined || row.relevanceScore !== undefined
+      ? ` relevance: ${row.relevanceBand ?? '—'} (${row.relevanceScore !== undefined ? Math.round(row.relevanceScore) : '—'})`
+      : ''
+  return `- ${row.title} [${row.sourceType}] ${row.approvalStatus} | ${row.visibilityLabel} | ${row.backing}${rel}`
+}
+
 function buildPlainText(report: Omit<GeneratedDeckReport, 'plainText'>) {
+  const brainLines =
+    report.companyBrainSources === undefined
+      ? []
+      : report.companyBrainSources.length === 0
+        ? [
+            '',
+            'Company Brain sources (pitch selections)',
+            '- Selection list was empty once resolved.',
+          ]
+        : [
+            '',
+            'Company Brain sources (pitch selections)',
+            ...report.companyBrainSources.map(formatCompanyBrainRow),
+          ]
+
   const lines = [
     report.title,
     `Intel Brief type: ${report.reportType}`,
@@ -198,6 +224,7 @@ function buildPlainText(report: Omit<GeneratedDeckReport, 'plainText'>) {
           (trace) => `- ${trace.fileName}: ${trace.extractedSnippet}`,
         )
       : ['- No source references available.']),
+    ...brainLines,
   ]
 
   return lines.join('\n')
@@ -209,6 +236,7 @@ export function generateDeckReport({
   fileAssets,
   reportType,
   intelBriefBrandKit,
+  companyBrainSources,
 }: GenerateDeckReportInput): GeneratedDeckReport {
   const sourceReferences = collectSourceReferences(slides)
   const intelBriefTheme = intelBriefBrandKit
@@ -234,6 +262,7 @@ export function generateDeckReport({
       sourceReferences.length > 0
         ? sourceReferences
         : fileAssets.flatMap((asset) => asset.sourceTrace).slice(0, reportType === 'concise' ? 6 : 16),
+    ...(companyBrainSources !== undefined ? { companyBrainSources } : {}),
     intelBriefTheme,
   }
 

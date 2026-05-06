@@ -48,6 +48,8 @@ export interface GenerateDeckRequest {
   sourceFiles: FileAsset[]
   previousDeck?: Deck
   brand?: DeckBrandGenerationContext
+  companyKnowledgeItems?: CompanyKnowledgeItem[]
+  workspaceFileAssets?: FileAsset[]
 }
 
 export interface GenerateIntelReviewRequest {
@@ -109,6 +111,7 @@ export interface GenerateReportRequest {
   fileAssets: FileAsset[]
   reportType: ReportType
   intelBriefBrandKit?: CompanyBrandKit
+  companyBrainSources?: GeneratedDeckReport['companyBrainSources']
 }
 
 export type GenerateReportResponse = GeneratedDeckReport
@@ -394,6 +397,7 @@ export const aiClient: AiBackendClient = {
           fileAssets: request.fileAssets,
           reportType: request.reportType,
           intelBriefBrandKit: request.intelBriefBrandKit,
+          ...(request.companyBrainSources !== undefined ? { companyBrainSources: request.companyBrainSources } : {}),
         }),
     )
   },

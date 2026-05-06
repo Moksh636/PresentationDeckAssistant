@@ -18,6 +18,12 @@ import {
   createMockFileAsset,
 } from '../data/sourceIngestion'
 import { generateDeckReport } from '../data/reportGenerator'
+import {
+  buildDeckReportCompanyBrainEntries,
+  buildDeckReportCompanyBrainEntriesFromItems,
+  filterRankedKnowledgeBySelection,
+  mergeAssetsForKnowledgeTraceLookup,
+} from '../data/companyBrainDeckPipeline'
 import { cloneBlockForPaste } from '../data/slideObjectTools'
 import {
   clampBlockLayout,
@@ -57,6 +63,7 @@ import {
   deleteProductService,
   deleteWorkerInviteDraft,
   dismissCompanyOnboarding as applyDismissCompanyOnboarding,
+  getMembershipForOrgUser,
   markKnowledgeReviewed,
   markWorkerInviteInvited,
   revokeWorkerInvite,
@@ -73,6 +80,7 @@ import {
   upsertProductService,
   upsertWorkerInviteDraft,
 } from '../data/companyBrainMutations'
+import { getRelevantCompanyKnowledgeForUserWithExplanations } from '../data/companyKnowledgeRetrieval'
 import { normalizeWorkspaceState } from '../data/workspaceState'
 import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import {
@@ -92,7 +100,9 @@ import {
 } from '../data/workspaceLibrary'
 import type {
   Comment,
+  CompanyKnowledgeItem,
   Deck,
+  DeckReportCompanyBrainEntry,
   FileAsset,
   FileAssetKind,
   FileContributorRole,
@@ -827,11 +837,19 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       .filter((candidate) => candidate.projectId === sourceDeck.projectId && candidate.id !== deckId)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
     const brand = resolveBrandGenerationContext(sourceDeck.setup, workspace.companyBrain, sourceFiles)
+    const selectedBrainIds = sourceDeck.setup.selectedCompanyKnowledgeItemIds ?? []
+    const knowledgeById = new Map(workspace.companyBrain.knowledgeItems.map((item) => [item.id, item]))
+    const selectedBrainItems = selectedBrainIds
+      .map((id) => knowledgeById.get(id))
+      .filter((item): item is CompanyKnowledgeItem => Boolean(item))
     const result = await runMockDeckGenerationPipeline({
       sourceDeck,
       sourceFiles,
       previousDeck,
       brand,
+      companyKnowledgeItems:
+        selectedBrainItems.length > 0 ? selectedBrainItems : undefined,
+      workspaceFileAssets: workspace.fileAssets,
     })
 
     setWorkspace((current) => ({
@@ -879,12 +897,69 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       )
       const intelBriefBrandKit = resolveBrandKitForDeckSetup(deck.setup, current.companyBrain)
 
+      const selectedBrainReportIds = deck.setup.selectedCompanyKnowledgeItemIds ?? []
+      const mergedAssetLookup = mergeAssetsForKnowledgeTraceLookup(sourceFiles, current.fileAssets)
+
+      const companyBrainSources: DeckReportCompanyBrainEntry[] | undefined =
+        selectedBrainReportIds.length > 0
+          ? (() => {
+              const organizationId =
+                current.companyBrain.activeOrganizationId ||
+                current.companyBrain.organizations[0]?.id ||
+                ''
+
+              const fallbackRows = () =>
+                buildDeckReportCompanyBrainEntriesFromItems(
+                  selectedBrainReportIds
+                    .map((id) => current.companyBrain.knowledgeItems.find((item) => item.id === id))
+                    .filter((item): item is CompanyKnowledgeItem => Boolean(item)),
+                  mergedAssetLookup,
+                )
+
+              if (!organizationId || !user) {
+                return fallbackRows()
+              }
+
+              const profileSnapshot = workspaceUserProfileFromAuth(user ?? null, isLocalDevBypass)
+              const membership = getMembershipForOrgUser(current, organizationId, profileSnapshot.userId)
+              const catalogRoleNames = current.companyBrain.companyRoles
+                .filter((role) => !role.archived && role.organizationId === organizationId)
+                .map((role) => role.name)
+              const catalogDepartmentNames = current.companyBrain.companyDepartments
+                .filter((department) => !department.archived && department.organizationId === organizationId)
+                .map((department) => department.name)
+
+              const ranked = getRelevantCompanyKnowledgeForUserWithExplanations({
+                organizationId,
+                userRoleTitle: membership?.roleTitle ?? '',
+                department: membership?.department ?? '',
+                accessRole: membership?.accessRole ?? 'viewer',
+                currentUserId: profileSnapshot.userId,
+                deckSetup: deck.setup,
+                knowledgeItems: current.companyBrain.knowledgeItems,
+                companyCatalogRoleNames: catalogRoleNames.length ? catalogRoleNames : undefined,
+                companyCatalogDepartmentNames: catalogDepartmentNames.length
+                  ? catalogDepartmentNames
+                  : undefined,
+              })
+
+              const rankedSelected = filterRankedKnowledgeBySelection(ranked, selectedBrainReportIds)
+
+              if (rankedSelected.length > 0) {
+                return buildDeckReportCompanyBrainEntries(rankedSelected, mergedAssetLookup)
+              }
+
+              return fallbackRows()
+            })()
+          : undefined
+
       const report = generateDeckReport({
         deck,
         slides: deckSlides,
         fileAssets: sourceFiles,
         reportType,
         intelBriefBrandKit,
+        ...(companyBrainSources !== undefined ? { companyBrainSources } : {}),
       })
       const fileName = createReportFileName(deck.title, reportType)
       const sizeBytes = new TextEncoder().encode(report.plainText).length

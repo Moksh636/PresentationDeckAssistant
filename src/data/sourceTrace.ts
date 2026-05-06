@@ -50,6 +50,48 @@ export function getAddedByLabel(trace: SourceTrace) {
   return `${actor.name} | ${getRoleLabel(actor.role)}`
 }
 
+/** Editor chip styling: distinguishes uploaded citations vs pitch setup vs generated summaries. */
+export type SlideSourceChipVariant =
+  | 'citation'
+  | 'generated'
+  | 'brief'
+  | 'research'
+  | 'prior-deck'
+  | 'mixed'
+
+export function getSlideBlockSourceChipPresentation(traces: SourceTrace[]): {
+  variant: SlideSourceChipVariant
+  chipLabel: string
+} {
+  if (traces.length === 0) {
+    return { variant: 'mixed', chipLabel: 'Sources' }
+  }
+
+  const types = new Set(traces.map((t) => t.sourceType))
+
+  if (types.has('uploaded-file')) {
+    return { variant: 'citation', chipLabel: 'Citation' }
+  }
+
+  if (types.has('generated-summary')) {
+    return { variant: 'generated', chipLabel: 'AI summary' }
+  }
+
+  if (types.size === 1 && types.has('deck-input')) {
+    return { variant: 'brief', chipLabel: 'Pitch input' }
+  }
+
+  if (types.has('web-research')) {
+    return { variant: 'research', chipLabel: 'Research' }
+  }
+
+  if (types.has('previous-deck')) {
+    return { variant: 'prior-deck', chipLabel: 'Prior deck' }
+  }
+
+  return { variant: 'mixed', chipLabel: 'Sources' }
+}
+
 function findRelatedBlock(slide: Slide, trace: SourceTrace) {
   const traceKey = getSourceTraceKey(trace)
   const blockIndex = slide.blocks.findIndex((block) =>

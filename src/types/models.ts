@@ -234,6 +234,17 @@ export interface DeckReportDecision {
   summary: string
 }
 
+/** Rows for Intel Brief “Company Brain” section (deck setup selections + retrieval ranks when available). */
+export interface DeckReportCompanyBrainEntry {
+  title: string
+  sourceType: CompanyKnowledgeSourceType
+  approvalStatus: KnowledgeApprovalStatus
+  visibilityLabel: string
+  backing: 'citation-backed' | 'memory-only'
+  relevanceBand?: 'high' | 'medium' | 'low'
+  relevanceScore?: number
+}
+
 export interface GeneratedDeckReport {
   id: string
   deckId: string
@@ -246,6 +257,8 @@ export interface GeneratedDeckReport {
   decisions: DeckReportDecision[]
   sourceReferences: SourceTrace[]
   plainText: string
+  /** Company Brain items selected on the pitch setup (citation-backed vs memory-only). */
+  companyBrainSources?: DeckReportCompanyBrainEntry[]
   /** When the deck had an applied Brand Kit, Intel Brief preview picks up light chrome colors. */
   intelBriefTheme?: {
     primaryColor: string

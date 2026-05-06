@@ -1,4 +1,12 @@
 import { Link } from 'react-router-dom'
+import type { RankedCompanyKnowledgeEntry } from '../../data/companyKnowledgeRetrieval'
+import {
+  INTEL_REVIEW_COMPANY_BRAIN_BUCKET_ORDER,
+  groupCompanyKnowledgeByIntelBucket,
+  companyBrainIntelBucketLabel,
+  knowledgeItemHasCitationBackedTraces,
+  mergeAssetsForKnowledgeTraceLookup,
+} from '../../data/companyBrainDeckPipeline'
 import type { CompanyKnowledgeItem, DeckIntel, DeckSetup, FileAsset } from '../../types/models'
 import { useToast } from '../feedback/toastContext'
 import { aiClient } from '../../data/aiClient'
@@ -22,7 +30,9 @@ interface IntelReviewPanelProps {
   deckId: string
   setup: DeckSetup
   fileAssets: FileAsset[]
+  workspaceFileAssets?: FileAsset[]
   companyKnowledgeItems?: CompanyKnowledgeItem[]
+  rankedSelectedKnowledge?: RankedCompanyKnowledgeEntry[]
   updateDeckSetup: (deckId: string, updates: Partial<DeckSetup>) => void
 }
 
@@ -30,7 +40,9 @@ export function IntelReviewPanel({
   deckId,
   setup,
   fileAssets,
+  workspaceFileAssets = [],
   companyKnowledgeItems,
+  rankedSelectedKnowledge,
   updateDeckSetup,
 }: IntelReviewPanelProps) {
   const { showToast } = useToast()
@@ -68,13 +80,21 @@ export function IntelReviewPanel({
     updateDeckSetup(deckId, { intel: Object.keys(base).length > 0 ? base : undefined })
   }
 
+  const selectedIds = setup.selectedCompanyKnowledgeItemIds ?? []
+  const hasBrainSelection = selectedIds.length > 0
+  const assetLookup = mergeAssetsForKnowledgeTraceLookup(fileAssets, workspaceFileAssets)
+  const rankById = new Map((rankedSelectedKnowledge ?? []).map((entry) => [entry.item.id, entry]))
+  const buckets = companyKnowledgeItems?.length
+    ? groupCompanyKnowledgeByIntelBucket(companyKnowledgeItems)
+    : null
+
   return (
     <section className="panel-card intel-review-card">
       <details className="builder-details intel-review-details" open>
         <summary>Intel Review</summary>
         <p className="muted-copy intel-review-lede">
-          Review this account intel before generating the pitch deck. Claims with sources will be cited in
-          the deck when available.
+          Review this account intel before generating the pitch deck. Uploaded files with trace metadata can
+          surface as citations; Company Brain memory-only rows stay honest (no fabricated file traces).
         </p>
 
         <div className="intel-review-toolbar">
@@ -149,24 +169,67 @@ export function IntelReviewPanel({
 
           <div className="field-group field-group--wide">
             <span className="field-label">Company Brain sources used</span>
-            {companyKnowledgeItems && companyKnowledgeItems.length > 0 ? (
-              <ul className="intel-company-knowledge-list">
-                {companyKnowledgeItems.map((item) => (
-                  <li key={item.id}>
-                    <strong>{item.title}</strong>
-                    <span className="intel-citation-meta">{item.sourceType}</span>
-                    <p className="muted-copy">
-                      Company knowledge — not a file citation trace. Proof points above may quote this
-                      library entry; citations below stay tied to uploaded assets when traces exist.
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
+            {!hasBrainSelection ? (
               <p className="muted-copy">
                 No Company Brain items selected for this pitch. Choose suggestions under Company knowledge
                 above, or pull collateral from <Link to="/company">Company Brain</Link>.
               </p>
+            ) : !companyKnowledgeItems?.length ? (
+              <p className="muted-copy">
+                Selection ids are present but no matching knowledge rows were found in this workspace.
+              </p>
+            ) : (
+              <div className="intel-company-brain-groups">
+                {INTEL_REVIEW_COMPANY_BRAIN_BUCKET_ORDER.map((bucketId) => {
+                  const bucketItems = buckets?.get(bucketId) ?? []
+                  if (bucketItems.length === 0) {
+                    return null
+                  }
+
+                  return (
+                    <div key={bucketId} className="intel-company-brain-bucket">
+                      <h4 className="intel-company-brain-bucket-title">
+                        {companyBrainIntelBucketLabel(bucketId)}
+                      </h4>
+                      <ul className="intel-company-knowledge-list">
+                        {bucketItems.map((item) => {
+                          const cited = knowledgeItemHasCitationBackedTraces(item, assetLookup)
+                          const ranked = rankById.get(item.id)
+
+                          return (
+                            <li key={item.id}>
+                              <div className="intel-knowledge-row-heading">
+                                <strong>{item.title}</strong>
+                                <span
+                                  className={`intel-knowledge-backing-pill ${cited ? 'intel-knowledge-backing-pill--cited' : ''}`}
+                                >
+                                  {cited ? 'Cited source (linked file trace)' : 'Company knowledge, not citation-backed'}
+                                </span>
+                              </div>
+                              <div className="intel-knowledge-meta-row">
+                                <span className="intel-knowledge-meta-chip">{item.sourceType}</span>
+                                <span className="intel-knowledge-meta-chip">{item.approvalStatus}</span>
+                                {ranked ? (
+                                  <span className="intel-knowledge-meta-chip">
+                                    Relevance: {ranked.band} ({Math.round(ranked.score)})
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="muted-copy">{item.description?.trim() || item.title}</p>
+                              {cited ? (
+                                <p className="muted-copy intel-knowledge-citation-hint">
+                                  File-linked traces can appear in deck citations when the library asset
+                                  retains parsed metadata.
+                                </p>
+                              ) : null}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
 

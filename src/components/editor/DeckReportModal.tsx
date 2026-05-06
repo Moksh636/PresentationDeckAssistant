@@ -226,6 +226,46 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
         )}
       </section>
 
+      {report.companyBrainSources?.length ? (
+        <section className="report-section">
+          <h2 style={sectionHeadingStyle}>Company Brain (pitch selections)</h2>
+          <p style={{ marginTop: '4px', color: 'var(--muted)' }}>
+            Organizational knowledge flagged on the build flow. Rows without linked file traces are
+            labeled memory-only—they do not imply file-level citations on slides.
+          </p>
+          <ul className="report-company-brain-list">
+            {report.companyBrainSources.map((row) => (
+              <li key={`${row.title}-${row.sourceType}-${row.backing}-${row.visibilityLabel}`}>
+                <div className="report-company-brain-row">
+                  <strong>{row.title}</strong>
+                  <span className="report-company-brain-badges">
+                    <span className="pill-muted">{row.sourceType}</span>
+                    <span className="pill-muted">{row.approvalStatus}</span>
+                    <span className="pill-muted">{row.visibilityLabel}</span>
+                    <span
+                      className={
+                        row.backing === 'citation-backed'
+                          ? 'pill-muted pill-muted--accent'
+                          : 'pill-muted'
+                      }
+                    >
+                      {row.backing === 'citation-backed'
+                        ? 'Citation-backed'
+                        : 'Company knowledge, memory-only'}
+                    </span>
+                    {row.relevanceBand !== undefined || row.relevanceScore !== undefined ? (
+                      <span className="pill-muted">
+                        {row.relevanceBand ?? 'rank'} ({row.relevanceScore !== undefined ? Math.round(row.relevanceScore) : '—'})
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="report-section report-section--sources">
         <h2 style={sectionHeadingStyle}>Source References</h2>
         {report.sourceReferences.length > 0 ? (
