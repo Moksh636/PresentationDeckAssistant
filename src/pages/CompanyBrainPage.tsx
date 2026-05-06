@@ -449,6 +449,7 @@ function KnowledgeLibrarySection({
         {syncStatus.lastSyncedAt && syncStatus.state === 'saved' ? (
           <> · last saved {formatShortDate(syncStatus.lastSyncedAt)}</>
         ) : null}
+        {syncStatus.state !== 'local-only' ? <> · autosave: folders &amp; knowledge items (~4s)</> : null}
       </p>
       {syncStatus.message ? <p className="muted-copy">{syncStatus.message}</p> : null}
       <div className="owner-suggestion-list__actions">

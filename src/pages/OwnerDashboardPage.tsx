@@ -54,6 +54,7 @@ export function OwnerDashboardPage() {
 
   const activity = workspace.companyBrain.activityLogs.filter((a) => a.organizationId === orgId).slice(0, 8)
   const syncStatus = workspaceApi.companyIdentitySyncStatus
+  const knowledgeSyncStatus = workspaceApi.companyKnowledgeSyncStatus
 
   const syncLabel =
     syncStatus.state === 'local-only'
@@ -63,6 +64,17 @@ export function OwnerDashboardPage() {
         : syncStatus.state === 'unsaved'
           ? 'Unsaved changes'
           : syncStatus.state === 'save-failed'
+            ? 'Save failed'
+            : 'Saved'
+
+  const knowledgeSyncLabel =
+    knowledgeSyncStatus.state === 'local-only'
+      ? 'Local only'
+      : knowledgeSyncStatus.state === 'saving'
+        ? 'Saving...'
+        : knowledgeSyncStatus.state === 'unsaved'
+          ? 'Unsaved changes'
+          : knowledgeSyncStatus.state === 'save-failed'
             ? 'Save failed'
             : 'Saved'
 
@@ -148,6 +160,42 @@ export function OwnerDashboardPage() {
               }}
             >
               Load company identity from Cloud
+            </button>
+          </div>
+        </>
+      ),
+    },
+    {
+      id: 'knowledge-sync',
+      title: 'Knowledge library cloud sync',
+      body: (
+        <>
+          <p className="muted-copy">
+            Folders and knowledge items autosave to cloud when signed in (~4s after edits). Sync status:{' '}
+            <strong>{knowledgeSyncLabel}</strong>
+            {knowledgeSyncStatus.lastSyncedAt && knowledgeSyncStatus.state === 'saved' ? (
+              <> · last saved {formatShortDate(knowledgeSyncStatus.lastSyncedAt)}</>
+            ) : null}
+          </p>
+          {knowledgeSyncStatus.message ? <p className="muted-copy">{knowledgeSyncStatus.message}</p> : null}
+          <div className="owner-suggestion-list__actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void workspaceApi.saveCompanyKnowledgeToCloud()
+              }}
+            >
+              Save knowledge library to Cloud
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                void workspaceApi.loadCompanyKnowledgeFromCloud()
+              }}
+            >
+              Load knowledge library from Cloud
             </button>
           </div>
         </>
