@@ -4,6 +4,8 @@ const MAX_INGEST_BYTES = 512 * 1024
 const PREVIEW_CHARS = 4000
 const MAX_SECTIONS = 24
 const MAX_SNIPPET_CHARS = 1200
+const MAX_BINARY_EXTRACT_CHARS = 40000
+const MAX_PDF_PAGES = 20
 
 /** Deterministic snippet id — works in browsers and Node without crypto imports. */
 function stableSnippetId(parts: string[]): string {
@@ -214,6 +216,112 @@ function binaryFormatPlaceholder(kind: string, file: File): ParsedSourceDocument
   }
 }
 
+function binaryPlaceholderWithWarnings(
+  kind: string,
+  file: File,
+  prependWarnings: string[],
+): ParsedSourceDocument {
+  const placeholder = binaryFormatPlaceholder(kind, file)
+
+  return {
+    ...placeholder,
+    warnings: [...prependWarnings, ...placeholder.warnings],
+  }
+}
+
+function normalizeExtractedText(text: string): string {
+  return text
+    .replace(/\r\n/gu, '\n')
+    .split('\u0000')
+    .join('')
+    .replace(/[ \t]+\n/gu, '\n')
+    .trim()
+}
+
+function appendBoundedText(target: string[], value: string, maxChars: number): boolean {
+  if (!value.trim()) {
+    return false
+  }
+
+  const combinedLength = target.reduce((total, part) => total + part.length, 0)
+  const remaining = maxChars - combinedLength
+
+  if (remaining <= 0) {
+    return true
+  }
+
+  if (value.length > remaining) {
+    target.push(value.slice(0, remaining))
+    return true
+  }
+
+  target.push(value)
+  return false
+}
+
+async function extractPdfText(file: File, warnings: string[]): Promise<string> {
+  const buffer = await readFileBytesUpTo(file, MAX_INGEST_BYTES)
+  const bytes = new Uint8Array(buffer)
+
+  const pdfJs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const pdfTask = pdfJs.getDocument({
+    data: bytes,
+    disableWorker: true,
+    isEvalSupported: false,
+  } as unknown as Parameters<(typeof pdfJs)['getDocument']>[0])
+  const pdf = await pdfTask.promise
+  const pageCount = Math.min(pdf.numPages, MAX_PDF_PAGES)
+
+  if (pdf.numPages > MAX_PDF_PAGES) {
+    warnings.push(`PDF has ${pdf.numPages} pages; only first ${MAX_PDF_PAGES} pages were parsed locally.`)
+  }
+
+  const parts: string[] = []
+
+  for (let index = 1; index <= pageCount; index++) {
+    const page = await pdf.getPage(index)
+    const content = await page.getTextContent()
+    const pageText = (content.items as Array<{ str?: string }>)
+      .map((item) => (typeof item.str === 'string' ? item.str : ''))
+      .join(' ')
+      .trim()
+
+    if (!pageText) {
+      continue
+    }
+
+    if (appendBoundedText(parts, pageText, MAX_BINARY_EXTRACT_CHARS)) {
+      warnings.push(
+        `PDF text preview was capped at ${MAX_BINARY_EXTRACT_CHARS} characters for local performance.`,
+      )
+      break
+    }
+  }
+
+  return normalizeExtractedText(parts.join('\n\n'))
+}
+
+async function extractDocxText(file: File, warnings: string[]): Promise<string> {
+  const buffer = await readFileBytesUpTo(file, MAX_INGEST_BYTES)
+  const mammoth = await import('mammoth/mammoth.browser')
+  const result = await mammoth.extractRawText({ arrayBuffer: buffer })
+
+  for (const message of result.messages ?? []) {
+    if (typeof message?.message === 'string' && message.message.trim()) {
+      warnings.push(`DOCX note: ${message.message}`)
+    }
+  }
+
+  const normalized = normalizeExtractedText(result.value ?? '')
+
+  if (normalized.length > MAX_BINARY_EXTRACT_CHARS) {
+    warnings.push(`DOCX text preview was capped at ${MAX_BINARY_EXTRACT_CHARS} characters for local performance.`)
+    return normalized.slice(0, MAX_BINARY_EXTRACT_CHARS)
+  }
+
+  return normalized
+}
+
 interface ParseTextOptions {
   sourceLabel: string
   sectionStrategy: 'paragraphs' | 'csv' | 'json'
@@ -285,11 +393,61 @@ export async function parseUploadedSourceFile(file: File): Promise<ParsedSourceD
     ext === 'pptx'
 
   if (isPdfLike) {
-    return binaryFormatPlaceholder('pdf', file)
+    const warnings: string[] = []
+
+    if (file.size > MAX_INGEST_BYTES) {
+      warnings.push(
+        `File exceeds local preview limit (${MAX_INGEST_BYTES} bytes); only the first chunk is read.`,
+      )
+    }
+
+    try {
+      const text = await extractPdfText(file, warnings)
+
+      if (!text) {
+        warnings.push('PDF extraction failed: no readable text was found in the parsed pages.')
+        return binaryPlaceholderWithWarnings('pdf', file, warnings)
+      }
+
+      return parseTextContent(file, text, {
+        sourceLabel: 'pdf',
+        sectionStrategy: 'paragraphs',
+        prependWarnings: warnings,
+      })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Unknown parser error.'
+      warnings.push(`PDF extraction failed: ${reason}`)
+      return binaryPlaceholderWithWarnings('pdf', file, warnings)
+    }
   }
 
   if (isDocLike) {
-    return binaryFormatPlaceholder('docx', file)
+    const warnings: string[] = []
+
+    if (file.size > MAX_INGEST_BYTES) {
+      warnings.push(
+        `File exceeds local preview limit (${MAX_INGEST_BYTES} bytes); only the first chunk is read.`,
+      )
+    }
+
+    try {
+      const text = await extractDocxText(file, warnings)
+
+      if (!text) {
+        warnings.push('DOCX extraction failed: no readable text was found in the document.')
+        return binaryPlaceholderWithWarnings('docx', file, warnings)
+      }
+
+      return parseTextContent(file, text, {
+        sourceLabel: 'docx',
+        sectionStrategy: 'paragraphs',
+        prependWarnings: warnings,
+      })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Unknown parser error.'
+      warnings.push(`DOCX extraction failed: ${reason}`)
+      return binaryPlaceholderWithWarnings('docx', file, warnings)
+    }
   }
 
   if (isPptLike) {

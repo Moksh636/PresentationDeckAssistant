@@ -64,9 +64,21 @@ async function testPdfPlaceholderNoCitations() {
   const parsed = await parseUploadedSourceFile(file)
 
   assert.equal(parsed.detectedSourceType, 'pdf')
-  assert.ok(parsed.warnings.some((w) => /not enabled/u.test(w)))
+  assert.ok(parsed.warnings.some((w) => /failed/u.test(w)))
   assert.deepEqual(parsed.sections, [])
   assert.deepEqual(buildCitationSnippetsFromParsed(parsed, 'p1', file.name, OWNER_USER_ID), [])
+}
+
+async function testDocxFallbackNoCitationsOnInvalidData() {
+  const file = new File([new Uint8Array([0x50, 0x4b, 0x03])], 'brief.docx', {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  })
+  const parsed = await parseUploadedSourceFile(file)
+
+  assert.equal(parsed.detectedSourceType, 'docx')
+  assert.ok(parsed.warnings.some((w) => /failed/u.test(w)))
+  assert.deepEqual(parsed.sections, [])
+  assert.deepEqual(buildCitationSnippetsFromParsed(parsed, 'd1', file.name, OWNER_USER_ID), [])
 }
 
 async function testFinalizeFallbackKeepsMockTracesWhenReaderFails() {
@@ -101,6 +113,7 @@ void testPlainText()
   .then(() => testJson())
   .then(() => testJsonInvalidFallsBackToParagraphs())
   .then(() => testPdfPlaceholderNoCitations())
+  .then(() => testDocxFallbackNoCitationsOnInvalidData())
   .then(() => testFinalizeFallbackKeepsMockTracesWhenReaderFails())
   .then(() => console.log('parseUploadedSourceFile tests passed'))
   .catch((error) => {
