@@ -1,10 +1,10 @@
-import { createChartSuggestionsFromFiles } from './chartSuggestions'
-import { createDefaultCollaborationSettings, getMockActor } from './collaboration'
-import { normalizeDeckSetup, normalizeScreenshotAssetIdsForDeck } from './deckSetupNormalize'
-import { normalizeSlideBlock } from './slideLayout'
-import { normalizeWorkspaceAssetStorageRef } from './workspaceStorage'
-import { createMockFileAsset, normalizeSourceTrace } from './sourceIngestion'
-import { normalizeCompanyBrainWorkspaceSlice } from './companyBrainNormalize'
+import { createChartSuggestionsFromFiles } from './chartSuggestions.ts'
+import { createDefaultCollaborationSettings, getMockActor } from './collaboration.ts'
+import { normalizeDeckSetup, normalizeScreenshotAssetIdsForDeck } from './deckSetupNormalize.ts'
+import { normalizeSlideBlock } from './slideLayout.ts'
+import { normalizeWorkspaceAssetStorageRef } from './workspaceStorage.ts'
+import { createMockFileAsset, normalizeSourceTrace } from './sourceIngestion.ts'
+import { normalizeCompanyBrainWorkspaceSlice } from './companyBrainNormalize.ts'
 import type {
   ChartSuggestion,
   ChartSuggestionStatus,
@@ -375,6 +375,9 @@ export function normalizeWorkspaceState(state: WorkspaceState | RawWorkspaceStat
         : undefined,
       possibleTone:
         typeof rawAsset.possibleTone === 'string' ? rawAsset.possibleTone : undefined,
+      parseWarnings: Array.isArray(rawAsset.parseWarnings)
+        ? rawAsset.parseWarnings.filter((warning): warning is string => typeof warning === 'string')
+        : undefined,
       storage: normalizeWorkspaceAssetStorageRef(rawAsset.storage),
       sourceTrace: Array.isArray(rawAsset.sourceTrace)
         ? rawAsset.sourceTrace.map((trace, index) =>
@@ -395,6 +398,37 @@ export function normalizeWorkspaceState(state: WorkspaceState | RawWorkspaceStat
             ),
           )
         : undefined,
+      sourceReview:
+        typeof rawAsset.sourceReview === 'object' && rawAsset.sourceReview
+          ? {
+              status:
+                rawAsset.sourceReview.status === 'approved' ||
+                rawAsset.sourceReview.status === 'excluded' ||
+                rawAsset.sourceReview.status === 'pending'
+                  ? rawAsset.sourceReview.status
+                  : undefined,
+              snippetReviews:
+                typeof rawAsset.sourceReview.snippetReviews === 'object' &&
+                rawAsset.sourceReview.snippetReviews
+                  ? Object.entries(rawAsset.sourceReview.snippetReviews as Record<string, unknown>).reduce<
+                      Record<string, { enabled?: boolean; labelOverride?: string }>
+                    >((accumulator, [key, value]) => {
+                      if (!key || typeof value !== 'object' || value === null) {
+                        return accumulator
+                      }
+                      const row = value as Record<string, unknown>
+                      const enabled = typeof row.enabled === 'boolean' ? row.enabled : undefined
+                      const labelOverride =
+                        typeof row.labelOverride === 'string' ? row.labelOverride : undefined
+                      accumulator[key] = {
+                        ...(enabled !== undefined ? { enabled } : {}),
+                        ...(labelOverride !== undefined ? { labelOverride } : {}),
+                      }
+                      return accumulator
+                    }, {})
+                  : undefined,
+            }
+          : undefined,
       starred: rawAsset.starred === true,
       trashedAt:
         typeof rawAsset.trashedAt === 'string'

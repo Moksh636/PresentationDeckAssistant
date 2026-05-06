@@ -39,7 +39,9 @@ interface FileAssetSeedInput {
   possibleGoal?: string
   possibleSections?: string[]
   possibleTone?: string
+  parseWarnings?: string[]
   sourceTrace?: SourceTrace[]
+  sourceReview?: FileAsset['sourceReview']
   starred?: boolean
   trashedAt?: string
   report?: GeneratedDeckReport
@@ -233,6 +235,7 @@ export function mergeParsedSourceIntoFileAsset(
     summary: useParsedTraces
       ? `Local ingestion produced ${snippetCount} citation-ready snippet(s).${parserNote}`
       : `${base.summary}${parserNote}`,
+    parseWarnings: parsed.warnings.length > 0 ? parsed.warnings : undefined,
   }
 }
 
@@ -294,7 +297,9 @@ export function createMockFileAsset(input: FileAssetSeedInput): FileAsset {
     possibleGoal: input.possibleGoal ?? signal.goal,
     possibleSections: input.possibleSections ?? signal.sections,
     possibleTone: input.possibleTone ?? signal.tone,
+    parseWarnings: input.parseWarnings,
     sourceTrace,
+    sourceReview: input.sourceReview,
     starred: input.starred,
     trashedAt: input.trashedAt,
     report: input.report,

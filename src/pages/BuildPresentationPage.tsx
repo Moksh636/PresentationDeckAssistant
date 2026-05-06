@@ -4,6 +4,7 @@ import { CompanyKnowledgeSuggestPanel } from '../components/builder/CompanyKnowl
 import { ChartSuggestionsPanel } from '../components/builder/ChartSuggestionsPanel'
 import { IntelReviewPanel } from '../components/builder/IntelReviewPanel'
 import { SourceMaterialsSummary } from '../components/builder/SourceMaterialsSummary'
+import { SourceCitationQAPanel } from '../components/builder/SourceCitationQAPanel'
 import { SourceUploadDropzone } from '../components/builder/SourceUploadDropzone'
 import { ToggleField } from '../components/builder/ToggleField'
 import { UploadedFileList } from '../components/builder/UploadedFileList'
@@ -125,6 +126,9 @@ export function BuildPresentationPage() {
     updateDeckSetup,
     uploadAssets,
     markAssetReviewed,
+    setFileAssetSourceReviewStatus,
+    setFileAssetSnippetEnabled,
+    setFileAssetSnippetLabelOverride,
     autoFillDeckSetupFromFiles,
     generateSlides,
     acceptChartSuggestion,
@@ -712,6 +716,13 @@ export function BuildPresentationPage() {
             <SourceMaterialsSummary
               assets={deckAssets}
               onAutoFill={() => autoFillDeckSetupFromFiles(activeDeck.id)}
+            />
+
+            <SourceCitationQAPanel
+              assets={deckAssets}
+              onSetSourceStatus={setFileAssetSourceReviewStatus}
+              onSetSnippetEnabled={setFileAssetSnippetEnabled}
+              onSetSnippetLabelOverride={setFileAssetSnippetLabelOverride}
             />
           </section>
         </div>

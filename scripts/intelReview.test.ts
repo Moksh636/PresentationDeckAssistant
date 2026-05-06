@@ -4,6 +4,7 @@ import {
   generateIntelDraftFromSources,
   mergeIntelDraftWithExisting,
 } from '../src/data/intelReview.ts'
+import { SOURCE_CITATION_REVIEW_MODE } from '../src/data/sourceCitationReview.ts'
 import type { DeckSetup, FileAsset } from '../src/types/models.ts'
 
 const minimalSetup = (): DeckSetup => ({
@@ -69,6 +70,39 @@ assert.equal(withTraces.citations?.[0].extractedSnippet, 'Snippet A')
 
 const collected = collectSourceTracesFromAssets([asset, { ...asset, id: 'f2', sourceTrace: asset.sourceTrace }])
 assert.equal(collected.length, 1)
+
+const excludedAsset: FileAsset = {
+  ...asset,
+  id: 'excluded-1',
+  sourceReview: { status: 'excluded' },
+}
+assert.equal(collectSourceTracesFromAssets([excludedAsset]).length, 0)
+assert.equal(
+  generateIntelDraftFromSources(setupWithAccount, [excludedAsset]).citations,
+  undefined,
+)
+
+const disabledSnippetAsset: FileAsset = {
+  ...asset,
+  id: 'disabled-snippet-1',
+  sourceReview: {
+    status: 'approved',
+    snippetReviews: {
+      'f1::Snippet A': {
+        enabled: false,
+      },
+    },
+  },
+}
+assert.equal(collectSourceTracesFromAssets([disabledSnippetAsset]).length, 0)
+
+const approvedAsset: FileAsset = {
+  ...asset,
+  id: 'approved-1',
+  sourceReview: { status: 'approved' },
+}
+assert.equal(collectSourceTracesFromAssets([approvedAsset]).length, 1)
+assert.equal(SOURCE_CITATION_REVIEW_MODE, 'permissive')
 
 const merged = mergeIntelDraftWithExisting(
   { companySummary: 'Keep me' },

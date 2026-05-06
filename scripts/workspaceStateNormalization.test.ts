@@ -91,3 +91,4 @@ const deckSurface = normalizeDeckPersistedSurface({
 
 assert.deepEqual(deckSurface.screenshotAssetIds, ['shot-1', 'shot-2', 'shot-3'])
 assert.equal(deckSurface.setup.goal, 'Grow ACV')
+

@@ -7,6 +7,11 @@ import type {
   FileAsset,
   SourceTrace,
 } from '../types/models'
+import {
+  filterAssetSourceTraces,
+  isSourceIncludedForCitations,
+  snippetLabel,
+} from './sourceCitationReview.ts'
 
 function meetingGoalText(setup: DeckSetup): string {
   const m = setup.meetingGoal?.trim()
@@ -48,15 +53,18 @@ export function collectSourceTracesFromAssets(assets: FileAsset[], max = 12): So
   const out: SourceTrace[] = []
 
   for (const asset of assets) {
-    for (const trace of asset.sourceTrace ?? []) {
-      const key = traceDedupeKey(trace)
+    if (!isSourceIncludedForCitations(asset)) {
+      continue
+    }
+    for (const trace of filterAssetSourceTraces(asset)) {
+      const normalized = { ...trace, fileName: snippetLabel(asset, trace) }
+      const key = traceDedupeKey(normalized)
       if (seen.has(key)) {
         continue
       }
 
       seen.add(key)
-      out.push(trace)
-
+      out.push(normalized)
       if (out.length >= max) {
         return out
       }
@@ -65,7 +73,6 @@ export function collectSourceTracesFromAssets(assets: FileAsset[], max = 12): So
 
   return out
 }
-
 export interface IntelDraftGenerationOptions {
   /** Company Brain items included for this pitch; only file-linked items can add citations. */
   companyKnowledgeItems?: CompanyKnowledgeItem[]

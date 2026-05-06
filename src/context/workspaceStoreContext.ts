@@ -93,6 +93,16 @@ export interface WorkspaceContextValue {
     },
   ) => void
   markAssetReviewed: (assetId: string) => void
+  setFileAssetSourceReviewStatus: (
+    assetId: string,
+    status: 'pending' | 'approved' | 'excluded',
+  ) => void
+  setFileAssetSnippetEnabled: (assetId: string, snippetKey: string, enabled: boolean) => void
+  setFileAssetSnippetLabelOverride: (
+    assetId: string,
+    snippetKey: string,
+    labelOverride: string,
+  ) => void
   autoFillDeckSetupFromFiles: (deckId: string) => void
   generateSlides: (deckId: string) => Promise<string | undefined>
   generateReport: (deckId: string, reportType: ReportType) => string | undefined

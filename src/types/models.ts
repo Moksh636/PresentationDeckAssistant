@@ -199,6 +199,18 @@ export interface SourceTrace {
   addedByUserId: string
 }
 
+export type SourceReviewStatus = 'pending' | 'approved' | 'excluded'
+
+export interface SourceSnippetReviewState {
+  enabled?: boolean
+  labelOverride?: string
+}
+
+export interface FileAssetSourceReviewState {
+  status?: SourceReviewStatus
+  snippetReviews?: Record<string, SourceSnippetReviewState>
+}
+
 export interface FileAsset {
   id: string
   deckId: string
@@ -218,7 +230,9 @@ export interface FileAsset {
   possibleGoal: string
   possibleSections: string[]
   possibleTone: string
+  parseWarnings?: string[]
   sourceTrace: SourceTrace[]
+  sourceReview?: FileAssetSourceReviewState
   starred?: boolean
   trashedAt?: string
   report?: GeneratedDeckReport

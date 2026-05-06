@@ -4,6 +4,7 @@ import {
   collectSourceTracesFromAssets,
   generateIntelDraftFromSources,
 } from './intelReview.ts'
+import { filterAssetsForCitationUse } from './sourceCitationReview.ts'
 import type {
   CompanyBrainSourceUsed,
   CompanyKnowledgeItem,
@@ -61,7 +62,9 @@ export async function generateIntelReviewWithFallback(
 ): Promise<GenerateIntelReviewResponse> {
   const preparedRequest: GenerateIntelReviewRequest = {
     ...request,
-    sourceTraces: request.sourceTraces ?? collectSourceTracesFromAssets(request.fileAssets),
+    fileAssets: filterAssetsForCitationUse(request.fileAssets),
+    sourceTraces:
+      request.sourceTraces ?? collectSourceTracesFromAssets(filterAssetsForCitationUse(request.fileAssets)),
     webResearchEnabled: request.webResearchEnabled ?? false,
   }
 

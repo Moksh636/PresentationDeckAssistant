@@ -21,6 +21,7 @@ import {
   collectSourceTracesFromAssets,
   mergeIntelDraftWithExisting,
 } from '../../data/intelReview'
+import { filterAssetsForCitationUse } from '../../data/sourceCitationReview'
 
 function linesFromArray(values?: string[]) {
   return (values ?? []).join('\n')
@@ -63,10 +64,11 @@ export function IntelReviewPanel({
   }
 
   const handleGenerateDraft = async () => {
+    const reviewableAssets = filterAssetsForCitationUse(fileAssets)
     const response = await aiClient.generateIntelReview({
       setup,
-      fileAssets,
-      sourceTraces: collectSourceTracesFromAssets(fileAssets),
+      fileAssets: reviewableAssets,
+      sourceTraces: collectSourceTracesFromAssets(reviewableAssets),
       webResearchEnabled: setup.webResearch,
       companyKnowledgeItems,
       selectedCompanyKnowledgeItemIds: setup.selectedCompanyKnowledgeItemIds,
@@ -82,7 +84,7 @@ export function IntelReviewPanel({
   }
 
   const handleRefreshCitations = () => {
-    const traces = collectSourceTracesFromAssets(fileAssets)
+    const traces = collectSourceTracesFromAssets(filterAssetsForCitationUse(fileAssets))
     const base: DeckIntel = { ...intel }
     delete base.citations
 

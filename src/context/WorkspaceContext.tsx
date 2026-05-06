@@ -18,6 +18,7 @@ import {
   finalizeLocalFileAssetIngest,
   OWNER_USER_ID,
 } from '../data/sourceIngestion'
+import { filterAssetsForCitationUse } from '../data/sourceCitationReview'
 import { generateDeckReport } from '../data/reportGenerator'
 import {
   buildDeckReportCompanyBrainEntries,
@@ -798,6 +799,88 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     }))
   }
 
+  const setFileAssetSourceReviewStatus: WorkspaceContextValue['setFileAssetSourceReviewStatus'] = (
+    assetId,
+    status,
+  ) => {
+    setWorkspace((current) => ({
+      ...current,
+      fileAssets: current.fileAssets.map((asset) =>
+        asset.id === assetId
+          ? {
+              ...asset,
+              sourceReview: {
+                ...asset.sourceReview,
+                status,
+              },
+            }
+          : asset,
+      ),
+    }))
+  }
+
+  const setFileAssetSnippetEnabled: WorkspaceContextValue['setFileAssetSnippetEnabled'] = (
+    assetId,
+    snippetKey,
+    enabled,
+  ) => {
+    setWorkspace((current) => ({
+      ...current,
+      fileAssets: current.fileAssets.map((asset) => {
+        if (asset.id !== assetId) {
+          return asset
+        }
+        const review = asset.sourceReview ?? {}
+        const snippets = review.snippetReviews ?? {}
+        const currentSnippet = snippets[snippetKey] ?? {}
+        return {
+          ...asset,
+          sourceReview: {
+            ...review,
+            snippetReviews: {
+              ...snippets,
+              [snippetKey]: {
+                ...currentSnippet,
+                enabled,
+              },
+            },
+          },
+        }
+      }),
+    }))
+  }
+
+  const setFileAssetSnippetLabelOverride: WorkspaceContextValue['setFileAssetSnippetLabelOverride'] = (
+    assetId,
+    snippetKey,
+    labelOverride,
+  ) => {
+    setWorkspace((current) => ({
+      ...current,
+      fileAssets: current.fileAssets.map((asset) => {
+        if (asset.id !== assetId) {
+          return asset
+        }
+        const review = asset.sourceReview ?? {}
+        const snippets = review.snippetReviews ?? {}
+        const currentSnippet = snippets[snippetKey] ?? {}
+        return {
+          ...asset,
+          sourceReview: {
+            ...review,
+            snippetReviews: {
+              ...snippets,
+              [snippetKey]: {
+                ...currentSnippet,
+                labelOverride: labelOverride.trim(),
+              },
+            },
+          },
+        }
+      }),
+    }))
+  }
+
   const autoFillDeckSetupFromFiles: WorkspaceContextValue['autoFillDeckSetupFromFiles'] = (
     deckId,
   ) => {
@@ -840,7 +923,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       return undefined
     }
 
-    const sourceFiles = workspace.fileAssets.filter((asset) => asset.deckId === deckId)
+    const sourceFiles = filterAssetsForCitationUse(
+      workspace.fileAssets.filter((asset) => asset.deckId === deckId),
+    )
     const previousDeck = workspace.decks
       .filter((candidate) => candidate.projectId === sourceDeck.projectId && candidate.id !== deckId)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
@@ -900,8 +985,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       }
 
       const deckSlides = getOrderedDeckSlides(current.slides, deckId)
-      const sourceFiles = current.fileAssets.filter(
-        (asset) => asset.deckId === deckId && asset.kind !== 'report',
+      const sourceFiles = filterAssetsForCitationUse(
+        current.fileAssets.filter((asset) => asset.deckId === deckId && asset.kind !== 'report'),
       )
       const intelBriefBrandKit = resolveBrandKitForDeckSetup(deck.setup, current.companyBrain)
 
@@ -2804,6 +2889,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         updateProjectCollaboration,
         uploadAssets,
         markAssetReviewed,
+        setFileAssetSourceReviewStatus,
+        setFileAssetSnippetEnabled,
+        setFileAssetSnippetLabelOverride,
         autoFillDeckSetupFromFiles,
         generateSlides,
         generateReport,
