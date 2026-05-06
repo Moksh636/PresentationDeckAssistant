@@ -1,14 +1,24 @@
-export function isAiBackendEnabled() {
+function readViteEnv(key: string): string | undefined {
   const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
-  const viteFlag = env?.VITE_AI_BACKEND_ENABLED
-
-  if (viteFlag !== undefined) {
-    return viteFlag === 'true'
+  if (env?.[key] !== undefined) {
+    return env[key]
   }
 
-  // Node-based unit tests don't have `import.meta.env` populated by Vite.
-  const nodeFlag = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
-    ?.env?.VITE_AI_BACKEND_ENABLED
-  return nodeFlag === 'true'
+  return (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+    key
+  ]
+}
+
+/** Master switch: Supabase Edge functions (e.g. generate-intel-review) and related backend hooks. */
+export function isAiBackendEnabled() {
+  return readViteEnv('VITE_AI_BACKEND_ENABLED') === 'true'
+}
+
+/**
+ * When true, the app may POST to placeholder `/api/ai/*` REST routes (not wired in this MVP deploy).
+ * Intel Review ignores this flag and always uses `supabase.functions.invoke` when the backend is enabled.
+ */
+export function isAiRestRoutesEnabled() {
+  return readViteEnv('VITE_AI_REST_ROUTES_ENABLED') === 'true'
 }
 

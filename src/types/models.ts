@@ -51,6 +51,17 @@ export interface DeckIntel {
   citations?: SourceTrace[]
 }
 
+/** Metadata row for Intel Review / Edge: which Company Brain rows contributed and citation honesty. */
+export interface CompanyBrainSourceUsed {
+  id: string
+  title: string
+  sourceType: CompanyKnowledgeSourceType
+  approvalStatus: KnowledgeApprovalStatus
+  citationBacked: boolean
+  citationCount: number
+  memoryOnly: boolean
+}
+
 export interface DeckSetup {
   goal: string
   audience: string

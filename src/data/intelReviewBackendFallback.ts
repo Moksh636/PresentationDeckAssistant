@@ -1,5 +1,11 @@
-import { collectSourceTracesFromAssets, generateIntelDraftFromSources } from './intelReview.ts'
+import { mergeAssetsForKnowledgeTraceLookup } from './companyBrainDeckPipeline.ts'
+import {
+  buildCompanyBrainSourcesUsed,
+  collectSourceTracesFromAssets,
+  generateIntelDraftFromSources,
+} from './intelReview.ts'
 import type {
+  CompanyBrainSourceUsed,
   CompanyKnowledgeItem,
   DeckIntel,
   DeckSetup,
@@ -14,22 +20,31 @@ export interface GenerateIntelReviewRequest {
   sourceTraces?: SourceTrace[]
   webResearchEnabled?: boolean
   companyKnowledgeItems?: CompanyKnowledgeItem[]
+  selectedCompanyKnowledgeItemIds?: string[]
+  workspaceFileAssets?: FileAsset[]
 }
 
 export interface GenerateIntelReviewResponse {
   intel: DeckIntel
   warnings: string[]
+  companyBrainSourcesUsed: CompanyBrainSourceUsed[]
 }
 
 function createLocalIntelReviewResponse(
   request: GenerateIntelReviewRequest,
   warnings: string[] = [],
 ): GenerateIntelReviewResponse {
+  const assetLookup = mergeAssetsForKnowledgeTraceLookup(
+    request.fileAssets,
+    request.workspaceFileAssets ?? [],
+  )
+  const brainItems = request.companyKnowledgeItems ?? []
   return {
     intel: generateIntelDraftFromSources(request.setup, request.fileAssets, {
-      companyKnowledgeItems: request.companyKnowledgeItems,
+      companyKnowledgeItems: brainItems,
     }),
     warnings,
+    companyBrainSourcesUsed: buildCompanyBrainSourcesUsed(brainItems, assetLookup),
   }
 }
 

@@ -16,6 +16,7 @@ import { supabase } from './supabaseClient.ts'
 import { generateIntelReviewWithFallback as generateIntelReviewWithFallbackBase } from './intelReviewBackendFallback.ts'
 import type {
   ChartSuggestion,
+  CompanyBrainSourceUsed,
   CompanyBrainWorkspaceSlice,
   CompanyKnowledgeItem,
   CompanyBrandKit,
@@ -26,12 +27,20 @@ import type {
   FileAsset,
   FileContributorRole,
   GeneratedDeckReport,
+  KnowledgeApprovalStatus,
   ReportType,
   Slide,
   SourceTrace,
+  CompanyKnowledgeSourceType,
 } from '../types/models.ts'
 import { createId } from '../utils/ids.ts'
+import { isAiRestRoutesEnabled } from './aiBackendFlags.ts'
 
+/**
+ * AI routing:
+ * - Intel Review → `supabase.functions.invoke('generate-intel-review')` only (see `generateIntelReviewWithFallback`).
+ * - Placeholder REST routes below are **not** deployed in this MVP; they only run when `VITE_AI_REST_ROUTES_ENABLED=true`.
+ */
 export const AI_BACKEND_ENDPOINTS = {
   generateIntelReview: 'generate-intel-review',
   generateDeck: '/api/ai/decks/generate',
@@ -58,11 +67,16 @@ export interface GenerateIntelReviewRequest {
   sourceTraces?: SourceTrace[]
   webResearchEnabled?: boolean
   companyKnowledgeItems?: CompanyKnowledgeItem[]
+  /** When set, Edge filters brain rows (mirrors client selection). Omit or empty = use all `companyKnowledgeItems`. */
+  selectedCompanyKnowledgeItemIds?: string[]
+  /** Workspace library files for resolving `CompanyKnowledgeItem.fileAssetId` → real `SourceTrace` rows. */
+  workspaceFileAssets?: FileAsset[]
 }
 
 export interface GenerateIntelReviewResponse {
   intel: DeckIntel
   warnings: string[]
+  companyBrainSourcesUsed: CompanyBrainSourceUsed[]
 }
 
 export interface GenerateDeckResponse {
@@ -269,6 +283,11 @@ async function maybeUseBackend<Request, Response>(
   callBackend: (endpoint: string, request: Request) => Promise<Response>,
   getFallback: () => Promise<Response> | Response,
 ) {
+  const isPlaceholderRestRoute = endpoint.startsWith('/api/ai')
+  if (isPlaceholderRestRoute && !isAiRestRoutesEnabled()) {
+    return getFallback()
+  }
+
   if (!isAiBackendEnabled()) {
     return getFallback()
   }
@@ -278,6 +297,89 @@ async function maybeUseBackend<Request, Response>(
   } catch (error) {
     warnAndUseMock(flowName, error)
     return getFallback()
+  }
+}
+
+const APPROVAL_STATUS_SET = new Set<KnowledgeApprovalStatus>([
+  'approved',
+  'needs-review',
+  'rejected',
+  'archived',
+])
+
+const SOURCE_TYPE_SET = new Set<CompanyKnowledgeSourceType>([
+  'contract',
+  'deck',
+  'proposal',
+  'notes',
+  'case-study',
+  'product-doc',
+  'policy',
+  'transcript',
+  'other',
+])
+
+function normalizeCompanyBrainSourcesUsed(raw: unknown): CompanyBrainSourceUsed[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  const out: CompanyBrainSourceUsed[] = []
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') {
+      continue
+    }
+    const o = row as Record<string, unknown>
+    const id = typeof o.id === 'string' ? o.id.trim() : ''
+    if (!id) {
+      continue
+    }
+    const title = typeof o.title === 'string' ? o.title : ''
+    const st = typeof o.sourceType === 'string' ? o.sourceType : 'other'
+    const sourceType = SOURCE_TYPE_SET.has(st as CompanyKnowledgeSourceType)
+      ? (st as CompanyKnowledgeSourceType)
+      : 'other'
+    const ap = typeof o.approvalStatus === 'string' ? o.approvalStatus : 'needs-review'
+    const approvalStatus = APPROVAL_STATUS_SET.has(ap as KnowledgeApprovalStatus)
+      ? (ap as KnowledgeApprovalStatus)
+      : 'needs-review'
+    const citationCount =
+      typeof o.citationCount === 'number' && Number.isFinite(o.citationCount)
+        ? Math.max(0, Math.floor(o.citationCount))
+        : 0
+    const citationBacked = o.citationBacked === true && citationCount > 0
+    const memoryOnly = !citationBacked
+    out.push({
+      id,
+      title,
+      sourceType,
+      approvalStatus,
+      citationBacked,
+      citationCount,
+      memoryOnly,
+    })
+  }
+  return out
+}
+
+function normalizeGenerateIntelReviewResponse(raw: unknown): GenerateIntelReviewResponse {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Intel Review backend returned an invalid payload.')
+  }
+
+  const r = raw as Record<string, unknown>
+  if (!r.intel || typeof r.intel !== 'object') {
+    throw new Error('Intel Review backend response missing intel.')
+  }
+
+  const warnings = Array.isArray(r.warnings)
+    ? r.warnings.filter((w): w is string => typeof w === 'string')
+    : []
+
+  return {
+    intel: r.intel as DeckIntel,
+    warnings,
+    companyBrainSourcesUsed: normalizeCompanyBrainSourcesUsed(r.companyBrainSourcesUsed),
   }
 }
 
@@ -315,10 +417,11 @@ export async function generateIntelReviewWithFallback(
     options.invokeBackend ??
     (async (payload: GenerateIntelReviewRequest) => {
       try {
-        return await invokeSupabaseFunction<GenerateIntelReviewResponse>(
+        const data = await invokeSupabaseFunction<unknown>(
           AI_BACKEND_ENDPOINTS.generateIntelReview,
           payload as unknown as Record<string, unknown>,
         )
+        return normalizeGenerateIntelReviewResponse(data)
       } catch (error) {
         warnAndUseMock('Intel Review generation', error)
         throw error

@@ -1,4 +1,12 @@
-import type { CompanyKnowledgeItem, DeckIntel, DeckSetup, FileAsset, SourceTrace } from '../types/models'
+import { collectSourceTracesForKnowledgeItem } from './companyBrainDeckPipeline.ts'
+import type {
+  CompanyBrainSourceUsed,
+  CompanyKnowledgeItem,
+  DeckIntel,
+  DeckSetup,
+  FileAsset,
+  SourceTrace,
+} from '../types/models'
 
 function meetingGoalText(setup: DeckSetup): string {
   const m = setup.meetingGoal?.trim()
@@ -11,6 +19,27 @@ function meetingGoalText(setup: DeckSetup): string {
 
 function traceDedupeKey(trace: SourceTrace) {
   return [trace.fileId, trace.fileName, trace.extractedSnippet, trace.addedByUserId].join('|')
+}
+
+/** Per-item citation honesty for Intel Review responses (local + Edge parity). */
+export function buildCompanyBrainSourcesUsed(
+  items: CompanyKnowledgeItem[],
+  assetsById: Map<string, FileAsset>,
+): CompanyBrainSourceUsed[] {
+  return items.map((item) => {
+    const linked = collectSourceTracesForKnowledgeItem(item, assetsById)
+    const citationCount = linked.length
+    const citationBacked = citationCount > 0
+    return {
+      id: item.id,
+      title: item.title,
+      sourceType: item.sourceType,
+      approvalStatus: item.approvalStatus,
+      citationBacked,
+      citationCount,
+      memoryOnly: !citationBacked,
+    }
+  })
 }
 
 /** Collects real `SourceTrace` rows from uploaded assets only (no fabrication). */

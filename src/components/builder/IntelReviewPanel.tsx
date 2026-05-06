@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { RankedCompanyKnowledgeEntry } from '../../data/companyKnowledgeRetrieval'
 import {
@@ -7,7 +8,13 @@ import {
   knowledgeItemHasCitationBackedTraces,
   mergeAssetsForKnowledgeTraceLookup,
 } from '../../data/companyBrainDeckPipeline'
-import type { CompanyKnowledgeItem, DeckIntel, DeckSetup, FileAsset } from '../../types/models'
+import type {
+  CompanyBrainSourceUsed,
+  CompanyKnowledgeItem,
+  DeckIntel,
+  DeckSetup,
+  FileAsset,
+} from '../../types/models'
 import { useToast } from '../feedback/toastContext'
 import { aiClient } from '../../data/aiClient'
 import {
@@ -46,6 +53,9 @@ export function IntelReviewPanel({
   updateDeckSetup,
 }: IntelReviewPanelProps) {
   const { showToast } = useToast()
+  const [lastBrainSourcesMeta, setLastBrainSourcesMeta] = useState<CompanyBrainSourceUsed[] | undefined>(
+    undefined,
+  )
   const intel = setup.intel ?? {}
 
   const patchIntel = (partial: Partial<DeckIntel>) => {
@@ -59,9 +69,12 @@ export function IntelReviewPanel({
       sourceTraces: collectSourceTracesFromAssets(fileAssets),
       webResearchEnabled: setup.webResearch,
       companyKnowledgeItems,
+      selectedCompanyKnowledgeItemIds: setup.selectedCompanyKnowledgeItemIds,
+      workspaceFileAssets,
     })
     const merged = mergeIntelDraftWithExisting(intel, response.intel)
     updateDeckSetup(deckId, { intel: merged })
+    setLastBrainSourcesMeta(response.companyBrainSourcesUsed)
 
     if (response.warnings.length > 0) {
       showToast(response.warnings[0], 'info')
@@ -84,6 +97,7 @@ export function IntelReviewPanel({
   const hasBrainSelection = selectedIds.length > 0
   const assetLookup = mergeAssetsForKnowledgeTraceLookup(fileAssets, workspaceFileAssets)
   const rankById = new Map((rankedSelectedKnowledge ?? []).map((entry) => [entry.item.id, entry]))
+  const brainMetaById = new Map((lastBrainSourcesMeta ?? []).map((row) => [row.id, row]))
   const buckets = companyKnowledgeItems?.length
     ? groupCompanyKnowledgeByIntelBucket(companyKnowledgeItems)
     : null
@@ -193,7 +207,11 @@ export function IntelReviewPanel({
                       </h4>
                       <ul className="intel-company-knowledge-list">
                         {bucketItems.map((item) => {
-                          const cited = knowledgeItemHasCitationBackedTraces(item, assetLookup)
+                          const meta = brainMetaById.get(item.id)
+                          const cited =
+                            meta !== undefined
+                              ? meta.citationBacked
+                              : knowledgeItemHasCitationBackedTraces(item, assetLookup)
                           const ranked = rankById.get(item.id)
 
                           return (
@@ -203,7 +221,9 @@ export function IntelReviewPanel({
                                 <span
                                   className={`intel-knowledge-backing-pill ${cited ? 'intel-knowledge-backing-pill--cited' : ''}`}
                                 >
-                                  {cited ? 'Cited source (linked file trace)' : 'Company knowledge, not citation-backed'}
+                                  {cited
+                                    ? `Cited source (linked file trace)${meta && meta.citationCount > 0 ? ` · ${meta.citationCount}` : ''}`
+                                    : 'Company knowledge, not citation-backed'}
                                 </span>
                               </div>
                               <div className="intel-knowledge-meta-row">
