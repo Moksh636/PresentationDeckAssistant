@@ -1,7 +1,15 @@
-import type { FileAsset, SourceTrace } from '../types/models.ts'
+import type { DeckSetup, FileAsset, SourceCitationReviewMode, SourceTrace } from '../types/models.ts'
 
 /** Permissive mode: include all sources unless explicitly excluded. */
-export const SOURCE_CITATION_REVIEW_MODE = 'permissive'
+export const SOURCE_CITATION_REVIEW_MODE: SourceCitationReviewMode = 'permissive'
+
+export function resolveCitationReviewMode(
+  setup: Pick<DeckSetup, 'citationReviewMode'> | undefined,
+): SourceCitationReviewMode {
+  return setup?.citationReviewMode === 'strict-approved-only'
+    ? 'strict-approved-only'
+    : SOURCE_CITATION_REVIEW_MODE
+}
 
 export function snippetReviewKey(trace: SourceTrace): string {
   return `${trace.fileId}::${trace.extractedSnippet}`
@@ -15,7 +23,13 @@ export function isSourceApproved(asset: FileAsset): boolean {
   return asset.sourceReview?.status === 'approved'
 }
 
-export function isSourceIncludedForCitations(asset: FileAsset): boolean {
+export function isSourceIncludedForCitations(
+  asset: FileAsset,
+  mode: SourceCitationReviewMode = SOURCE_CITATION_REVIEW_MODE,
+): boolean {
+  if (mode === 'strict-approved-only') {
+    return isSourceApproved(asset)
+  }
   if (isSourceExcluded(asset)) {
     return false
   }
@@ -32,13 +46,19 @@ export function snippetLabel(asset: FileAsset, trace: SourceTrace): string {
   return asset.sourceReview?.snippetReviews?.[key]?.labelOverride?.trim() || trace.fileName
 }
 
-export function filterAssetSourceTraces(asset: FileAsset): SourceTrace[] {
-  if (!isSourceIncludedForCitations(asset)) {
+export function filterAssetSourceTraces(
+  asset: FileAsset,
+  mode: SourceCitationReviewMode = SOURCE_CITATION_REVIEW_MODE,
+): SourceTrace[] {
+  if (!isSourceIncludedForCitations(asset, mode)) {
     return []
   }
   return asset.sourceTrace.filter((trace) => isSnippetEnabled(asset, trace))
 }
 
-export function filterAssetsForCitationUse(assets: FileAsset[]): FileAsset[] {
-  return assets.filter((asset) => isSourceIncludedForCitations(asset))
+export function filterAssetsForCitationUse(
+  assets: FileAsset[],
+  mode: SourceCitationReviewMode = SOURCE_CITATION_REVIEW_MODE,
+): FileAsset[] {
+  return assets.filter((asset) => isSourceIncludedForCitations(asset, mode))
 }

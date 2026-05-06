@@ -23,6 +23,7 @@ assert.equal(legacy.audience, 'CFO')
 assert.equal(legacy.presentationType, 'Board update')
 assert.equal(legacy.targetCompany, undefined)
 assert.equal(legacy.intel, undefined)
+assert.equal(legacy.citationReviewMode, 'permissive')
 
 const rich = normalizeDeckSetup({
   ...legacySetup,
@@ -55,6 +56,7 @@ const rich = normalizeDeckSetup({
 assert.equal(rich.targetCompany, ' Contoso ')
 assert.equal(rich.meetingGoal, 'Book QBR')
 assert.equal(rich.deckType, 'Account pitch deck')
+assert.equal(rich.citationReviewMode, 'permissive')
 assert.equal(rich.brandKitId, 'brand-1')
 assert.deepEqual(rich.knownPainPoints, ['Latency', 'Cost'])
 assert.deepEqual(rich.approvedMessagingIds, ['m1', 'm2'])
@@ -65,6 +67,12 @@ const brainSelection = normalizeDeckSetup({
   selectedCompanyKnowledgeItemIds: ['cb-1', '', 'cb-2'],
 })
 assert.deepEqual(brainSelection.selectedCompanyKnowledgeItemIds, ['cb-1', 'cb-2'])
+
+const strictCitationMode = normalizeDeckSetup({
+  ...legacySetup,
+  citationReviewMode: 'strict-approved-only',
+})
+assert.equal(strictCitationMode.citationReviewMode, 'strict-approved-only')
 assert.ok(rich.intel)
 assert.equal(rich.intel.companySummary, 'Enterprise SaaS')
 assert.deepEqual(rich.intel.inferredPriorities, ['Speed', 'Security'])

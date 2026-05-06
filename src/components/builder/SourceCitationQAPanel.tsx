@@ -1,4 +1,4 @@
-import type { FileAsset } from '../../types/models'
+import type { FileAsset, SourceCitationReviewMode } from '../../types/models'
 import { formatConfidence } from '../../utils/formatters'
 import {
   isSourceApproved,
@@ -9,6 +9,8 @@ import {
 
 interface SourceCitationQAPanelProps {
   assets: FileAsset[]
+  citationReviewMode: SourceCitationReviewMode
+  onSetCitationReviewMode: (mode: SourceCitationReviewMode) => void
   onSetSourceStatus: (assetId: string, status: 'pending' | 'approved' | 'excluded') => void
   onSetSnippetEnabled: (assetId: string, snippetKey: string, enabled: boolean) => void
   onSetSnippetLabelOverride: (assetId: string, snippetKey: string, labelOverride: string) => void
@@ -16,6 +18,8 @@ interface SourceCitationQAPanelProps {
 
 export function SourceCitationQAPanel({
   assets,
+  citationReviewMode,
+  onSetCitationReviewMode,
   onSetSourceStatus,
   onSetSnippetEnabled,
   onSetSnippetLabelOverride,
@@ -30,6 +34,23 @@ export function SourceCitationQAPanel({
             Review parse warnings and citations before Intel Review/deck generation. Default mode is
             permissive: all traces are used unless excluded or disabled.
           </p>
+          <div className="scope-toggle" role="group" aria-label="Citation review mode">
+            <button
+              type="button"
+              className={citationReviewMode === 'permissive' ? 'is-active' : ''}
+              onClick={() => onSetCitationReviewMode('permissive')}
+            >
+              Permissive
+            </button>
+            <button
+              type="button"
+              className={citationReviewMode === 'strict-approved-only' ? 'is-active' : ''}
+              onClick={() => onSetCitationReviewMode('strict-approved-only')}
+            >
+              Strict approved-only
+            </button>
+          </div>
+          <p className="muted-copy">Strict mode only uses sources you approved.</p>
         </div>
       </div>
       {assets.length === 0 ? <p className="muted-copy">No sources uploaded yet.</p> : null}

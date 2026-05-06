@@ -88,6 +88,8 @@ export interface DeckSetup {
   caseStudyIds?: string[]
   /** Company Brain: knowledge item ids included as context for this pitch (local/mock). */
   selectedCompanyKnowledgeItemIds?: string[]
+  /** Citation filtering policy for Intel/deck/report generation. */
+  citationReviewMode?: SourceCitationReviewMode
 }
 
 export type SetupFieldKey = keyof DeckSetup
@@ -200,6 +202,7 @@ export interface SourceTrace {
 }
 
 export type SourceReviewStatus = 'pending' | 'approved' | 'excluded'
+export type SourceCitationReviewMode = 'permissive' | 'strict-approved-only'
 
 export interface SourceSnippetReviewState {
   enabled?: boolean

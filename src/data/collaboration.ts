@@ -88,6 +88,7 @@ export function getSetupFieldLabel(field: SetupFieldKey) {
     approvedMessagingIds: 'Approved messaging',
     caseStudyIds: 'Case studies',
     selectedCompanyKnowledgeItemIds: 'Company knowledge selections',
+    citationReviewMode: 'Citation review mode',
   }
 
   return labels[field]

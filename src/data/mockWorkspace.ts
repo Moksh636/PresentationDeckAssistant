@@ -47,6 +47,7 @@ function createSeedDecks(): Deck[] {
         webResearch: true,
         usePreviousDeckContext: true,
         shareSetupInputs: false,
+        citationReviewMode: 'permissive',
       },
     },
     {
@@ -69,6 +70,7 @@ function createSeedDecks(): Deck[] {
         webResearch: false,
         usePreviousDeckContext: false,
         shareSetupInputs: true,
+        citationReviewMode: 'permissive',
       },
     },
     {
@@ -91,6 +93,7 @@ function createSeedDecks(): Deck[] {
         webResearch: false,
         usePreviousDeckContext: true,
         shareSetupInputs: true,
+        citationReviewMode: 'permissive',
       },
     },
   ]
@@ -280,6 +283,7 @@ export function createEmptyDeck(projectId: string, title = 'New pitch deck'): De
       webResearch: false,
       usePreviousDeckContext: false,
       shareSetupInputs: false,
+      citationReviewMode: 'permissive',
     },
   }
 }

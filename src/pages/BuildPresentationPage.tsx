@@ -720,6 +720,10 @@ export function BuildPresentationPage() {
 
             <SourceCitationQAPanel
               assets={deckAssets}
+              citationReviewMode={setup.citationReviewMode ?? 'permissive'}
+              onSetCitationReviewMode={(mode) =>
+                updateDeckSetup(activeDeck.id, { citationReviewMode: mode })
+              }
               onSetSourceStatus={setFileAssetSourceReviewStatus}
               onSetSnippetEnabled={setFileAssetSnippetEnabled}
               onSetSnippetLabelOverride={setFileAssetSnippetLabelOverride}

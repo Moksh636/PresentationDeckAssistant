@@ -394,6 +394,7 @@ export function buildSourceMaterialsSummary(fileAssets: FileAsset[]): SourceMate
     webResearch: false,
     usePreviousDeckContext: false,
     shareSetupInputs: false,
+    citationReviewMode: 'permissive',
   })
   const tracePreview = getRankedFiles(fileAssets)
     .flatMap((asset) => asset.sourceTrace)

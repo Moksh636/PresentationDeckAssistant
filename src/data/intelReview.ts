@@ -5,11 +5,12 @@ import type {
   DeckIntel,
   DeckSetup,
   FileAsset,
+  SourceCitationReviewMode,
   SourceTrace,
 } from '../types/models'
 import {
   filterAssetSourceTraces,
-  isSourceIncludedForCitations,
+  resolveCitationReviewMode,
   snippetLabel,
 } from './sourceCitationReview.ts'
 
@@ -48,15 +49,16 @@ export function buildCompanyBrainSourcesUsed(
 }
 
 /** Collects real `SourceTrace` rows from uploaded assets only (no fabrication). */
-export function collectSourceTracesFromAssets(assets: FileAsset[], max = 12): SourceTrace[] {
+export function collectSourceTracesFromAssets(
+  assets: FileAsset[],
+  max = 12,
+  mode: SourceCitationReviewMode = 'permissive',
+): SourceTrace[] {
   const seen = new Set<string>()
   const out: SourceTrace[] = []
 
   for (const asset of assets) {
-    if (!isSourceIncludedForCitations(asset)) {
-      continue
-    }
-    for (const trace of filterAssetSourceTraces(asset)) {
+    for (const trace of filterAssetSourceTraces(asset, mode)) {
       const normalized = { ...trace, fileName: snippetLabel(asset, trace) }
       const key = traceDedupeKey(normalized)
       if (seen.has(key)) {
@@ -87,6 +89,7 @@ export function generateIntelDraftFromSources(
   assets: FileAsset[],
   options: IntelDraftGenerationOptions = {},
 ): DeckIntel {
+  const citationReviewMode = resolveCitationReviewMode(setup)
   const company = setup.targetCompany?.trim()
   const buyer = (setup.buyerPersona ?? setup.audience).trim()
   const offering = setup.offeringSummary?.trim()
@@ -175,9 +178,11 @@ export function generateIntelDraftFromSources(
   )
   const linkedAssets = linkedAssetIds.size > 0 ? assets.filter((a) => linkedAssetIds.has(a.id)) : []
 
-  const tracesFromUploads = collectSourceTracesFromAssets(assets)
+  const tracesFromUploads = collectSourceTracesFromAssets(assets, 12, citationReviewMode)
   const tracesFromLinkedKnowledge =
-    linkedAssets.length > 0 ? collectSourceTracesFromAssets(linkedAssets) : []
+    linkedAssets.length > 0
+      ? collectSourceTracesFromAssets(linkedAssets, 12, citationReviewMode)
+      : []
   const mergedTraces = [...tracesFromUploads]
   const seenKeys = new Set(tracesFromUploads.map(traceDedupeKey))
   for (const trace of tracesFromLinkedKnowledge) {

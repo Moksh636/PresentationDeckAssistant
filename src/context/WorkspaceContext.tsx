@@ -18,7 +18,7 @@ import {
   finalizeLocalFileAssetIngest,
   OWNER_USER_ID,
 } from '../data/sourceIngestion'
-import { filterAssetsForCitationUse } from '../data/sourceCitationReview'
+import { filterAssetsForCitationUse, resolveCitationReviewMode } from '../data/sourceCitationReview'
 import { generateDeckReport } from '../data/reportGenerator'
 import {
   buildDeckReportCompanyBrainEntries,
@@ -925,6 +925,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
 
     const sourceFiles = filterAssetsForCitationUse(
       workspace.fileAssets.filter((asset) => asset.deckId === deckId),
+      resolveCitationReviewMode(sourceDeck.setup),
     )
     const previousDeck = workspace.decks
       .filter((candidate) => candidate.projectId === sourceDeck.projectId && candidate.id !== deckId)
@@ -987,6 +988,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       const deckSlides = getOrderedDeckSlides(current.slides, deckId)
       const sourceFiles = filterAssetsForCitationUse(
         current.fileAssets.filter((asset) => asset.deckId === deckId && asset.kind !== 'report'),
+        resolveCitationReviewMode(deck.setup),
       )
       const intelBriefBrandKit = resolveBrandKitForDeckSetup(deck.setup, current.companyBrain)
 

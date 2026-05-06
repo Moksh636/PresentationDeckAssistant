@@ -27,6 +27,10 @@ const setupWithAccount: DeckSetup = {
   meetingGoal: 'Secure pilot budget',
   knownPainPoints: ['Fuel variance', 'Manual spreadsheets'],
 }
+const strictSetupWithAccount: DeckSetup = {
+  ...setupWithAccount,
+  citationReviewMode: 'strict-approved-only',
+}
 
 const draft = generateIntelDraftFromSources(setupWithAccount, [])
 assert.ok(draft.companySummary?.includes('Acme Logistics'))
@@ -103,6 +107,11 @@ const approvedAsset: FileAsset = {
 }
 assert.equal(collectSourceTracesFromAssets([approvedAsset]).length, 1)
 assert.equal(SOURCE_CITATION_REVIEW_MODE, 'permissive')
+assert.equal(collectSourceTracesFromAssets([asset], 12, 'strict-approved-only').length, 0)
+assert.equal(
+  generateIntelDraftFromSources(strictSetupWithAccount, [asset]).citations,
+  undefined,
+)
 
 const merged = mergeIntelDraftWithExisting(
   { companySummary: 'Keep me' },

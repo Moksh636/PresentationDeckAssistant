@@ -4,7 +4,7 @@ import {
   collectSourceTracesFromAssets,
   generateIntelDraftFromSources,
 } from './intelReview.ts'
-import { filterAssetsForCitationUse } from './sourceCitationReview.ts'
+import { filterAssetsForCitationUse, resolveCitationReviewMode } from './sourceCitationReview.ts'
 import type {
   CompanyBrainSourceUsed,
   CompanyKnowledgeItem,
@@ -60,11 +60,15 @@ export async function generateIntelReviewWithFallback(
   request: GenerateIntelReviewRequest,
   options: GenerateIntelReviewWithFallbackOptions = {},
 ): Promise<GenerateIntelReviewResponse> {
+  const citationReviewMode = resolveCitationReviewMode(request.setup)
   const preparedRequest: GenerateIntelReviewRequest = {
     ...request,
-    fileAssets: filterAssetsForCitationUse(request.fileAssets),
+    fileAssets: filterAssetsForCitationUse(request.fileAssets, citationReviewMode),
     sourceTraces:
-      request.sourceTraces ?? collectSourceTracesFromAssets(filterAssetsForCitationUse(request.fileAssets)),
+      request.sourceTraces ??
+      collectSourceTracesFromAssets(
+        filterAssetsForCitationUse(request.fileAssets, citationReviewMode),
+      ),
     webResearchEnabled: request.webResearchEnabled ?? false,
   }
 

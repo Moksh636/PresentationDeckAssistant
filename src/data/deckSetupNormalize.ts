@@ -156,6 +156,10 @@ function normalizeIntel(rawIntel: unknown): DeckIntel | undefined {
 /** Normalizes persisted deck setup (additive fields + legacy compatibility). */
 export function normalizeDeckSetup(rawSetup: Record<string, unknown>): DeckSetup {
   const shareSetupInputs = rawSetup.shareSetupInputs === true
+  const citationReviewMode =
+    rawSetup.citationReviewMode === 'strict-approved-only'
+      ? 'strict-approved-only'
+      : 'permissive'
 
   const setup: DeckSetup = {
     goal: typeof rawSetup.goal === 'string' ? rawSetup.goal : '',
@@ -170,6 +174,7 @@ export function normalizeDeckSetup(rawSetup: Record<string, unknown>): DeckSetup
     webResearch: rawSetup.webResearch === true,
     usePreviousDeckContext: rawSetup.usePreviousDeckContext === true,
     shareSetupInputs,
+    citationReviewMode,
   }
 
   const targetCompany = pickOptionalString(rawSetup, 'targetCompany')
