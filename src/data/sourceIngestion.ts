@@ -10,6 +10,11 @@ import type {
   SourceTraceType,
   WorkspaceAssetStorageRef,
 } from '../types/models.ts'
+import {
+  buildCitationSnippetsFromParsed,
+  type ParsedSourceDocument,
+  parseUploadedSourceFile,
+} from './parseUploadedSourceFile.ts'
 import { formatFileSize } from '../utils/formatters.ts'
 
 export const OWNER_USER_ID = 'user-owner-1'
@@ -189,6 +194,58 @@ export function normalizeSourceTrace(
     ...trace,
     confidence: typeof trace.confidence === 'number' ? trace.confidence : 0.64,
     extractedSnippet: trace.extractedSnippet || trace.fileName,
+  }
+}
+
+export function mergeParsedSourceIntoFileAsset(
+  base: FileAsset,
+  parsed: ParsedSourceDocument,
+): FileAsset {
+  const citations = buildCitationSnippetsFromParsed(
+    parsed,
+    base.id,
+    base.name,
+    base.uploadedByUserId,
+  )
+  const useParsedTraces = citations.length > 0
+  const parserNote = parsed.warnings.length ? ` Parser notes: ${parsed.warnings.join(' ')}` : ''
+  const snippetCount =
+    parsed.sections.length > 0 ? parsed.sections.length : useParsedTraces ? citations.length : 0
+
+  return {
+    ...base,
+    status: 'parsed',
+    extractedTextPreview: useParsedTraces ? parsed.textPreview : base.extractedTextPreview,
+    sourceTrace: useParsedTraces ? citations : base.sourceTrace,
+    extractedMetadata: {
+      ...base.extractedMetadata,
+      ingestionMode: useParsedTraces ? 'browser-text-parser' : base.extractedMetadata.ingestionMode,
+      ...(parsed.detectedSourceType
+        ? { parsedSourceCategory: parsed.detectedSourceType }
+        : {}),
+      containsNarrative:
+        parsed.detectedSourceType === 'plaintext' || parsed.detectedSourceType === 'json'
+          ? true
+          : base.extractedMetadata.containsNarrative,
+      containsTables:
+        parsed.detectedSourceType === 'csv' ? true : base.extractedMetadata.containsTables,
+    },
+    summary: useParsedTraces
+      ? `Local ingestion produced ${snippetCount} citation-ready snippet(s).${parserNote}`
+      : `${base.summary}${parserNote}`,
+  }
+}
+
+/** Browser/local parse pipeline for workspace uploads (no AI). Errors fall back to the seeded mock asset. */
+export async function finalizeLocalFileAssetIngest(base: FileAsset, file: File): Promise<FileAsset> {
+  try {
+    const parsed = await parseUploadedSourceFile(file)
+    return mergeParsedSourceIntoFileAsset(base, parsed)
+  } catch {
+    return {
+      ...base,
+      status: 'parsed',
+    }
   }
 }
 

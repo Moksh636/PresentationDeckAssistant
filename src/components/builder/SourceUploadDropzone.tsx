@@ -69,7 +69,7 @@ export function SourceUploadDropzone({
       <strong>Drop account research sources here</strong>
       <p>
         {disabledMessage ??
-          'Upload account research, sales notes, product docs, case studies, and supporting files. Each upload adds source-backed context and citation-ready excerpts to your workspace.'}
+          'Upload account research, sales notes, product docs, case studies, and supporting files. Plain text, CSV, and JSON are parsed locally in the browser for previews and SourceTrace snippets; other formats use safe placeholders until a parser is added.'}
       </p>
       <div className="upload-dropzone__actions">
         <button

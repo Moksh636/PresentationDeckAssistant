@@ -10,7 +10,11 @@ import {
   runMockDeckGenerationPipeline,
 } from './deckGenerator.ts'
 import { buildMockAiEditPlan, type AiEditPlan, type AiEditScope } from './aiEditor.ts'
-import { autoFillPresentationFieldsFromFiles, createMockFileAsset } from './sourceIngestion.ts'
+import {
+  autoFillPresentationFieldsFromFiles,
+  createMockFileAsset,
+  finalizeLocalFileAssetIngest,
+} from './sourceIngestion.ts'
 import { generateDeckReport } from './reportGenerator.ts'
 import { supabase } from './supabaseClient.ts'
 import { generateIntelReviewWithFallback as generateIntelReviewWithFallbackBase } from './intelReviewBackendFallback.ts'
@@ -383,21 +387,23 @@ function normalizeGenerateIntelReviewResponse(raw: unknown): GenerateIntelReview
   }
 }
 
-function createMockIngestedFile(request: IngestFileRequest): FileAsset {
+async function createMockIngestedFile(request: IngestFileRequest): Promise<FileAsset> {
   const uploadedByRole = request.uploadedByRole ?? 'owner'
 
-  return createMockFileAsset({
+  const seed = createMockFileAsset({
     id: createId('file'),
     deckId: request.deckId,
     name: request.file.name,
     kind: inferFileKind(request.file.name),
-    status: 'parsed',
+    status: 'extracting',
     sizeBytes: request.file.size,
     uploadedAt: new Date().toISOString(),
     uploadedByRole,
     uploadedByUserId: request.uploadedByUserId,
     highlightForOwnerReview: uploadedByRole === 'collaborator',
   })
+
+  return finalizeLocalFileAssetIngest(seed, request.file)
 }
 
 interface GenerateIntelReviewOptions {

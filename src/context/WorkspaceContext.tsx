@@ -14,8 +14,9 @@ import {
 import { createEmptyDeck, seedWorkspaceState } from '../data/mockWorkspace'
 import {
   autoFillPresentationFieldsFromFiles,
-  OWNER_USER_ID,
   createMockFileAsset,
+  finalizeLocalFileAssetIngest,
+  OWNER_USER_ID,
 } from '../data/sourceIngestion'
 import { generateDeckReport } from '../data/reportGenerator'
 import {
@@ -710,6 +711,28 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       ),
     }))
 
+    void (async () => {
+      for (let index = 0; index < entries.length; index++) {
+        const file = entries[index]
+        const seedAsset = nextAssets[index]
+
+        if (!file || !seedAsset) {
+          continue
+        }
+
+        const finalized = await finalizeLocalFileAssetIngest(seedAsset, file)
+
+        setWorkspace((current) => ({
+          ...current,
+          fileAssets: current.fileAssets.map((candidate) =>
+            candidate.id === finalized.id
+              ? { ...candidate, ...finalized, storage: candidate.storage }
+              : candidate,
+          ),
+        }))
+      }
+    })()
+
     if (shouldAttemptWorkspaceStorageUpload({ supabaseClient: supabase, userId: user?.id, isLocalDevBypass }) && supabase && user) {
       const authUserId = user.id
 
@@ -759,21 +782,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         }
       })()
     }
-
-    // Replace this mocked lifecycle with a real async ingestion job when real file parsing is wired in.
-    window.setTimeout(() => {
-      setWorkspace((current) => ({
-        ...current,
-        fileAssets: current.fileAssets.map((asset) =>
-          nextAssets.some((candidate) => candidate.id === asset.id)
-            ? {
-                ...asset,
-                status: 'parsed',
-              }
-            : asset,
-        ),
-      }))
-    }, 900)
   }
 
   const markAssetReviewed: WorkspaceContextValue['markAssetReviewed'] = (assetId) => {
