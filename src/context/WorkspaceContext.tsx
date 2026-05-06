@@ -1,4 +1,4 @@
-import { type PropsWithChildren, useEffect, useRef, useState } from 'react'
+import { type PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/feedback/toastContext'
 import {
   createChartSlideFromSuggestion,
@@ -29,7 +29,17 @@ import {
   normalizeSlideBlock,
 } from '../data/slideLayout'
 import { createSlideFromLayoutPreset } from '../data/slideLayoutPresets'
-import { supabase } from '../data/supabaseClient'
+import {
+  loadOrganizationIdentity,
+  saveOrganizationIdentity,
+  type CompanyBrainCloudClient,
+} from '../data/companyBrainCloudPersistence'
+import {
+  loadCompanyKnowledge,
+  saveCompanyKnowledge,
+  type CompanyKnowledgeCloudClient,
+} from '../data/companyKnowledgeCloudPersistence'
+import { isSupabaseConfigured, supabase } from '../data/supabaseClient'
 import {
   acceptWorkerInviteForUser,
   addOrganizationMember,
@@ -93,6 +103,7 @@ import { useAuth } from './useAuth'
 
 const STORAGE_KEY = 'ai-presentation-workspace:v1'
 const HISTORY_LIMIT = 40
+const IDENTITY_AUTOSAVE_DEBOUNCE_MS = 3000
 
 interface WorkspaceHistory {
   past: WorkspaceState[]
@@ -203,8 +214,29 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   const { showToast } = useToast()
   const [workspace, setWorkspace] = useState<WorkspaceState>(loadInitialWorkspace)
   const [history, setHistory] = useState<WorkspaceHistory>({ past: [], future: [] })
+  const [companyIdentitySyncStatus, setCompanyIdentitySyncStatus] =
+    useState<WorkspaceContextValue['companyIdentitySyncStatus']>({
+      state: isSupabaseConfigured ? 'saved' : 'local-only',
+      message: isSupabaseConfigured ? undefined : 'Supabase is not configured.',
+    })
+  const [companyKnowledgeSyncStatus, setCompanyKnowledgeSyncStatus] =
+    useState<WorkspaceContextValue['companyKnowledgeSyncStatus']>({
+      state: isSupabaseConfigured ? 'saved' : 'local-only',
+      message: isSupabaseConfigured ? undefined : 'Supabase is not configured.',
+    })
+  const [identityDirtyVersion, setIdentityDirtyVersion] = useState(0)
+  const [identityLastSavedVersion, setIdentityLastSavedVersion] = useState(0)
+  const [knowledgeDirtyVersion, setKnowledgeDirtyVersion] = useState(0)
+  const [knowledgeLastSavedVersion, setKnowledgeLastSavedVersion] = useState(0)
   const workspaceRef = useRef(workspace)
   const historyRef = useRef(history)
+  const identityDirtyVersionRef = useRef(0)
+  const identityLastSavedVersionRef = useRef(0)
+  const knowledgeDirtyVersionRef = useRef(0)
+  const autosaveTimerRef = useRef<number | null>(null)
+  const suppressAutosaveUntilVersionRef = useRef(0)
+  const autosaveInFlightRef = useRef(false)
+  const autosaveQueuedRef = useRef(false)
 
   useEffect(() => {
     workspaceRef.current = workspace
@@ -214,6 +246,47 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     historyRef.current = history
   }, [history])
+
+  useEffect(() => {
+    identityDirtyVersionRef.current = identityDirtyVersion
+  }, [identityDirtyVersion])
+
+  useEffect(() => {
+    identityLastSavedVersionRef.current = identityLastSavedVersion
+  }, [identityLastSavedVersion])
+
+  useEffect(() => {
+    knowledgeDirtyVersionRef.current = knowledgeDirtyVersion
+  }, [knowledgeDirtyVersion])
+
+  const markIdentityDirty = () => {
+    setIdentityDirtyVersion((current) => current + 1)
+    setCompanyIdentitySyncStatus((current) => {
+      if (current.state === 'local-only' || current.state === 'saving') {
+        return current
+      }
+
+      return {
+        ...current,
+        state: 'unsaved',
+        message: undefined,
+      }
+    })
+  }
+
+  const markKnowledgeDirty = () => {
+    setKnowledgeDirtyVersion((current) => current + 1)
+    setCompanyKnowledgeSyncStatus((current) => {
+      if (current.state === 'local-only' || current.state === 'saving') {
+        return current
+      }
+      return {
+        ...current,
+        state: 'unsaved',
+        message: undefined,
+      }
+    })
+  }
 
   const updateHistory = (nextHistory: WorkspaceHistory) => {
     historyRef.current = nextHistory
@@ -1694,6 +1767,322 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
 
   const resolveActorProfile = () => workspaceUserProfileFromAuth(user ?? null, isLocalDevBypass)
 
+  const canUseIdentityCloud = Boolean(supabase && user)
+
+  const clearAutosaveTimer = () => {
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current)
+      autosaveTimerRef.current = null
+    }
+  }
+
+  const saveIdentityNow = useCallback(
+    async (source: 'manual' | 'autosave'): Promise<boolean> => {
+      if (!supabase || !user) {
+        setCompanyIdentitySyncStatus({
+          state: 'local-only',
+          message: 'Cloud sync unavailable. Working in local mode.',
+        })
+        if (source === 'manual') {
+          showToast('Supabase is unavailable. Kept local workspace data only.', 'info')
+        }
+        return false
+      }
+
+      const dirtyAtStart = identityDirtyVersionRef.current
+      if (source === 'autosave' && dirtyAtStart <= identityLastSavedVersionRef.current) {
+        return true
+      }
+
+      setCompanyIdentitySyncStatus((current) => ({
+        ...current,
+        state: 'saving',
+        message: undefined,
+      }))
+      autosaveInFlightRef.current = source === 'autosave'
+
+      try {
+        const brain = workspaceRef.current.companyBrain
+        await saveOrganizationIdentity({
+          supabase: supabase as unknown as CompanyBrainCloudClient,
+          userId: user.id,
+          organizations: brain.organizations,
+          organizationMemberships: brain.organizationMemberships,
+          companyRoles: brain.companyRoles,
+          companyDepartments: brain.companyDepartments,
+          workerInvites: brain.workerInvites,
+        })
+
+        const syncedAt = new Date().toISOString()
+        setIdentityLastSavedVersion((current) => Math.max(current, dirtyAtStart))
+        setCompanyIdentitySyncStatus({
+          state: 'saved',
+          lastSyncedAt: syncedAt,
+        })
+        if (source === 'manual') {
+          showToast('Company identity saved to cloud.', 'success')
+        }
+        return true
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Cloud save failed.'
+        setCompanyIdentitySyncStatus({
+          state: 'save-failed',
+          message,
+        })
+        if (source === 'manual') {
+          showToast(`Cloud sync failed. ${message}`, 'error')
+        }
+        return false
+      } finally {
+        autosaveInFlightRef.current = false
+      }
+    },
+    [showToast, user],
+  )
+
+  const saveCompanyIdentityToCloud: WorkspaceContextValue['saveCompanyIdentityToCloud'] = async () => {
+    clearAutosaveTimer()
+    return saveIdentityNow('manual')
+  }
+
+  const loadCompanyIdentityFromCloud: WorkspaceContextValue['loadCompanyIdentityFromCloud'] = async () => {
+    if (!supabase || !user) {
+      setCompanyIdentitySyncStatus({
+        state: 'local-only',
+        message: 'Cloud load unavailable. Working in local mode.',
+      })
+      showToast('Supabase is unavailable. Kept local workspace data only.', 'info')
+      return false
+    }
+    try {
+      const cloud = await loadOrganizationIdentity({
+        supabase: supabase as unknown as CompanyBrainCloudClient,
+        userId: user.id,
+      })
+      const local = workspaceRef.current.companyBrain
+      const hasLocalIdentity = local.organizations.length > 0
+      const hasCloudIdentity = cloud.organizations.length > 0
+
+      if (hasLocalIdentity && hasCloudIdentity) {
+        const answer = window.prompt(
+          'Both local and cloud identity data exist. Type: local | cloud | save',
+          'cloud',
+        )
+        if (answer === 'local') {
+          setCompanyIdentitySyncStatus({
+            state: 'saved',
+            message: 'Kept local identity data.',
+          })
+          showToast('Kept local identity data.', 'info')
+          return false
+        }
+        if (answer === 'save') {
+          return saveCompanyIdentityToCloud()
+        }
+      }
+
+      if (!hasCloudIdentity) {
+        setCompanyIdentitySyncStatus({
+          state: 'saved',
+          message: 'No cloud identity rows found.',
+        })
+        showToast('No cloud identity data found for this user.', 'info')
+        return false
+      }
+
+      commitWorkspace((current) => ({
+        ...current,
+        companyBrain: {
+          ...current.companyBrain,
+          organizations: cloud.organizations,
+          organizationMemberships: cloud.organizationMemberships,
+          companyRoles: cloud.companyRoles,
+          companyDepartments: cloud.companyDepartments,
+          workerInvites: cloud.workerInvites,
+          activeOrganizationId:
+            current.companyBrain.activeOrganizationId ||
+            cloud.organizations[0]?.id ||
+            '',
+        },
+      }))
+
+      const nextDirtyVersion = identityDirtyVersionRef.current
+      suppressAutosaveUntilVersionRef.current = nextDirtyVersion
+      setIdentityLastSavedVersion(nextDirtyVersion)
+
+      setCompanyIdentitySyncStatus({
+        state: 'saved',
+        lastSyncedAt: new Date().toISOString(),
+        message: 'Loaded identity data from cloud.',
+      })
+      showToast('Loaded company identity from cloud.', 'success')
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cloud load failed.'
+      setCompanyIdentitySyncStatus({
+        state: 'save-failed',
+        message,
+      })
+      showToast(`Cloud load failed. ${message}`, 'error')
+      return false
+    }
+  }
+
+  const saveCompanyKnowledgeToCloud: WorkspaceContextValue['saveCompanyKnowledgeToCloud'] = async () => {
+    if (!supabase || !user) {
+      setCompanyKnowledgeSyncStatus({
+        state: 'local-only',
+        message: 'Cloud sync unavailable. Working in local mode.',
+      })
+      showToast('Supabase is unavailable. Kept local workspace data only.', 'info')
+      return false
+    }
+    const organizationId = workspaceRef.current.companyBrain.activeOrganizationId
+    if (!organizationId) {
+      setCompanyKnowledgeSyncStatus({
+        state: 'save-failed',
+        message: 'No active organization selected.',
+      })
+      return false
+    }
+    setCompanyKnowledgeSyncStatus({ state: 'saving' })
+    try {
+      const brain = workspaceRef.current.companyBrain
+      await saveCompanyKnowledge({
+        supabase: supabase as unknown as CompanyKnowledgeCloudClient,
+        organizationId,
+        knowledgeFolders: brain.knowledgeFolders,
+        knowledgeItems: brain.knowledgeItems,
+      })
+      const syncedAt = new Date().toISOString()
+      const dirtyAtSave = knowledgeDirtyVersionRef.current
+      setKnowledgeLastSavedVersion((current) => Math.max(current, dirtyAtSave))
+      setCompanyKnowledgeSyncStatus({ state: 'saved', lastSyncedAt: syncedAt })
+      showToast('Knowledge library saved to cloud.', 'success')
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cloud save failed.'
+      setCompanyKnowledgeSyncStatus({ state: 'save-failed', message })
+      showToast(`Cloud sync failed. ${message}`, 'error')
+      return false
+    }
+  }
+
+  const loadCompanyKnowledgeFromCloud: WorkspaceContextValue['loadCompanyKnowledgeFromCloud'] = async () => {
+    if (!supabase || !user) {
+      setCompanyKnowledgeSyncStatus({
+        state: 'local-only',
+        message: 'Cloud load unavailable. Working in local mode.',
+      })
+      showToast('Supabase is unavailable. Kept local workspace data only.', 'info')
+      return false
+    }
+    const organizationId = workspaceRef.current.companyBrain.activeOrganizationId
+    if (!organizationId) {
+      setCompanyKnowledgeSyncStatus({
+        state: 'save-failed',
+        message: 'No active organization selected.',
+      })
+      return false
+    }
+    try {
+      const cloud = await loadCompanyKnowledge({
+        supabase: supabase as unknown as CompanyKnowledgeCloudClient,
+        organizationId,
+      })
+      const brain = workspaceRef.current.companyBrain
+      const localFolders = brain.knowledgeFolders.filter((row) => row.organizationId === organizationId)
+      const localItems = brain.knowledgeItems.filter((row) => row.organizationId === organizationId)
+      const hasLocalKnowledge = localFolders.length > 0 || localItems.length > 0
+      const hasCloudKnowledge = cloud.knowledgeFolders.length > 0 || cloud.knowledgeItems.length > 0
+
+      if (hasLocalKnowledge && hasCloudKnowledge) {
+        const answer = window.prompt('Both local and cloud knowledge data exist. Type: local | cloud | save', 'cloud')
+        if (answer === 'local') {
+          setCompanyKnowledgeSyncStatus({ state: 'saved', message: 'Kept local knowledge data.' })
+          showToast('Kept local knowledge data.', 'info')
+          return false
+        }
+        if (answer === 'save') {
+          return saveCompanyKnowledgeToCloud()
+        }
+      }
+
+      if (!hasCloudKnowledge) {
+        setCompanyKnowledgeSyncStatus({ state: 'saved', message: 'No cloud knowledge rows found.' })
+        showToast('No cloud knowledge data found for this organization.', 'info')
+        return false
+      }
+
+      commitWorkspace((current) => ({
+        ...current,
+        companyBrain: {
+          ...current.companyBrain,
+          knowledgeFolders: [
+            ...current.companyBrain.knowledgeFolders.filter((row) => row.organizationId !== organizationId),
+            ...cloud.knowledgeFolders,
+          ],
+          knowledgeItems: [
+            ...current.companyBrain.knowledgeItems.filter((row) => row.organizationId !== organizationId),
+            ...cloud.knowledgeItems,
+          ],
+        },
+      }))
+      const syncedAt = new Date().toISOString()
+      const nextDirtyVersion = knowledgeDirtyVersionRef.current
+      setKnowledgeLastSavedVersion(nextDirtyVersion)
+      setCompanyKnowledgeSyncStatus({
+        state: 'saved',
+        lastSyncedAt: syncedAt,
+        message: 'Loaded knowledge library from cloud.',
+      })
+      showToast('Loaded knowledge library from cloud.', 'success')
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cloud load failed.'
+      setCompanyKnowledgeSyncStatus({
+        state: 'save-failed',
+        message,
+      })
+      showToast(`Cloud load failed. ${message}`, 'error')
+      return false
+    }
+  }
+
+  useEffect(() => {
+    if (!canUseIdentityCloud) {
+      clearAutosaveTimer()
+      return
+    }
+
+    const hasUnsavedIdentity = identityDirtyVersion > identityLastSavedVersion
+    const suppressed = identityDirtyVersion <= suppressAutosaveUntilVersionRef.current
+
+    if (!hasUnsavedIdentity || suppressed) {
+      clearAutosaveTimer()
+      return
+    }
+
+    clearAutosaveTimer()
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null
+      if (autosaveInFlightRef.current) {
+        autosaveQueuedRef.current = true
+        return
+      }
+      void saveIdentityNow('autosave').then(() => {
+        if (autosaveQueuedRef.current) {
+          autosaveQueuedRef.current = false
+          void saveIdentityNow('autosave')
+        }
+      })
+    }, IDENTITY_AUTOSAVE_DEBOUNCE_MS)
+
+    return () => {
+      clearAutosaveTimer()
+    }
+  }, [canUseIdentityCloud, identityDirtyVersion, identityLastSavedVersion, saveIdentityNow])
+
   const dismissCompanyOnboarding: WorkspaceContextValue['dismissCompanyOnboarding'] = () => {
     commitWorkspace((current) => applyDismissCompanyOnboarding(current))
   }
@@ -1708,6 +2097,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     input,
   ) => {
     commitWorkspace((current) => completeCompanyOnboarding(current, input, resolveActorProfile()))
+    markIdentityDirty()
   }
 
   const upsertCompanyKnowledgeFolder: WorkspaceContextValue['upsertCompanyKnowledgeFolder'] = (
@@ -1715,6 +2105,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     folder,
   ) => {
     commitWorkspace((current) => upsertKnowledgeFolder(current, organizationId, folder))
+    markKnowledgeDirty()
   }
 
   const upsertCompanyKnowledgeItemMutation: WorkspaceContextValue['upsertCompanyKnowledgeItem'] = (
@@ -1724,6 +2115,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       upsertCompanyKnowledgeItem(current, organizationId, resolveActorProfile(), input),
     )
+    markKnowledgeDirty()
   }
 
   const deleteCompanyKnowledgeItemMutation: WorkspaceContextValue['deleteCompanyKnowledgeItem'] = (
@@ -1731,6 +2123,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     itemId,
   ) => {
     commitWorkspace((current) => applyDeleteCompanyKnowledgeItem(current, organizationId, itemId))
+    markKnowledgeDirty()
   }
 
   const setCompanyKnowledgeApproval: WorkspaceContextValue['setCompanyKnowledgeApproval'] = (
@@ -1742,6 +2135,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       setKnowledgeApproval(current, organizationId, resolveActorProfile(), itemId, approvalStatus, detail),
     )
+    markKnowledgeDirty()
   }
 
   const markCompanyKnowledgeReviewed: WorkspaceContextValue['markCompanyKnowledgeReviewed'] = (
@@ -1749,6 +2143,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     itemId,
   ) => {
     commitWorkspace((current) => markKnowledgeReviewed(current, organizationId, itemId))
+    markKnowledgeDirty()
   }
 
   const upsertCompanyBrandKit: WorkspaceContextValue['upsertCompanyBrandKit'] = (
@@ -1765,6 +2160,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       upsertApprovedMessaging(current, organizationId, resolveActorProfile(), input),
     )
+    markKnowledgeDirty()
   }
 
   const deleteCompanyApprovedMessaging: WorkspaceContextValue['deleteCompanyApprovedMessaging'] = (
@@ -1808,6 +2204,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       addOrganizationMember(current, organizationId, resolveActorProfile(), member),
     )
+    markIdentityDirty()
   }
 
   const acceptWorkerInvite: WorkspaceContextValue['acceptWorkerInvite'] = (invite) => {
@@ -1820,6 +2217,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         displayName: profile.displayName,
       }),
     )
+    markIdentityDirty()
   }
 
   const upsertWorkerInviteDraftMutation: WorkspaceContextValue['upsertWorkerInviteDraft'] = (
@@ -1829,6 +2227,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       upsertWorkerInviteDraft(current, organizationId, resolveActorProfile(), input),
     )
+    markIdentityDirty()
   }
 
   const markWorkerInviteInvitedMutation: WorkspaceContextValue['markWorkerInviteInvited'] = (
@@ -1838,10 +2237,12 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       markWorkerInviteInvited(current, organizationId, resolveActorProfile(), inviteId),
     )
+    markIdentityDirty()
   }
 
   const revokeWorkerInviteMutation: WorkspaceContextValue['revokeWorkerInvite'] = (organizationId, inviteId) => {
     commitWorkspace((current) => revokeWorkerInvite(current, organizationId, resolveActorProfile(), inviteId))
+    markIdentityDirty()
   }
 
   const deleteWorkerInviteDraftMutation: WorkspaceContextValue['deleteWorkerInviteDraft'] = (
@@ -1851,6 +2252,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       deleteWorkerInviteDraft(current, organizationId, resolveActorProfile(), inviteId),
     )
+    markIdentityDirty()
   }
 
   const stageCompanyKnowledgeOrganizationPlan: WorkspaceContextValue['stageCompanyKnowledgeOrganizationPlan'] = (
@@ -1869,6 +2271,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       applyUpsertCompanyCatalogDepartment(current, organizationId, input),
     )
+    markIdentityDirty()
   }
 
   const archiveCatalogDepartment: WorkspaceContextValue['archiveCompanyCatalogDepartment'] = (
@@ -1878,15 +2281,40 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     commitWorkspace((current) =>
       applyArchiveCompanyCatalogDepartment(current, organizationId, departmentId),
     )
+    markIdentityDirty()
   }
 
   const upsertCatalogRole: WorkspaceContextValue['upsertCompanyCatalogRole'] = (organizationId, input) => {
     commitWorkspace((current) => applyUpsertCompanyCatalogRole(current, organizationId, input))
+    markIdentityDirty()
   }
 
   const archiveCatalogRole: WorkspaceContextValue['archiveCompanyCatalogRole'] = (organizationId, roleId) => {
     commitWorkspace((current) => applyArchiveCompanyCatalogRole(current, organizationId, roleId))
+    markIdentityDirty()
   }
+
+  const effectiveCompanyIdentitySyncStatus: WorkspaceContextValue['companyIdentitySyncStatus'] =
+    canUseIdentityCloud
+      ? companyIdentitySyncStatus
+      : {
+          state: 'local-only',
+          message: isSupabaseConfigured
+            ? 'Sign in to enable cloud identity sync.'
+            : 'Supabase is not configured.',
+        }
+
+  const effectiveCompanyKnowledgeSyncStatus: WorkspaceContextValue['companyKnowledgeSyncStatus'] =
+    canUseIdentityCloud
+      ? knowledgeDirtyVersion > knowledgeLastSavedVersion && companyKnowledgeSyncStatus.state === 'saved'
+        ? { state: 'unsaved', message: companyKnowledgeSyncStatus.message }
+        : companyKnowledgeSyncStatus
+      : {
+          state: 'local-only',
+          message: isSupabaseConfigured
+            ? 'Sign in to enable cloud knowledge sync.'
+            : 'Supabase is not configured.',
+        }
 
   return (
     <WorkspaceContext.Provider
@@ -1894,6 +2322,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         workspace,
         canUndo: history.past.length > 0,
         canRedo: history.future.length > 0,
+        companyIdentitySyncStatus: effectiveCompanyIdentitySyncStatus,
+        companyKnowledgeSyncStatus: effectiveCompanyKnowledgeSyncStatus,
         replaceWorkspace,
         undoWorkspace,
         redoWorkspace,
@@ -1969,6 +2399,10 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         upsertCompanyCatalogRole: upsertCatalogRole,
         archiveCompanyCatalogRole: archiveCatalogRole,
         stageCompanyKnowledgeOrganizationPlan,
+        saveCompanyIdentityToCloud,
+        loadCompanyIdentityFromCloud,
+        saveCompanyKnowledgeToCloud,
+        loadCompanyKnowledgeFromCloud,
       }}
     >
       {children}

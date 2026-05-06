@@ -39,10 +39,20 @@ export interface CollaborationUpdate {
   allowCollaboratorUploads: boolean
 }
 
+export type CompanyIdentitySyncState = 'local-only' | 'saved' | 'saving' | 'unsaved' | 'save-failed'
+
+export interface CompanyIdentitySyncStatus {
+  state: CompanyIdentitySyncState
+  lastSyncedAt?: string
+  message?: string
+}
+
 export interface WorkspaceContextValue {
   workspace: WorkspaceState
   canUndo: boolean
   canRedo: boolean
+  companyIdentitySyncStatus: CompanyIdentitySyncStatus
+  companyKnowledgeSyncStatus: CompanyIdentitySyncStatus
   replaceWorkspace: (workspace: WorkspaceState) => void
   undoWorkspace: () => void
   redoWorkspace: () => void
@@ -212,6 +222,10 @@ export interface WorkspaceContextValue {
     organizationId: string,
     plan: CompanyKnowledgeOrganizationPlan,
   ) => void
+  saveCompanyIdentityToCloud: () => Promise<boolean>
+  loadCompanyIdentityFromCloud: () => Promise<boolean>
+  saveCompanyKnowledgeToCloud: () => Promise<boolean>
+  loadCompanyKnowledgeFromCloud: () => Promise<boolean>
 }
 
 export const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)

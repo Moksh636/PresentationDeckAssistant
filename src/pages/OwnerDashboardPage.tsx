@@ -53,6 +53,18 @@ export function OwnerDashboardPage() {
   const deckFileOptions = workspace.fileAssets.filter((a) => a.deckId === workspace.activeDeckId)
 
   const activity = workspace.companyBrain.activityLogs.filter((a) => a.organizationId === orgId).slice(0, 8)
+  const syncStatus = workspaceApi.companyIdentitySyncStatus
+
+  const syncLabel =
+    syncStatus.state === 'local-only'
+      ? 'Local only'
+      : syncStatus.state === 'saving'
+        ? 'Saving...'
+        : syncStatus.state === 'unsaved'
+          ? 'Unsaved changes'
+          : syncStatus.state === 'save-failed'
+            ? 'Save failed'
+            : 'Saved'
 
   if (!orgId || !organization) {
     return (
@@ -103,6 +115,41 @@ export function OwnerDashboardPage() {
             Deep taxonomy editing also lives in <Link to="/company">Company Brain</Link>—this console focuses on owner
             controls.
           </p>
+        </>
+      ),
+    },
+    {
+      id: 'identity-sync',
+      title: 'Identity cloud sync',
+      body: (
+        <>
+          <p className="muted-copy">
+            Sync status: <strong>{syncLabel}</strong>
+            {syncStatus.lastSyncedAt && syncStatus.state === 'saved' ? (
+              <> · last saved {formatShortDate(syncStatus.lastSyncedAt)}</>
+            ) : null}
+          </p>
+          {syncStatus.message ? <p className="muted-copy">{syncStatus.message}</p> : null}
+          <div className="owner-suggestion-list__actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void workspaceApi.saveCompanyIdentityToCloud()
+              }}
+            >
+              Save company identity to Cloud
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                void workspaceApi.loadCompanyIdentityFromCloud()
+              }}
+            >
+              Load company identity from Cloud
+            </button>
+          </div>
         </>
       ),
     },

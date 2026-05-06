@@ -18,6 +18,7 @@ import type {
 } from '../types/models'
 import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import { RolesDepartmentsCatalogTab } from '../components/companyBrain/RolesDepartmentsCatalogTab'
+import { formatShortDate } from '../utils/formatters'
 
 type CompanyTab =
   | 'overview'
@@ -243,6 +244,7 @@ export function CompanyBrainPage() {
           folders={folders}
           deckFileOptions={deckFileOptions}
           workspaceApi={workspaceApi}
+          syncStatus={workspaceApi.companyKnowledgeSyncStatus}
         />
       ) : null}
 
@@ -343,6 +345,7 @@ function KnowledgeLibrarySection({
   folders,
   deckFileOptions,
   workspaceApi,
+  syncStatus,
 }: {
   activeOrgId: string
   profileUserId: string
@@ -363,6 +366,7 @@ function KnowledgeLibrarySection({
   folders: { id: string; name: string }[]
   deckFileOptions: { id: string; name: string }[]
   workspaceApi: ReturnType<typeof useWorkspace>
+  syncStatus: ReturnType<typeof useWorkspace>['companyKnowledgeSyncStatus']
 }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -408,6 +412,17 @@ function KnowledgeLibrarySection({
     workspaceApi.upsertCompanyKnowledgeFolder(activeOrgId, { name: name.trim() })
   }
 
+  const syncLabel =
+    syncStatus.state === 'local-only'
+      ? 'Local only'
+      : syncStatus.state === 'saving'
+        ? 'Saving...'
+        : syncStatus.state === 'unsaved'
+          ? 'Unsaved changes'
+          : syncStatus.state === 'save-failed'
+            ? 'Save failed'
+            : 'Saved'
+
   return (
     <div className="panel-card company-brain-panel">
       <div className="company-brain-panel__toolbar">
@@ -428,6 +443,33 @@ function KnowledgeLibrarySection({
             Grid
           </button>
         </div>
+      </div>
+      <p className="muted-copy">
+        Sync status: <strong>{syncLabel}</strong>
+        {syncStatus.lastSyncedAt && syncStatus.state === 'saved' ? (
+          <> · last saved {formatShortDate(syncStatus.lastSyncedAt)}</>
+        ) : null}
+      </p>
+      {syncStatus.message ? <p className="muted-copy">{syncStatus.message}</p> : null}
+      <div className="owner-suggestion-list__actions">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => {
+            void workspaceApi.saveCompanyKnowledgeToCloud()
+          }}
+        >
+          Save knowledge library to Cloud
+        </button>
+        <button
+          type="button"
+          className="ghost-button"
+          onClick={() => {
+            void workspaceApi.loadCompanyKnowledgeFromCloud()
+          }}
+        >
+          Load knowledge library from Cloud
+        </button>
       </div>
 
       <div className="form-grid company-brain-register">
