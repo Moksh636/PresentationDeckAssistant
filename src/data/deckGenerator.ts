@@ -1,6 +1,7 @@
 import type {
   CompanyKnowledgeItem,
   Deck,
+  DeckSetup,
   DeckVersion,
   FileAsset,
   Slide,
@@ -16,6 +17,7 @@ import type { DeckBrandGenerationContext } from './brandKitResolve.ts'
 import { buildCompanyKnowledgeDeckInfluence, mergeAssetsForKnowledgeTraceLookup } from './companyBrainDeckPipeline.ts'
 import { createDeckInputTrace } from './sourceIngestion.ts'
 import { normalizeSlideBlock } from './slideLayout.ts'
+import { filterAssetSourceTraces, resolveCitationReviewMode } from './sourceCitationReview.ts'
 import { createId } from '../utils/ids.ts'
 
 interface DeckGenerationRequest {
@@ -178,6 +180,80 @@ function resolveSections(deck: Deck, fileAssets: FileAsset[]) {
     return deckSections
   }
 
+  const byType: Record<string, string[]> = {
+    'Account pitch deck': [
+      'Account context & priorities',
+      'Why now',
+      'Proof from similar accounts',
+      'Recommended account plan',
+      'Decision & next step',
+    ],
+    'Discovery follow-up deck': [
+      'Discovery recap',
+      'Confirmed pain points',
+      'Why now',
+      'Solution fit',
+      'Next step alignment',
+    ],
+    'Sales proposal deck': [
+      'Buyer goals and success criteria',
+      'Why now',
+      'Proposed solution',
+      'Proof and differentiation',
+      'Commercial proposal',
+      'Decision & next step',
+    ],
+    'Pilot proposal deck': [
+      'Pilot objectives',
+      'Why now',
+      'Pilot scope and timeline',
+      'Success metrics',
+      'Risk and mitigation',
+      'Pilot kickoff decision',
+    ],
+    'Executive briefing deck': [
+      'Executive context',
+      'Why now',
+      'Strategic options',
+      'Recommendation',
+      'Decision and owner',
+    ],
+    'Renewal / expansion deck': [
+      'Current value delivered',
+      'Why now for renewal/expansion',
+      'Expansion opportunities',
+      'Commercial path',
+      'Decision and next step',
+    ],
+    'Sponsor pitch deck': [
+      'Sponsor vision fit',
+      'Why now',
+      'Business case',
+      'Proof and credibility',
+      'Sponsor ask',
+    ],
+    'Partnership pitch deck': [
+      'Partnership thesis',
+      'Why now',
+      'Mutual value model',
+      'Proof and readiness',
+      'Partnership next step',
+    ],
+    'Client status / account review deck': [
+      'Account status snapshot',
+      'Progress and outcomes',
+      'Risks and blockers',
+      'Why now',
+      'Recommended actions',
+      'Next review checkpoint',
+    ],
+    'Custom deck': ['Context', 'Why now', 'Proof', 'Recommendation', 'Next steps'],
+  }
+  const typed = byType[deck.setup.presentationType]
+  if (typed && typed.length > 0) {
+    return typed
+  }
+
   const fileSections = [...new Set(fileAssets.flatMap((asset) => asset.possibleSections))]
 
   if (fileSections.length > 0) {
@@ -246,21 +322,50 @@ function summarizeFiles(fileAssets: FileAsset[]) {
     .join(' ')
 }
 
+function traceApprovalKey(trace: SourceTrace) {
+  return `${trace.fileId}::${trace.extractedSnippet}::${trace.addedByUserId}`
+}
+
+function collectCitationEligibleTraceKeys(fileAssets: FileAsset[], setup: DeckSetup) {
+  const mode = resolveCitationReviewMode(setup)
+  const keys = new Set<string>()
+  for (const asset of fileAssets) {
+    for (const trace of filterAssetSourceTraces(asset, mode)) {
+      keys.add(traceApprovalKey(trace))
+    }
+  }
+  return keys
+}
+
+function collectCitationFilteredFileTraces(fileAssets: FileAsset[], setup: DeckSetup) {
+  const mode = resolveCitationReviewMode(setup)
+  return dedupeSourceTrace(fileAssets.flatMap((asset) => filterAssetSourceTraces(asset, mode)))
+}
+
 function getExecutiveSummaryBullets(
-  goal: string,
-  audience: string,
-  tone: string,
+  setup: DeckSetup,
   fileAssets: FileAsset[],
   sections: string[],
 ) {
+  const goal = setup.goal || 'Align stakeholders on the recommendation.'
+  const audience = setup.buyerPersona || setup.audience || 'internal stakeholders'
+  const tone = setup.tone || 'clear and professional'
+  const company = setup.targetCompany?.trim()
+  const offering = setup.offeringSummary?.trim()
+  const meetingGoal = setup.meetingGoal?.trim()
+  const desiredCta = setup.desiredCta?.trim()
+  const pains = (setup.knownPainPoints ?? []).filter(Boolean)
   const leadAsset = fileAssets[0]
 
   return [
-    `Goal: ${goal}`,
-    `Audience fit: tailor this narrative for ${audience}.`,
-    `Tone: keep the story ${tone.toLowerCase()}.`,
+    company ? `Account focus: ${company}` : `Goal: ${goal}`,
+    offering ? `Offer framing: ${offering}` : `Meeting objective: ${goal}`,
+    `Buyer lens: tailor this narrative for ${audience}.`,
+    meetingGoal ? `Meeting goal: ${meetingGoal}` : `Tone: keep the story ${tone.toLowerCase()}.`,
+    pains[0] ? `Primary pain to resolve: ${pains[0]}` : `Lead with a concrete business pain before features.`,
+    desiredCta ? `Recommended ask: ${desiredCta}` : `Close with a specific decision ask and owner.`,
     leadAsset
-      ? `Primary source signal: ${leadAsset.name} suggests ${leadAsset.possibleGoal.toLowerCase()}.`
+      ? `Primary source signal: ${leadAsset.name} suggests ${leadAsset.possibleGoal.toLowerCase() || 'account urgency'}.`
       : `Use the first ${Math.min(3, sections.length)} sections to establish narrative momentum quickly.`,
   ]
 }
@@ -280,14 +385,15 @@ function getSectionSlideBody(
   return `${section} should move the audience from the stated goal toward a concrete recommendation.`
 }
 
-function createChartSuggestion(fileAssets: FileAsset[], goal: string) {
+function createChartSuggestion(fileAssets: FileAsset[], goal: string, setup: DeckSetup) {
   const sheetAsset = fileAssets.find((asset) => asset.kind === 'sheet')
+  const mode = resolveCitationReviewMode(setup)
 
   if (sheetAsset) {
     return {
       title: 'Suggested chart direction',
       body: `Use ${sheetAsset.name} for a trend or comparison chart that supports the goal: ${goal}`,
-      trace: sheetAsset.sourceTrace,
+      trace: filterAssetSourceTraces(sheetAsset, mode),
     }
   }
 
@@ -305,14 +411,15 @@ function createChartSuggestion(fileAssets: FileAsset[], goal: string) {
   }
 }
 
-function createVisualPlaceholder(fileAssets: FileAsset[], sections: string[]) {
+function createVisualPlaceholder(fileAssets: FileAsset[], sections: string[], setup: DeckSetup) {
   const visualAsset = fileAssets.find((asset) => asset.kind === 'image') ?? fileAssets[0]
+  const mode = resolveCitationReviewMode(setup)
 
   if (visualAsset) {
     return {
       title: 'Visual placeholder',
       body: `Reserve this slide for a hero image, screenshot, or artifact from ${visualAsset.name}.`,
-      trace: visualAsset.sourceTrace,
+      trace: filterAssetSourceTraces(visualAsset, mode),
     }
   }
 
@@ -373,7 +480,8 @@ function createGeneratedSlides(
   const tone = deck.setup.tone || 'clear and professional'
   const notes = deck.setup.notes || 'No additional context provided.'
   const toggleTrace = createToggleTrace(deck, previousDeck)
-  const fileTrace = dedupeSourceTrace(fileAssets.flatMap((asset) => asset.sourceTrace))
+  const fileTrace = collectCitationFilteredFileTraces(fileAssets, deck.setup)
+  const citationEligibleKeys = collectCitationEligibleTraceKeys(fileAssets, deck.setup)
   const titleTrace = createDeckInputTrace(
     'Presentation title',
     deck.title || 'Untitled presentation',
@@ -396,13 +504,7 @@ function createGeneratedSlides(
     0.95,
   )
   const notesTrace = createDeckInputTrace('Notes and context', notes, 'deck-input', 0.88)
-  let executiveBullets = getExecutiveSummaryBullets(
-    goal,
-    audience,
-    tone,
-    fileAssets,
-    sections,
-  )
+  let executiveBullets = getExecutiveSummaryBullets(deck.setup, fileAssets, sections)
   if (brainInfluence) {
     const extraBrainBullets = [
       ...brainInfluence.proofLines.slice(0, 2).map((line) => `Proof (Company Brain): ${line}`),
@@ -412,9 +514,11 @@ function createGeneratedSlides(
     ]
     executiveBullets = [...executiveBullets, ...extraBrainBullets].slice(0, 12)
   }
-  const brainCitationTraces = dedupeSourceTrace(brainInfluence?.citedTraces ?? [])
-  const visualPlaceholder = createVisualPlaceholder(fileAssets, sections)
-  const chartSuggestion = createChartSuggestion(fileAssets, goal)
+  const brainCitationTraces = dedupeSourceTrace(
+    (brainInfluence?.citedTraces ?? []).filter((trace) => citationEligibleKeys.has(traceApprovalKey(trace))),
+  )
+  const visualPlaceholder = createVisualPlaceholder(fileAssets, sections, deck.setup)
+  const chartSuggestion = createChartSuggestion(fileAssets, goal, deck.setup)
 
   const slides: Slide[] = []
 
@@ -558,7 +662,7 @@ function createGeneratedSlides(
     buildSlide(
       deck.id,
       slides.length + 1,
-      'Executive summary',
+      `Executive summary${deck.setup.targetCompany ? `: ${deck.setup.targetCompany}` : ''}`,
       'Condense the main case into a few fast, decision-ready points.',
       [
         buildBlock(
@@ -621,7 +725,9 @@ function createGeneratedSlides(
       'deck-input',
       0.9,
     )
-    const relatedTrace = relatedAsset?.sourceTrace ?? []
+    const relatedTrace = relatedAsset
+      ? filterAssetSourceTraces(relatedAsset, resolveCitationReviewMode(deck.setup))
+      : []
     const proofAngle =
       brainInfluence?.proofLines[0] && index === 0
         ? `Company Brain proof cue: ${brainInfluence.proofLines[0]}`
@@ -810,12 +916,12 @@ function createGeneratedSlides(
     buildSlide(
       deck.id,
       slides.length + 1,
-      'Next steps',
+      deck.setup.desiredCta ? 'Recommended next step' : 'Next steps',
       nextStepsNotes,
       [
         buildBlock(
           'title',
-          'Next steps',
+          deck.setup.desiredCta ? 'Recommended next step' : 'Next steps',
           { align: 'left', fontSize: 'lg', bold: true },
           [notesTrace],
           undefined,
@@ -824,7 +930,9 @@ function createGeneratedSlides(
         buildBlock(
           'bullet-list',
           [
-            'Confirm the primary recommendation and owner.',
+            deck.setup.desiredCta
+              ? `Primary ask: ${deck.setup.desiredCta}`
+              : 'Confirm the primary recommendation and owner.',
             'Replace placeholders with validated evidence and visuals.',
             'Refine the story for the target audience before sharing.',
           ],
@@ -835,7 +943,12 @@ function createGeneratedSlides(
         ),
         buildBlock(
           'body',
-          notes,
+          [
+            notes,
+            deck.setup.meetingGoal ? `Meeting goal anchor: ${deck.setup.meetingGoal}` : '',
+          ]
+            .filter(Boolean)
+            .join(' '),
           { align: 'left', fontSize: 'md' },
           [notesTrace, ...fileTrace.slice(0, 1), ...toggleTrace],
           undefined,
@@ -848,6 +961,56 @@ function createGeneratedSlides(
       },
     ),
   )
+
+  const objectionSignals = [
+    ...(deck.setup.knownPainPoints ?? []),
+    ...(deck.setup.intel?.objections ?? []),
+    ...((brainInfluence?.legalTitles ?? []).map((t) => `Legal/policy watchout: ${t}`)),
+  ].filter(Boolean)
+  if (objectionSignals.length > 0) {
+    const objectionTrace = createDeckInputTrace(
+      'Objection and risk signals',
+      objectionSignals.join('; '),
+      'deck-input',
+      0.84,
+    )
+    slides.push(
+      buildSlide(
+        deck.id,
+        slides.length + 1,
+        'Objections and risk handling',
+        'Use this slide to address likely pushback before the final ask.',
+        [
+          buildBlock(
+            'title',
+            'Objections and risk handling',
+            { align: 'left', fontSize: 'lg', bold: true },
+            [objectionTrace],
+            undefined,
+            brand ? { textStyle: brandText({ color: brand.kit.primaryColor }) } : undefined,
+          ),
+          buildBlock(
+            'bullet-list',
+            objectionSignals.slice(0, 6).map((signal) => `Mitigate: ${signal}`),
+            { align: 'left', fontSize: 'md' },
+            [objectionTrace, ...brainCitationTraces.slice(0, 4)],
+            undefined,
+            brand ? { textStyle: brandText({}) } : undefined,
+          ),
+          buildBlock(
+            'body',
+            'Pair each risk with owner, timeline, and supporting proof before external sharing.',
+            { align: 'left', fontSize: 'md' },
+            [objectionTrace, ...brainCitationTraces.slice(0, 2)],
+            undefined,
+            brand ? { textStyle: brandText({ color: brand.kit.secondaryColor }) } : undefined,
+          ),
+        ],
+        [objectionTrace, ...brainCitationTraces.slice(0, 6)],
+        { memoryOnlySources: brainInfluence?.memoryOnlyTitles },
+      ),
+    )
+  }
 
   return slides
 }
