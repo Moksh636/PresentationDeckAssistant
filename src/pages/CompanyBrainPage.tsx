@@ -195,6 +195,10 @@ export function CompanyBrainPage() {
         ))}
       </div>
 
+      {(['brand', 'messaging', 'cases', 'products'] as CompanyTab[]).includes(tab) ? (
+        <CompanyLibrariesCloudSyncPanel workspaceApi={workspaceApi} />
+      ) : null}
+
       {tab === 'overview' ? (
         <div className="panel-card company-brain-panel">
           <h3>Overview</h3>
@@ -322,6 +326,60 @@ export function CompanyBrainPage() {
         </div>
       ) : null}
     </section>
+  )
+}
+
+function CompanyLibrariesCloudSyncPanel({
+  workspaceApi,
+}: {
+  workspaceApi: ReturnType<typeof useWorkspace>
+}) {
+  const syncStatus = workspaceApi.companyLibrarySyncStatus
+  const syncLabel =
+    syncStatus.state === 'local-only'
+      ? 'Local only'
+      : syncStatus.state === 'saving'
+        ? 'Saving...'
+        : syncStatus.state === 'unsaved'
+          ? 'Unsaved changes'
+          : syncStatus.state === 'save-failed'
+            ? 'Save failed'
+            : 'Saved'
+
+  return (
+    <div className="panel-card company-brain-panel">
+      <h3>Brand, messaging &amp; catalog cloud sync</h3>
+      <p className="muted-copy">
+        Sync status: <strong>{syncLabel}</strong>
+        {syncStatus.lastSyncedAt && syncStatus.state === 'saved' ? (
+          <> · last saved {formatShortDate(syncStatus.lastSyncedAt)}</>
+        ) : null}
+        {syncStatus.state !== 'local-only' ? (
+          <> · autosave: brand kit, messaging, case studies, products (~4s)</>
+        ) : null}
+      </p>
+      {syncStatus.message ? <p className="muted-copy">{syncStatus.message}</p> : null}
+      <div className="owner-suggestion-list__actions">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => {
+            void workspaceApi.saveCompanyLibrariesToCloud()
+          }}
+        >
+          Save company libraries to Cloud
+        </button>
+        <button
+          type="button"
+          className="ghost-button"
+          onClick={() => {
+            void workspaceApi.loadCompanyLibrariesFromCloud()
+          }}
+        >
+          Load company libraries from Cloud
+        </button>
+      </div>
+    </div>
   )
 }
 

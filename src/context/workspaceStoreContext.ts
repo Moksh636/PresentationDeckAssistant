@@ -53,6 +53,7 @@ export interface WorkspaceContextValue {
   canRedo: boolean
   companyIdentitySyncStatus: CompanyIdentitySyncStatus
   companyKnowledgeSyncStatus: CompanyIdentitySyncStatus
+  companyLibrarySyncStatus: CompanyIdentitySyncStatus
   replaceWorkspace: (workspace: WorkspaceState) => void
   undoWorkspace: () => void
   redoWorkspace: () => void
@@ -226,6 +227,8 @@ export interface WorkspaceContextValue {
   loadCompanyIdentityFromCloud: () => Promise<boolean>
   saveCompanyKnowledgeToCloud: () => Promise<boolean>
   loadCompanyKnowledgeFromCloud: () => Promise<boolean>
+  saveCompanyLibrariesToCloud: () => Promise<boolean>
+  loadCompanyLibrariesFromCloud: () => Promise<boolean>
 }
 
 export const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
