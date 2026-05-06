@@ -22,6 +22,7 @@ import {
   mergeIntelDraftWithExisting,
 } from '../../data/intelReview'
 import { filterAssetsForCitationUse, resolveCitationReviewMode } from '../../data/sourceCitationReview'
+import { isAiBackendEnabled } from '../../data/aiBackendFlags'
 
 function linesFromArray(values?: string[]) {
   return (values ?? []).join('\n')
@@ -59,6 +60,7 @@ export function IntelReviewPanel({
   )
   const intel = setup.intel ?? {}
   const citationReviewMode = resolveCitationReviewMode(setup)
+  const aiBackendEnabled = isAiBackendEnabled()
 
   const patchIntel = (partial: Partial<DeckIntel>) => {
     updateDeckSetup(deckId, { intel: { ...intel, ...partial } })
@@ -114,6 +116,9 @@ export function IntelReviewPanel({
         <p className="muted-copy intel-review-lede">
           Review this account intel before generating the pitch deck. Uploaded files with trace metadata can
           surface as citations; Company Brain memory-only rows stay honest (no fabricated file traces).
+        </p>
+        <p className="muted-copy">
+          Mode: {aiBackendEnabled ? 'Edge backend enabled.' : 'Running in local mode.'}
         </p>
 
         <div className="intel-review-toolbar">

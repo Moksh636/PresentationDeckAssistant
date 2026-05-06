@@ -54,7 +54,13 @@ export function OnboardingReviewPage() {
       <header className="onboarding-page__header">
         <p className="section-label">Owner onboarding · Step 4 of 4</p>
         <h1>Review &amp; confirm</h1>
-        <p className="muted-copy">We will create your organization workspace and drop you into the owner console.</p>
+        <p className="muted-copy">
+          We will create your organization workspace and drop you into the owner console.
+        </p>
+        <p className="muted-copy">
+          Onboarding samples are demo-only; real Company Brain documents live under Company Brain → Knowledge
+          Library and Source Materials.
+        </p>
       </header>
 
       <div className="onboarding-page__card">

@@ -1,4 +1,10 @@
-import { resolveCitationReviewMode } from './sourceCitationReview.ts'
+import {
+  filterAssetsForCitationUse,
+  filterAssetSourceTraces,
+  isSnippetEnabled,
+  isSourceIncludedForCitations,
+  resolveCitationReviewMode,
+} from './sourceCitationReview.ts'
 import type {
   CompanyBrandKit,
   Deck,
@@ -189,13 +195,43 @@ function formatCompanyBrainRow(row: DeckReportCompanyBrainEntry) {
   return `- ${row.title} [${row.sourceType}] ${row.approvalStatus} | ${row.visibilityLabel} | ${row.backing}${row.citationCount !== undefined ? ` | citations: ${row.citationCount}` : ''}${rel}`
 }
 
-function buildBibliography(report: Omit<GeneratedDeckReport, 'plainText'>) {
-  const citationBackedUploads = report.sourceReferences.filter((trace) => trace.sourceType === 'uploaded-file')
+function buildBibliography(
+  report: Omit<GeneratedDeckReport, 'plainText'>,
+  fileAssets: FileAsset[],
+): GeneratedDeckReport['bibliography'] {
+  const assetById = new Map(fileAssets.map((asset) => [asset.id, asset]))
+  const citationBackedUploads = report.sourceReferences.filter((trace) => {
+    if (trace.sourceType !== 'uploaded-file') {
+      return false
+    }
+    const asset = assetById.get(trace.fileId)
+    if (!asset) {
+      return true
+    }
+    if (!isSourceIncludedForCitations(asset, report.citationReviewMode)) {
+      return false
+    }
+    if (!isSnippetEnabled(asset, trace)) {
+      return false
+    }
+    return true
+  })
   const userPitchInputs = report.sourceReferences.filter((trace) => trace.sourceType === 'deck-input')
-  const companyKnowledge = (report.companyBrainSources ?? []).filter((row) => row.backing === 'citation-backed')
-  const memoryOnlyCompanyKnowledge = (report.companyBrainSources ?? []).filter(
-    (row) => row.backing === 'memory-only',
-  )
+
+  const companyBrainSources = report.companyBrainSources ?? []
+  const companyKnowledge =
+    report.citationReviewMode === 'strict-approved-only'
+      ? companyBrainSources.filter(
+          (row) => row.backing === 'citation-backed' && row.approvalStatus === 'approved',
+        )
+      : companyBrainSources.filter((row) => row.backing === 'citation-backed')
+
+  const memoryOnlyCompanyKnowledge =
+    report.citationReviewMode === 'strict-approved-only'
+      ? companyBrainSources.filter(
+          (row) => row.backing === 'memory-only' && row.approvalStatus === 'approved',
+        )
+      : companyBrainSources.filter((row) => row.backing === 'memory-only')
 
   return {
     citationBackedUploads,
@@ -205,8 +241,10 @@ function buildBibliography(report: Omit<GeneratedDeckReport, 'plainText'>) {
   }
 }
 
-function buildPlainText(report: Omit<GeneratedDeckReport, 'plainText'>) {
-  const bibliography = buildBibliography(report)
+function buildPlainText(
+  report: Omit<GeneratedDeckReport, 'plainText'>,
+  bibliography: GeneratedDeckReport['bibliography'],
+) {
   const brainLines =
     report.companyBrainSources === undefined
       ? []
@@ -296,7 +334,14 @@ export function generateDeckReport({
   intelBriefBrandKit,
   companyBrainSources,
 }: GenerateDeckReportInput): GeneratedDeckReport {
-  const sourceReferences = collectSourceReferences(slides)
+  const citationReviewMode = resolveCitationReviewMode(deck.setup)
+  const slideSourceReferences = collectSourceReferences(slides)
+  const sourceReferences =
+    slideSourceReferences.length > 0
+      ? slideSourceReferences
+      : filterAssetsForCitationUse(fileAssets, citationReviewMode)
+          .flatMap((asset) => filterAssetSourceTraces(asset, citationReviewMode))
+          .slice(0, reportType === 'concise' ? 6 : 16)
   const intelBriefTheme = intelBriefBrandKit
     ? {
         primaryColor: intelBriefBrandKit.primaryColor,
@@ -306,7 +351,6 @@ export function generateDeckReport({
       }
     : undefined
 
-  const citationReviewMode = resolveCitationReviewMode(deck.setup)
   const reportWithoutPlainText: Omit<GeneratedDeckReport, 'plainText'> = {
     id: createId('report'),
     deckId: deck.id,
@@ -317,10 +361,7 @@ export function generateDeckReport({
     keyPoints: buildKeyPoints(slides, reportType),
     metrics: buildMetrics(slides, reportType),
     decisions: buildDecisions(slides, reportType),
-    sourceReferences:
-      sourceReferences.length > 0
-        ? sourceReferences
-        : fileAssets.flatMap((asset) => asset.sourceTrace).slice(0, reportType === 'concise' ? 6 : 16),
+    sourceReferences,
     ...(companyBrainSources !== undefined ? { companyBrainSources } : {}),
     bibliography: {
       citationBackedUploads: [],
@@ -331,10 +372,10 @@ export function generateDeckReport({
     citationReviewMode,
     intelBriefTheme,
   }
-  reportWithoutPlainText.bibliography = buildBibliography(reportWithoutPlainText)
+  reportWithoutPlainText.bibliography = buildBibliography(reportWithoutPlainText, fileAssets)
 
   return {
     ...reportWithoutPlainText,
-    plainText: buildPlainText(reportWithoutPlainText),
+    plainText: buildPlainText(reportWithoutPlainText, reportWithoutPlainText.bibliography),
   }
 }

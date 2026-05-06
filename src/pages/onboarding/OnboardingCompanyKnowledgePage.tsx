@@ -47,8 +47,8 @@ export function OnboardingCompanyKnowledgePage() {
         <p className="section-label">Owner onboarding · Step 3 of 4</p>
         <h1>Knowledge uploads (mock)</h1>
         <p className="muted-copy">
-          We keep filenames locally for now—after onboarding you can upload real assets from Company Brain or the
-          owner console.
+          We keep filenames locally for now—after onboarding you can upload real assets into Company Brain’s
+          Knowledge Library or the owner console.
         </p>
       </header>
 

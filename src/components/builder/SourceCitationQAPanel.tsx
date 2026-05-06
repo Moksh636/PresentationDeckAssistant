@@ -32,7 +32,8 @@ export function SourceCitationQAPanel({
           <h3>Snippet and trace review</h3>
           <p className="muted-copy">
             Review parse warnings and citations before Intel Review/deck generation. Default mode is
-            permissive: all traces are used unless excluded or disabled.
+            permissive: all traces are used unless excluded or disabled. These decisions control which
+            sources can appear in Intel Review, deck citations, and Intel Briefs.
           </p>
           <div className="scope-toggle" role="group" aria-label="Citation review mode">
             <button

@@ -394,6 +394,8 @@ export function OwnerDashboardPage() {
         <h1>Company brain control center</h1>
         <p className="muted-copy">
           Configure knowledge, folders, catalog structure, and mock worker invites before reps ship decks.
+          Onboarding uploads are mock/demo; your authoritative documents live under Company Brain’s Knowledge
+          Library and Source Materials in Build Pitch Deck.
         </p>
       </header>
 

@@ -20,6 +20,7 @@ import {
   canCollaboratorUpload,
   getSetupFieldLabel,
 } from '../data/collaboration'
+import { isAiBackendEnabled } from '../data/aiBackendFlags'
 import type { DeckSetup, FileContributorRole, SetupFieldKey } from '../types/models'
 
 function effectiveMeetingGoal(setup: DeckSetup): string {
@@ -120,6 +121,7 @@ export function BuildPresentationPage() {
   const [uploadRole, setUploadRole] = useState<FileContributorRole>('owner')
   const [commentRole, setCommentRole] = useState<FileContributorRole>('owner')
   const [selectedSetupTarget, setSelectedSetupTarget] = useState<string>('general')
+  const aiBackendEnabled = isAiBackendEnabled()
   const {
     workspace,
     updateDeck,
@@ -306,30 +308,37 @@ export function BuildPresentationPage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="primary-button builder-generate-cta"
-          disabled={isGenerating}
-          onClick={async () => {
-            if (isGenerating) {
-              return
-            }
-
-            setIsGenerating(true)
-
-            try {
-              const generatedDeckId = await generateSlides(activeDeck.id)
-
-              if (generatedDeckId) {
-                navigate('/edit')
+        <div>
+          <button
+            type="button"
+            className="primary-button builder-generate-cta"
+            disabled={isGenerating}
+            onClick={async () => {
+              if (isGenerating) {
+                return
               }
-            } finally {
-              setIsGenerating(false)
-            }
-          }}
-        >
-          {isGenerating ? 'Generating tailored deck...' : 'Generate tailored pitch deck'}
-        </button>
+
+              setIsGenerating(true)
+
+              try {
+                const generatedDeckId = await generateSlides(activeDeck.id)
+
+                if (generatedDeckId) {
+                  navigate('/edit')
+                }
+              } finally {
+                setIsGenerating(false)
+              }
+            }}
+          >
+            {isGenerating ? 'Generating tailored deck...' : 'Generate tailored pitch deck'}
+          </button>
+          {!aiBackendEnabled ? (
+            <p className="muted-copy" style={{ marginTop: '4px' }}>
+              Local draft generator (no live AI yet).
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <div className="builder-grid">
@@ -670,7 +679,9 @@ export function BuildPresentationPage() {
                 <h3>Account research &amp; supporting sources</h3>
                 <p className="muted-copy">
                   Upload account research, sales notes, case studies, product docs, call transcripts, and
-                  any files you want cited in the pitch. Parsed previews help autofill the brief above.
+                    any files you want cited in the pitch. Parsed previews help autofill the brief above.
+                    Uploads here stay scoped to this deck; reusable, org-wide knowledge lives under Company
+                    Brain → Knowledge Library.
                 </p>
               </div>
             </div>

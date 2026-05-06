@@ -2,11 +2,14 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
+import { useWorkspace } from '../context/useWorkspace'
 import { AuthLoadingScreen } from '../components/auth/AuthLoadingScreen'
+import { resolveDefaultAuthenticatedPath } from '../data/postAuthRedirect'
 import { supabase } from '../data/supabaseClient'
 
 export function SignupPage() {
   const auth = useAuth()
+  const { workspace } = useWorkspace()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,8 +17,17 @@ export function SignupPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [isBusy, setIsBusy] = useState(false)
 
+  const destination = auth.user
+    ? resolveDefaultAuthenticatedPath(workspace, auth.user.id)
+    : '/dashboard'
+
   if (auth.isLoading) {
     return <AuthLoadingScreen />
+  }
+
+  const handleLocalDevContinue = () => {
+    auth.enterLocalDevMode()
+    navigate(destination, { replace: true })
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -54,16 +66,24 @@ export function SignupPage() {
       <div className="auth-page">
         <div className="auth-page__hero">
           <span className="auth-page__logo">Deckspace</span>
-          <p className="auth-page__tagline">Owner signup requires cloud authentication.</p>
+          <p className="auth-page__tagline">Cloud signup is disabled in this environment.</p>
         </div>
         <div className="auth-page__card auth-page__card--local">
           <p className="auth-page__lede">
-            Add Supabase environment variables locally, or continue from the sign-in screen using{' '}
-            <strong>local workspace mode</strong> for deck building without marketing signup.
+            Supabase is not configured for this workspace, but you can still spin up a local demo
+            workspace to explore Deckspace without cloud signup.
           </p>
-          <Link to="/auth" className="primary-button primary-button--full">
-            Go to sign in
-          </Link>
+          <button
+            type="button"
+            className="primary-button primary-button--full"
+            onClick={handleLocalDevContinue}
+          >
+            Continue in local demo workspace
+          </button>
+          <p className="auth-page__fine-print">
+            Prefer to start from the sign-in screen?{' '}
+            <Link to="/auth">Open local workspace mode from sign in</Link>.
+          </p>
         </div>
       </div>
     )
