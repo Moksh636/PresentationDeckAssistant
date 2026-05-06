@@ -1074,6 +1074,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         extractedTextPreview: report.executiveSummary,
         extractedMetadata: {
           reportType,
+          citationReviewMode: report.citationReviewMode,
           generatedAt: report.generatedAt,
           slideCount: deckSlides.length,
           sourceCount: report.sourceReferences.length,

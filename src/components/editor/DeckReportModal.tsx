@@ -172,6 +172,12 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
         <span style={eyebrowStyle}>{report.reportType} Intel Brief</span>
         <h1 style={titleStyle}>{report.title}</h1>
         <p>Generated {formatShortDate(report.generatedAt)}</p>
+        <p>
+          Citation mode:{' '}
+          {report.citationReviewMode === 'strict-approved-only'
+            ? 'Strict approved-only'
+            : 'Permissive'}
+        </p>
       </header>
 
       <section className="report-section">
@@ -284,6 +290,62 @@ function PrintableReport({ report }: { report: GeneratedDeckReport }) {
         ) : (
           <p>No source references are attached to this deck yet.</p>
         )}
+      </section>
+
+      <section className="report-section report-section--sources">
+        <h2 style={sectionHeadingStyle}>Sources / Bibliography</h2>
+
+        <div className="report-section__block">
+          <h3 style={subheadingStyle}>Citation-backed uploaded files</h3>
+          {report.bibliography.citationBackedUploads.length > 0 ? (
+            report.bibliography.citationBackedUploads.map((trace, index) => (
+              <p key={`${trace.fileId}-${index}`}>
+                <strong>{trace.fileName}</strong> · {getSourceTypeLabel(trace.sourceType)}
+              </p>
+            ))
+          ) : (
+            <p>No citation-backed uploaded files in this report.</p>
+          )}
+        </div>
+
+        <div className="report-section__block">
+          <h3 style={subheadingStyle}>Company Brain knowledge</h3>
+          {report.bibliography.companyKnowledge.length > 0 ? (
+            <ul className="report-company-brain-list">
+              {report.bibliography.companyKnowledge.map((row) => (
+                <li key={`${row.title}-${row.sourceType}-${row.backing}`}>
+                  <strong>{row.title}</strong> · {row.sourceType} · {row.approvalStatus}
+                  {row.citationCount !== undefined ? ` · citations: ${row.citationCount}` : ''}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No citation-backed Company Brain entries.</p>
+          )}
+          {report.bibliography.memoryOnlyCompanyKnowledge.length > 0 ? (
+            <ul className="report-company-brain-list">
+              {report.bibliography.memoryOnlyCompanyKnowledge.map((row) => (
+                <li key={`${row.title}-${row.sourceType}-memory`}>
+                  <strong>{row.title}</strong> · {row.sourceType} · {row.approvalStatus} · Company
+                  knowledge, not citation-backed.
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+
+        <div className="report-section__block">
+          <h3 style={subheadingStyle}>User-provided pitch inputs</h3>
+          {report.bibliography.userPitchInputs.length > 0 ? (
+            <ul>
+              {report.bibliography.userPitchInputs.map((trace, index) => (
+                <li key={`${trace.fileId}-${index}`}>{trace.extractedSnippet}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No user-provided pitch input traces detected.</p>
+          )}
+        </div>
       </section>
     </article>
   )

@@ -50,7 +50,15 @@ export function SourceCitationQAPanel({
               Strict approved-only
             </button>
           </div>
-          <p className="muted-copy">Strict mode only uses sources you approved.</p>
+          <p className="muted-copy">
+            Active citation mode:{' '}
+            <strong>
+              {citationReviewMode === 'strict-approved-only'
+                ? 'Strict approved-only'
+                : 'Permissive'}
+            </strong>
+            . Strict mode only uses sources you approved.
+          </p>
         </div>
       </div>
       {assets.length === 0 ? <p className="muted-copy">No sources uploaded yet.</p> : null}

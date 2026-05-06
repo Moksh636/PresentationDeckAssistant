@@ -5,6 +5,7 @@ const DEFAULT_OWNER_ID = 'user-owner-1'
 const SOURCE_TRACE_TYPES: SourceTraceType[] = [
   'deck-input',
   'uploaded-file',
+  'company-brain',
   'generated-summary',
   'previous-deck',
   'web-research',

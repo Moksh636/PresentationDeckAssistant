@@ -28,6 +28,7 @@ export function getSourceTypeLabel(sourceType: SourceTraceType) {
   const labels: Record<SourceTraceType, string> = {
     'deck-input': 'Pitch setup input',
     'uploaded-file': 'Uploaded source',
+    'company-brain': 'Company Brain source',
     'generated-summary': 'Research summary',
     'previous-deck': 'Prior deck context',
     'web-research': 'Web research',
@@ -53,6 +54,7 @@ export function getAddedByLabel(trace: SourceTrace) {
 /** Editor chip styling: distinguishes uploaded citations vs pitch setup vs generated summaries. */
 export type SlideSourceChipVariant =
   | 'citation'
+  | 'company-brain'
   | 'generated'
   | 'brief'
   | 'research'
@@ -69,12 +71,16 @@ export function getSlideBlockSourceChipPresentation(traces: SourceTrace[]): {
 
   const types = new Set(traces.map((t) => t.sourceType))
 
+  if (types.has('company-brain')) {
+    return { variant: 'company-brain', chipLabel: 'Company Brain' }
+  }
+
   if (types.has('uploaded-file')) {
     return { variant: 'citation', chipLabel: 'Citation' }
   }
 
   if (types.has('generated-summary')) {
-    return { variant: 'generated', chipLabel: 'AI summary' }
+    return { variant: 'generated', chipLabel: 'Generated inference' }
   }
 
   if (types.size === 1 && types.has('deck-input')) {

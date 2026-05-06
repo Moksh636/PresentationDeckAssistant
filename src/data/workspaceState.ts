@@ -293,6 +293,23 @@ function normalizeGeneratedReport(rawReport: unknown): GeneratedDeckReport | und
 
   const reportRecord = rawReport as Record<string, unknown>
   const reportType = reportRecord.reportType === 'detailed' ? 'detailed' : 'concise'
+  const sourceReferences = Array.isArray(reportRecord.sourceReferences)
+    ? (reportRecord.sourceReferences as GeneratedDeckReport['sourceReferences'])
+    : []
+  const companyBrainSources = Array.isArray(reportRecord.companyBrainSources)
+    ? (reportRecord.companyBrainSources as GeneratedDeckReport['companyBrainSources'])
+    : undefined
+  const bibliography =
+    reportRecord.bibliography && typeof reportRecord.bibliography === 'object'
+      ? (reportRecord.bibliography as GeneratedDeckReport['bibliography'])
+      : {
+          citationBackedUploads: sourceReferences.filter((trace) => trace.sourceType === 'uploaded-file'),
+          companyKnowledge: (companyBrainSources ?? []).filter((row) => row.backing === 'citation-backed'),
+          userPitchInputs: sourceReferences.filter((trace) => trace.sourceType === 'deck-input'),
+          memoryOnlyCompanyKnowledge: (companyBrainSources ?? []).filter(
+            (row) => row.backing === 'memory-only',
+          ),
+        }
 
   return {
     id: typeof reportRecord.id === 'string' ? reportRecord.id : 'report-legacy',
@@ -316,14 +333,17 @@ function normalizeGeneratedReport(rawReport: unknown): GeneratedDeckReport | und
     decisions: Array.isArray(reportRecord.decisions)
       ? (reportRecord.decisions as GeneratedDeckReport['decisions'])
       : [],
-    sourceReferences: Array.isArray(reportRecord.sourceReferences)
-      ? (reportRecord.sourceReferences as GeneratedDeckReport['sourceReferences'])
-      : [],
+    sourceReferences,
+    bibliography,
+    citationReviewMode:
+      reportRecord.citationReviewMode === 'strict-approved-only'
+        ? 'strict-approved-only'
+        : 'permissive',
     plainText:
       typeof reportRecord.plainText === 'string' ? reportRecord.plainText : '',
-    ...(Array.isArray(reportRecord.companyBrainSources)
+    ...(companyBrainSources
       ? {
-          companyBrainSources: reportRecord.companyBrainSources as GeneratedDeckReport['companyBrainSources'],
+          companyBrainSources,
         }
       : {}),
   }

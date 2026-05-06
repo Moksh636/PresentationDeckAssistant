@@ -22,6 +22,7 @@ export type SlideFontSize = 'sm' | 'md' | 'lg' | 'xl'
 export type SourceTraceType =
   | 'deck-input'
   | 'uploaded-file'
+  | 'company-brain'
   | 'generated-summary'
   | 'previous-deck'
   | 'web-research'
@@ -269,8 +270,16 @@ export interface DeckReportCompanyBrainEntry {
   approvalStatus: KnowledgeApprovalStatus
   visibilityLabel: string
   backing: 'citation-backed' | 'memory-only'
+  citationCount?: number
   relevanceBand?: 'high' | 'medium' | 'low'
   relevanceScore?: number
+}
+
+export interface DeckReportBibliography {
+  citationBackedUploads: SourceTrace[]
+  companyKnowledge: DeckReportCompanyBrainEntry[]
+  userPitchInputs: SourceTrace[]
+  memoryOnlyCompanyKnowledge: DeckReportCompanyBrainEntry[]
 }
 
 export interface GeneratedDeckReport {
@@ -284,6 +293,8 @@ export interface GeneratedDeckReport {
   metrics: DeckReportMetric[]
   decisions: DeckReportDecision[]
   sourceReferences: SourceTrace[]
+  bibliography: DeckReportBibliography
+  citationReviewMode: SourceCitationReviewMode
   plainText: string
   /** Company Brain items selected on the pitch setup (citation-backed vs memory-only). */
   companyBrainSources?: DeckReportCompanyBrainEntry[]

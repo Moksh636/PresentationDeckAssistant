@@ -110,20 +110,60 @@ function buildSlide(
   notes: string,
   blocks: SlideBlock[],
   sourceTrace: SourceTrace[] = [],
+  options?: { memoryOnlySources?: string[] },
 ): Slide {
   const normalizedBlocks = blocks.map((block, index) => normalizeSlideBlock(block, index))
+  const mergedTrace = dedupeSourceTrace([...sourceTrace, ...normalizedBlocks.flatMap((block) => block.sourceTrace)])
+  const uploadedCitations = dedupeSourceTrace(mergedTrace.filter((trace) => trace.sourceType === 'uploaded-file'))
+  const companyKnowledgeCitations = dedupeSourceTrace(
+    mergedTrace.filter((trace) => trace.sourceType === 'company-brain'),
+  )
+  const memoryOnlySources = (options?.memoryOnlySources ?? []).filter(Boolean)
+  const generatedInference = dedupeSourceTrace(
+    mergedTrace.filter((trace) => trace.sourceType === 'generated-summary'),
+  )
+  const sourceNotes: string[] = []
+
+  if (uploadedCitations.length > 0 || companyKnowledgeCitations.length > 0 || memoryOnlySources.length > 0) {
+    sourceNotes.push('Sources used')
+  }
+  if (uploadedCitations.length > 0) {
+    sourceNotes.push(
+      `- Citation-backed sources: ${uploadedCitations
+        .map((trace) => trace.fileName)
+        .filter((name, idx, arr) => arr.indexOf(name) === idx)
+        .join('; ')}`,
+    )
+  }
+  if (companyKnowledgeCitations.length > 0) {
+    sourceNotes.push(
+      `- Company knowledge sources: ${companyKnowledgeCitations
+        .map((trace) => trace.fileName)
+        .filter((name, idx, arr) => arr.indexOf(name) === idx)
+        .join('; ')}`,
+    )
+  }
+  if (memoryOnlySources.length > 0) {
+    sourceNotes.push(`- Memory-only sources: ${memoryOnlySources.join('; ')}`)
+  }
+  if (generatedInference.length > 0) {
+    sourceNotes.push(
+      `- Generated inference: ${generatedInference
+        .map((trace) => trace.fileName)
+        .filter((name, idx, arr) => arr.indexOf(name) === idx)
+        .join('; ')}`,
+    )
+  }
+  const finalNotes = [notes.trim(), sourceNotes.join('\n')].filter(Boolean).join('\n\n')
 
   return {
     id: createId('slide'),
     deckId,
     index,
     title,
-    notes,
+    notes: finalNotes,
     blocks: normalizedBlocks,
-    sourceTrace: dedupeSourceTrace([
-      ...sourceTrace,
-      ...normalizedBlocks.flatMap((block) => block.sourceTrace),
-    ]),
+    sourceTrace: mergedTrace,
   }
 }
 
@@ -469,6 +509,9 @@ function createGeneratedSlides(
       titleSlideNotes,
       titleSlideBlocks,
       [titleTrace, goalTrace, ...toggleTrace, ...fileTrace.slice(0, 2), ...brainCitationTraces.slice(0, 4)],
+      {
+        memoryOnlySources: brainInfluence?.memoryOnlyTitles,
+      },
     ),
   )
 
@@ -505,6 +548,9 @@ function createGeneratedSlides(
         ),
       ],
       [sectionsTrace, audienceTrace, toneTrace, ...toggleTrace],
+      {
+        memoryOnlySources: brainInfluence?.memoryOnlyTitles,
+      },
     ),
   )
 
@@ -561,6 +607,9 @@ function createGeneratedSlides(
         ...toggleTrace,
         ...brainCitationTraces.slice(0, 4),
       ],
+      {
+        memoryOnlySources: brainInfluence?.memoryOnlyTitles,
+      },
     ),
   )
 
@@ -639,6 +688,9 @@ function createGeneratedSlides(
           ),
         ],
         [sectionTrace, goalTrace, toneTrace, ...relatedTrace, ...toggleTrace],
+        {
+          memoryOnlySources: brainInfluence?.memoryOnlyTitles,
+        },
       ),
     )
   })
@@ -685,6 +737,9 @@ function createGeneratedSlides(
         ),
       ],
       [...visualPlaceholder.trace, ...toggleTrace],
+      {
+        memoryOnlySources: brainInfluence?.memoryOnlyTitles,
+      },
     ),
   )
 
@@ -733,6 +788,9 @@ function createGeneratedSlides(
         ),
       ],
       [...chartSuggestion.trace, ...toggleTrace],
+      {
+        memoryOnlySources: brainInfluence?.memoryOnlyTitles,
+      },
     ),
   )
 
@@ -785,6 +843,9 @@ function createGeneratedSlides(
         ),
       ],
       [notesTrace, ...toggleTrace, ...fileTrace.slice(0, 1)],
+      {
+        memoryOnlySources: brainInfluence?.memoryOnlyTitles,
+      },
     ),
   )
 

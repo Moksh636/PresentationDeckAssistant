@@ -1,4 +1,4 @@
-import { getSourceTraceKey } from './sourceTrace'
+import { resolveCitationReviewMode } from './sourceCitationReview.ts'
 import type {
   CompanyBrandKit,
   Deck,
@@ -12,8 +12,8 @@ import type {
   Slide,
   SlideBlock,
   SourceTrace,
-} from '../types/models'
-import { createId } from '../utils/ids'
+} from '../types/models.ts'
+import { createId } from '../utils/ids.ts'
 
 interface GenerateDeckReportInput {
   deck: Deck
@@ -24,6 +24,16 @@ interface GenerateDeckReportInput {
   intelBriefBrandKit?: CompanyBrandKit
   /** Rows from pitch setup Brain selections (optional; produced in workspace hook). */
   companyBrainSources?: DeckReportCompanyBrainEntry[]
+}
+
+function getSourceTraceKey(trace: SourceTrace) {
+  return [
+    trace.fileId,
+    trace.fileName,
+    trace.sourceType,
+    trace.extractedSnippet,
+    trace.addedByUserId,
+  ].join('|')
 }
 
 function normalizeWhitespace(value: string) {
@@ -176,10 +186,27 @@ function formatCompanyBrainRow(row: DeckReportCompanyBrainEntry) {
     row.relevanceBand !== undefined || row.relevanceScore !== undefined
       ? ` relevance: ${row.relevanceBand ?? '—'} (${row.relevanceScore !== undefined ? Math.round(row.relevanceScore) : '—'})`
       : ''
-  return `- ${row.title} [${row.sourceType}] ${row.approvalStatus} | ${row.visibilityLabel} | ${row.backing}${rel}`
+  return `- ${row.title} [${row.sourceType}] ${row.approvalStatus} | ${row.visibilityLabel} | ${row.backing}${row.citationCount !== undefined ? ` | citations: ${row.citationCount}` : ''}${rel}`
+}
+
+function buildBibliography(report: Omit<GeneratedDeckReport, 'plainText'>) {
+  const citationBackedUploads = report.sourceReferences.filter((trace) => trace.sourceType === 'uploaded-file')
+  const userPitchInputs = report.sourceReferences.filter((trace) => trace.sourceType === 'deck-input')
+  const companyKnowledge = (report.companyBrainSources ?? []).filter((row) => row.backing === 'citation-backed')
+  const memoryOnlyCompanyKnowledge = (report.companyBrainSources ?? []).filter(
+    (row) => row.backing === 'memory-only',
+  )
+
+  return {
+    citationBackedUploads,
+    companyKnowledge,
+    userPitchInputs,
+    memoryOnlyCompanyKnowledge,
+  }
 }
 
 function buildPlainText(report: Omit<GeneratedDeckReport, 'plainText'>) {
+  const bibliography = buildBibliography(report)
   const brainLines =
     report.companyBrainSources === undefined
       ? []
@@ -225,6 +252,37 @@ function buildPlainText(report: Omit<GeneratedDeckReport, 'plainText'>) {
         )
       : ['- No source references available.']),
     ...brainLines,
+    '',
+    'Sources / Bibliography',
+    `Citation mode: ${report.citationReviewMode === 'strict-approved-only' ? 'Strict approved-only' : 'Permissive'}`,
+    '',
+    'Citation-backed uploaded files',
+    ...(bibliography.citationBackedUploads.length > 0
+      ? bibliography.citationBackedUploads.map((trace) => {
+          const sameFileCount = bibliography.citationBackedUploads.filter(
+            (candidate) => candidate.fileId === trace.fileId,
+          ).length
+          return `- ${trace.fileName} | ${trace.sourceType} | citation count: ${sameFileCount}`
+        })
+      : ['- No citation-backed uploaded file traces.']),
+    '',
+    'Company Brain knowledge',
+    ...(bibliography.companyKnowledge.length > 0
+      ? bibliography.companyKnowledge.map(formatCompanyBrainRow)
+      : ['- No citation-backed Company Brain rows.']),
+    ...(bibliography.memoryOnlyCompanyKnowledge.length > 0
+      ? bibliography.memoryOnlyCompanyKnowledge.map(
+          (row) =>
+            `- ${row.title} [${row.sourceType}] ${row.approvalStatus} | ${row.visibilityLabel} | Company knowledge, not citation-backed.`,
+        )
+      : []),
+    '',
+    'User-provided pitch inputs',
+    ...(bibliography.userPitchInputs.length > 0
+      ? bibliography.userPitchInputs.map(
+          (trace) => `- ${trace.fileName} | ${trace.sourceType} | ${trace.extractedSnippet}`,
+        )
+      : ['- No user-provided pitch inputs captured as traces.']),
   ]
 
   return lines.join('\n')
@@ -248,7 +306,8 @@ export function generateDeckReport({
       }
     : undefined
 
-  const reportWithoutPlainText = {
+  const citationReviewMode = resolveCitationReviewMode(deck.setup)
+  const reportWithoutPlainText: Omit<GeneratedDeckReport, 'plainText'> = {
     id: createId('report'),
     deckId: deck.id,
     title: `${deck.title} Intel Brief`,
@@ -263,8 +322,16 @@ export function generateDeckReport({
         ? sourceReferences
         : fileAssets.flatMap((asset) => asset.sourceTrace).slice(0, reportType === 'concise' ? 6 : 16),
     ...(companyBrainSources !== undefined ? { companyBrainSources } : {}),
+    bibliography: {
+      citationBackedUploads: [],
+      companyKnowledge: [],
+      userPitchInputs: [],
+      memoryOnlyCompanyKnowledge: [],
+    } as GeneratedDeckReport['bibliography'],
+    citationReviewMode,
     intelBriefTheme,
   }
+  reportWithoutPlainText.bibliography = buildBibliography(reportWithoutPlainText)
 
   return {
     ...reportWithoutPlainText,

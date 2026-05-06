@@ -131,7 +131,10 @@ export function collectSourceTracesForKnowledgeItem(
   if (!item.fileAssetId) {
     return []
   }
-  return assetsById.get(item.fileAssetId)?.sourceTrace ?? []
+  return (assetsById.get(item.fileAssetId)?.sourceTrace ?? []).map((trace) => ({
+    ...trace,
+    sourceType: 'company-brain',
+  }))
 }
 
 export function formatCompanyKnowledgeVisibilityBrief(item: CompanyKnowledgeItem): string {
@@ -265,7 +268,8 @@ export function buildDeckReportCompanyBrainEntries(
 ): DeckReportCompanyBrainEntry[] {
   return rankedSelected.map((entry) => {
     const { item, band, score } = entry
-    const backed = knowledgeItemHasCitationBackedTraces(item, assetsById)
+    const citationCount = collectSourceTracesForKnowledgeItem(item, assetsById).length
+    const backed = citationCount > 0
 
     return {
       title: item.title,
@@ -273,6 +277,7 @@ export function buildDeckReportCompanyBrainEntries(
       approvalStatus: item.approvalStatus,
       visibilityLabel: formatCompanyKnowledgeVisibilityBrief(item),
       backing: backed ? 'citation-backed' : 'memory-only',
+      ...(citationCount > 0 ? { citationCount } : {}),
       relevanceBand: band,
       relevanceScore: score,
     }
@@ -283,11 +288,15 @@ export function buildDeckReportCompanyBrainEntriesFromItems(
   items: CompanyKnowledgeItem[],
   assetsById: Map<string, FileAsset>,
 ): DeckReportCompanyBrainEntry[] {
-  return items.map((item) => ({
-    title: item.title,
-    sourceType: item.sourceType,
-    approvalStatus: item.approvalStatus,
-    visibilityLabel: formatCompanyKnowledgeVisibilityBrief(item),
-    backing: knowledgeItemHasCitationBackedTraces(item, assetsById) ? 'citation-backed' : 'memory-only',
-  }))
+  return items.map((item) => {
+    const citationCount = collectSourceTracesForKnowledgeItem(item, assetsById).length
+    return {
+      title: item.title,
+      sourceType: item.sourceType,
+      approvalStatus: item.approvalStatus,
+      visibilityLabel: formatCompanyKnowledgeVisibilityBrief(item),
+      backing: citationCount > 0 ? 'citation-backed' : 'memory-only',
+      ...(citationCount > 0 ? { citationCount } : {}),
+    }
+  })
 }
