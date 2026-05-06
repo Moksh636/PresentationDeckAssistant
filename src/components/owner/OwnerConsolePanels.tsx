@@ -12,7 +12,6 @@ import {
   reduceApproveKnowledgeFolderSuggestion,
   reduceRejectKnowledgeFolderSuggestion,
 } from '../../data/knowledgeSuggestionApply'
-import { buildDraftOrganizationMemberRow } from '../../data/ownerWorkerPrep'
 import type {
   CompanyBrainCatalogDepartment,
   CompanyBrainCatalogRole,
@@ -21,7 +20,8 @@ import type {
   KnowledgeApprovalStatus,
   KnowledgeFolder,
   KnowledgeVisibilityScope,
-  MembershipAccessRole,
+  WorkerInvite,
+  WorkerInviteAccessRole,
 } from '../../types/models'
 
 const SOURCE_OPTIONS: CompanyKnowledgeSourceType[] = [
@@ -429,6 +429,8 @@ export function OwnerAiOrganizationSection({
   )
 }
 
+const INVITE_ACCESS_OPTIONS: WorkerInviteAccessRole[] = ['member', 'viewer', 'admin']
+
 export function OwnerWorkerPrepSection({
   activeOrgId,
   admin,
@@ -445,57 +447,146 @@ export function OwnerWorkerPrepSection({
   const activeDepartments = departments.filter((d) => !d.archived)
   const activeRoles = roles.filter((r) => !r.archived)
 
+  const invites = useMemo(() => {
+    const rows = workspaceApi.workspace.companyBrain.workerInvites.filter((w) => w.organizationId === activeOrgId)
+    return [...rows].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+  }, [activeOrgId, workspaceApi.workspace.companyBrain.workerInvites])
+
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [catalogDeptId, setCatalogDeptId] = useState('')
   const [manualDept, setManualDept] = useState('')
   const [catalogRoleId, setCatalogRoleId] = useState('')
   const [manualRole, setManualRole] = useState('')
-  const [accessRole, setAccessRole] = useState<MembershipAccessRole>('member')
+  const [accessRole, setAccessRole] = useState<WorkerInviteAccessRole>('member')
   const [roleLocked, setRoleLocked] = useState(false)
   const [departmentLocked, setDepartmentLocked] = useState(false)
 
   if (!admin) {
-    return <p className="muted-copy">Worker prep stubs require owner or admin access.</p>
+    return <p className="muted-copy">Worker invites require owner or admin access.</p>
   }
 
-  const save = () => {
-    if (!email.trim()) return
-    const deptName =
-      catalogDeptId ? activeDepartments.find((d) => d.id === catalogDeptId)?.name ?? manualDept : manualDept
-    const roleName = catalogRoleId ? activeRoles.find((r) => r.id === catalogRoleId)?.name ?? manualRole : manualRole
-
-    const row = buildDraftOrganizationMemberRow(
-      {
-        email: email.trim(),
-        displayName: displayName.trim(),
-        roleTitle: roleName.trim() || 'Member',
-        department: deptName.trim() || 'General',
-        invitedRoleTitle: roleName.trim() || undefined,
-        invitedDepartment: deptName.trim() || undefined,
-        accessRole,
-        roleLocked,
-        departmentLocked,
-      },
-      {},
-    )
-
-    workspaceApi.addCompanyMember(activeOrgId, row)
+  const resetForm = () => {
+    setEditingId(null)
     setEmail('')
     setDisplayName('')
-    setManualDept('')
-    setManualRole('')
     setCatalogDeptId('')
+    setManualDept('')
     setCatalogRoleId('')
+    setManualRole('')
+    setAccessRole('member')
     setRoleLocked(false)
     setDepartmentLocked(false)
+  }
+
+  const loadDraft = (inv: WorkerInvite) => {
+    if (inv.status !== 'draft') return
+    setEditingId(inv.id)
+    setEmail(inv.email)
+    setDisplayName(inv.displayName ?? '')
+    setAccessRole(inv.accessRole)
+    setRoleLocked(inv.roleLocked === true)
+    setDepartmentLocked(inv.departmentLocked === true)
+    const deptName = inv.invitedDepartment?.trim() ?? ''
+    const roleName = inv.invitedRoleTitle?.trim() ?? ''
+    const deptMatch = activeDepartments.find((d) => d.name.trim().toLowerCase() === deptName.toLowerCase())
+    const roleMatch = activeRoles.find((r) => r.name.trim().toLowerCase() === roleName.toLowerCase())
+    setCatalogDeptId(deptMatch?.id ?? '')
+    setManualDept(deptMatch ? '' : deptName)
+    setCatalogRoleId(roleMatch?.id ?? '')
+    setManualRole(roleMatch ? '' : roleName)
+  }
+
+  const resolvedDeptName =
+    (catalogDeptId ? activeDepartments.find((d) => d.id === catalogDeptId)?.name : undefined)?.trim() ||
+    manualDept.trim() ||
+    'General'
+  const resolvedRoleName =
+    (catalogRoleId ? activeRoles.find((r) => r.id === catalogRoleId)?.name : undefined)?.trim() ||
+    manualRole.trim() ||
+    'Member'
+
+  const saveDraft = () => {
+    if (!email.trim()) return
+    workspaceApi.upsertWorkerInviteDraft(activeOrgId, {
+      id: editingId ?? undefined,
+      email: email.trim(),
+      displayName: displayName.trim(),
+      invitedRoleTitle: resolvedRoleName,
+      invitedDepartment: resolvedDeptName,
+      accessRole,
+      roleLocked,
+      departmentLocked,
+    })
+    resetForm()
   }
 
   return (
     <>
       <p className="muted-copy">
-        Mock roster entries only—no outbound email. Uses placeholder user ids until accounts sync.
+        Prepare teammate invites locally—no outbound email in this MVP. Mark an invite as invited when you have shared
+        the link or instructions out-of-band; workers accept from <strong>/join-company</strong> when signed in with the
+        same email.
       </p>
+
+      {invites.length ? (
+        <ul className="owner-suggestion-list">
+          {invites.map((inv) => {
+            const label = `${inv.email}${inv.displayName ? ` · ${inv.displayName}` : ''}`
+            return (
+              <li key={inv.id} className="owner-suggestion-list__row">
+                <div>
+                  <strong>{label}</strong>
+                  <div className="muted-copy">
+                    Status: {inv.status} · access {inv.accessRole}
+                    {inv.invitedRoleTitle ? <> · role {inv.invitedRoleTitle}</> : null}
+                    {inv.invitedDepartment ? <> · dept {inv.invitedDepartment}</> : null}
+                    {inv.roleLocked ? <> · role locked</> : null}
+                    {inv.departmentLocked ? <> · dept locked</> : null}
+                  </div>
+                </div>
+                <div className="owner-suggestion-list__actions">
+                  {inv.status === 'draft' ? (
+                    <>
+                      <button type="button" className="ghost-button" onClick={() => loadDraft(inv)}>
+                        Edit draft
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => workspaceApi.markWorkerInviteInvited(activeOrgId, inv.id)}
+                      >
+                        Mark invited
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => workspaceApi.deleteWorkerInviteDraft(activeOrgId, inv.id)}
+                      >
+                        Delete draft
+                      </button>
+                    </>
+                  ) : null}
+                  {inv.status === 'invited' ? (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => workspaceApi.revokeWorkerInvite(activeOrgId, inv.id)}
+                    >
+                      Revoke
+                    </button>
+                  ) : null}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className="muted-copy">No invites for this organization yet.</p>
+      )}
+
+      <p className="section-label">{editingId ? 'Edit draft invite' : 'New draft invite'}</p>
       <div className="form-grid company-brain-mini-form">
         <label className="field-group">
           <span className="field-label">Email</span>
@@ -537,10 +628,15 @@ export function OwnerWorkerPrepSection({
         </label>
         <label className="field-group">
           <span className="field-label">Workspace access</span>
-          <select value={accessRole} onChange={(e) => setAccessRole(e.target.value as MembershipAccessRole)}>
-            <option value="member">member</option>
-            <option value="viewer">viewer</option>
-            <option value="admin">admin</option>
+          <select
+            value={accessRole}
+            onChange={(e) => setAccessRole(e.target.value as WorkerInviteAccessRole)}
+          >
+            {INVITE_ACCESS_OPTIONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
           </select>
         </label>
         <label className="company-brain-check">
@@ -555,9 +651,16 @@ export function OwnerWorkerPrepSection({
           />
           <span>Lock department selection at onboarding</span>
         </label>
-        <button type="button" className="primary-button" disabled={!email.trim()} onClick={save}>
-          Save draft worker
-        </button>
+        <div className="field-group field-group--wide">
+          <button type="button" className="primary-button" disabled={!email.trim()} onClick={saveDraft}>
+            {editingId ? 'Update draft' : 'Save draft'}
+          </button>
+          {editingId ? (
+            <button type="button" className="ghost-button" onClick={resetForm}>
+              Cancel edit
+            </button>
+          ) : null}
+        </div>
       </div>
     </>
   )

@@ -31,6 +31,7 @@ import {
 import { createSlideFromLayoutPreset } from '../data/slideLayoutPresets'
 import { supabase } from '../data/supabaseClient'
 import {
+  acceptWorkerInviteForUser,
   addOrganizationMember,
   archiveCompanyCatalogDepartment as applyArchiveCompanyCatalogDepartment,
   archiveCompanyCatalogRole as applyArchiveCompanyCatalogRole,
@@ -39,8 +40,11 @@ import {
   deleteCaseStudy,
   deleteCompanyKnowledgeItem as applyDeleteCompanyKnowledgeItem,
   deleteProductService,
+  deleteWorkerInviteDraft,
   dismissCompanyOnboarding as applyDismissCompanyOnboarding,
   markKnowledgeReviewed,
+  markWorkerInviteInvited,
+  revokeWorkerInvite,
   setActiveOrganization,
   setKnowledgeApproval,
   upsertApprovedMessaging,
@@ -52,6 +56,7 @@ import {
   upsertCompanyKnowledgeItem,
   upsertKnowledgeFolder,
   upsertProductService,
+  upsertWorkerInviteDraft,
 } from '../data/companyBrainMutations'
 import { normalizeWorkspaceState } from '../data/workspaceState'
 import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
@@ -1805,6 +1810,49 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     )
   }
 
+  const acceptWorkerInvite: WorkspaceContextValue['acceptWorkerInvite'] = (invite) => {
+    const profile = resolveActorProfile()
+    commitWorkspace((current) =>
+      acceptWorkerInviteForUser(current, {
+        invite,
+        userId: profile.userId,
+        email: profile.email,
+        displayName: profile.displayName,
+      }),
+    )
+  }
+
+  const upsertWorkerInviteDraftMutation: WorkspaceContextValue['upsertWorkerInviteDraft'] = (
+    organizationId,
+    input,
+  ) => {
+    commitWorkspace((current) =>
+      upsertWorkerInviteDraft(current, organizationId, resolveActorProfile(), input),
+    )
+  }
+
+  const markWorkerInviteInvitedMutation: WorkspaceContextValue['markWorkerInviteInvited'] = (
+    organizationId,
+    inviteId,
+  ) => {
+    commitWorkspace((current) =>
+      markWorkerInviteInvited(current, organizationId, resolveActorProfile(), inviteId),
+    )
+  }
+
+  const revokeWorkerInviteMutation: WorkspaceContextValue['revokeWorkerInvite'] = (organizationId, inviteId) => {
+    commitWorkspace((current) => revokeWorkerInvite(current, organizationId, resolveActorProfile(), inviteId))
+  }
+
+  const deleteWorkerInviteDraftMutation: WorkspaceContextValue['deleteWorkerInviteDraft'] = (
+    organizationId,
+    inviteId,
+  ) => {
+    commitWorkspace((current) =>
+      deleteWorkerInviteDraft(current, organizationId, resolveActorProfile(), inviteId),
+    )
+  }
+
   const stageCompanyKnowledgeOrganizationPlan: WorkspaceContextValue['stageCompanyKnowledgeOrganizationPlan'] = (
     organizationId,
     plan,
@@ -1911,6 +1959,11 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         upsertCompanyProductService,
         deleteCompanyProductService,
         addCompanyMember,
+        acceptWorkerInvite,
+        upsertWorkerInviteDraft: upsertWorkerInviteDraftMutation,
+        markWorkerInviteInvited: markWorkerInviteInvitedMutation,
+        revokeWorkerInvite: revokeWorkerInviteMutation,
+        deleteWorkerInviteDraft: deleteWorkerInviteDraftMutation,
         upsertCompanyCatalogDepartment: upsertCatalogDepartment,
         archiveCompanyCatalogDepartment: archiveCatalogDepartment,
         upsertCompanyCatalogRole: upsertCatalogRole,

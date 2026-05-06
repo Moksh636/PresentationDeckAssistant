@@ -6,6 +6,7 @@ import type { WorkspaceLibraryItemType } from '../data/workspaceLibrary'
 import type {
   CompleteCompanyOnboardingInput,
   UpsertKnowledgeItemInput,
+  UpsertWorkerInviteInput,
 } from '../data/companyBrainMutations'
 import type { CompanyKnowledgeOrganizationPlan } from '../data/companyKnowledgeOrganization'
 import type {
@@ -28,6 +29,7 @@ import type {
   SlideBlockVisualStyle,
   SlideImageAsset,
   SlideTextStyle,
+  WorkerInvite,
   WorkspaceState,
 } from '../types/models'
 
@@ -201,6 +203,11 @@ export interface WorkspaceContextValue {
       id?: string
     },
   ) => void
+  acceptWorkerInvite: (invite: WorkerInvite) => void
+  upsertWorkerInviteDraft: (organizationId: string, input: UpsertWorkerInviteInput) => void
+  markWorkerInviteInvited: (organizationId: string, inviteId: string) => void
+  revokeWorkerInvite: (organizationId: string, inviteId: string) => void
+  deleteWorkerInviteDraft: (organizationId: string, inviteId: string) => void
   stageCompanyKnowledgeOrganizationPlan: (
     organizationId: string,
     plan: CompanyKnowledgeOrganizationPlan,

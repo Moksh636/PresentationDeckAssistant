@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createEmptyCompanyBrainWorkspaceSlice } from '../src/data/companyBrainNormalize.ts'
 import {
   isOwnerOrAdmin,
   resolveDefaultAuthenticatedPath,
@@ -15,9 +16,10 @@ const skeleton = {
   chartSuggestions: [],
   comments: [],
   deckVersions: [],
+  companyBrain: createEmptyCompanyBrainWorkspaceSlice(),
 } as unknown as WorkspaceState
 
-assert.equal(resolveDefaultAuthenticatedPath(skeleton, 'any'), '/dashboard')
+assert.equal(resolveDefaultAuthenticatedPath(skeleton, 'any'), '/join-company')
 
 const ownerWorkspace = JSON.parse(
   JSON.stringify({
@@ -49,6 +51,7 @@ const ownerWorkspace = JSON.parse(
       productsServices: [],
       activityLogs: [],
       onboarding: { dismissed: false },
+      workerInvites: [],
     },
   }),
 ) as WorkspaceState
@@ -56,7 +59,7 @@ const ownerWorkspace = JSON.parse(
 assert.equal(resolveDefaultAuthenticatedPath(ownerWorkspace, 'u1'), '/owner')
 assert.equal(isOwnerOrAdmin(ownerWorkspace, 'u1'), true)
 
-assert.equal(resolvePostSignupPath(skeleton, 'u1'), '/onboarding/company')
+assert.equal(resolvePostSignupPath(skeleton, 'u1'), '/join-company')
 assert.equal(resolvePostSignupPath(ownerWorkspace, 'u1'), '/owner')
 
 console.log('postAuthRedirect tests passed')

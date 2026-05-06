@@ -1,14 +1,22 @@
 import type { WorkspaceState } from '../types/models'
 import { getMembershipForOrgUser } from './companyBrainMutations.ts'
 
+export function userHasAnyOrganizationMembership(workspace: WorkspaceState, userId: string): boolean {
+  return workspace.companyBrain.organizationMemberships.some((m) => m.userId === userId)
+}
+
 /**
  * Default landing route after sign-in for owners/admins vs ICs.
- * Owners land on `/owner` (company console); everyone else uses the pitch workspace dashboard.
+ * Users with no organization membership are routed to `/join-company` first (invite acceptance scaffold).
  */
 export function resolveDefaultAuthenticatedPath(
   workspace: WorkspaceState,
   userId: string,
-): '/owner' | '/dashboard' {
+): '/owner' | '/dashboard' | '/join-company' {
+  if (!userHasAnyOrganizationMembership(workspace, userId)) {
+    return '/join-company'
+  }
+
   const orgId = workspace.companyBrain?.activeOrganizationId
   if (!orgId) {
     return '/dashboard'
@@ -22,11 +30,8 @@ export function resolveDefaultAuthenticatedPath(
   return '/dashboard'
 }
 
-/** Used when an authenticated visitor hits `/signup` — steer net-new companies into the wizard. */
+/** Used when an authenticated visitor hits `/signup` — same membership gate as default sign-in routing. */
 export function resolvePostSignupPath(workspace: WorkspaceState, userId: string): string {
-  if (!workspace.companyBrain?.organizations?.length) {
-    return '/onboarding/company'
-  }
   return resolveDefaultAuthenticatedPath(workspace, userId)
 }
 

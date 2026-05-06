@@ -15,6 +15,8 @@ import type {
   Organization,
   OrganizationMembership,
   ProductServiceItem,
+  WorkerInvite,
+  WorkerInviteAccessRole,
   WorkspaceState,
 } from '../types/models'
 import { createId } from '../utils/ids.ts'
@@ -55,6 +57,294 @@ export function canManageCompanyBrain(
 ): boolean {
   const m = getMembershipForOrgUser(workspace, organizationId, userId)
   return m?.accessRole === 'owner' || m?.accessRole === 'admin'
+}
+
+export function normalizeWorkerInviteEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+/** Pending = `draft` or `invited` only (excludes joined/revoked). */
+export function findPendingInvitesForEmail(normalizedEmail: string, invites: WorkerInvite[]): WorkerInvite[] {
+  const needle = normalizeWorkerInviteEmail(normalizedEmail)
+  return invites.filter(
+    (inv) =>
+      normalizeWorkerInviteEmail(inv.email) === needle &&
+      (inv.status === 'draft' || inv.status === 'invited'),
+  )
+}
+
+/** Deterministic first pick: newest `createdAt` wins. */
+export function findPendingInviteForEmail(normalizedEmail: string, invites: WorkerInvite[]): WorkerInvite | undefined {
+  const list = [...findPendingInvitesForEmail(normalizedEmail, invites)]
+  list.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+  return list[0]
+}
+
+export interface UpsertWorkerInviteInput {
+  id?: string
+  email: string
+  displayName?: string
+  invitedRoleTitle?: string
+  invitedDepartment?: string
+  accessRole: WorkerInviteAccessRole
+  roleLocked?: boolean
+  departmentLocked?: boolean
+}
+
+export function upsertWorkerInviteDraft(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  input: UpsertWorkerInviteInput,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const email = input.email.trim()
+  if (!email) {
+    return workspace
+  }
+
+  if (input.id) {
+    const existing = slice.workerInvites.find((w) => w.id === input.id && w.organizationId === organizationId)
+    if (!existing || existing.status !== 'draft') {
+      return workspace
+    }
+    const next: WorkerInvite = {
+      ...existing,
+      email,
+      displayName: input.displayName?.trim() || undefined,
+      invitedRoleTitle: input.invitedRoleTitle?.trim() || undefined,
+      invitedDepartment: input.invitedDepartment?.trim() || undefined,
+      accessRole: input.accessRole,
+      roleLocked: input.roleLocked === true ? true : undefined,
+      departmentLocked: input.departmentLocked === true ? true : undefined,
+      updatedAt: iso,
+    }
+    let nextSlice: CompanyBrainWorkspaceSlice = {
+      ...slice,
+      workerInvites: [next, ...slice.workerInvites.filter((w) => w.id !== next.id)],
+    }
+    nextSlice = appendLog(nextSlice, {
+      organizationId,
+      actorUserId: actor.userId,
+      kind: 'worker-invite-updated',
+      detail: `Worker invite draft updated: ${email}`,
+    })
+    return { ...workspace, companyBrain: nextSlice }
+  }
+
+  const row: WorkerInvite = {
+    id: createId('worker-invite'),
+    organizationId,
+    email,
+    displayName: input.displayName?.trim() || undefined,
+    invitedRoleTitle: input.invitedRoleTitle?.trim() || undefined,
+    invitedDepartment: input.invitedDepartment?.trim() || undefined,
+    accessRole: input.accessRole,
+    roleLocked: input.roleLocked === true ? true : undefined,
+    departmentLocked: input.departmentLocked === true ? true : undefined,
+    status: 'draft',
+    createdByUserId: actor.userId,
+    createdAt: iso,
+    updatedAt: iso,
+  }
+  let nextSlice: CompanyBrainWorkspaceSlice = {
+    ...slice,
+    workerInvites: [row, ...slice.workerInvites],
+  }
+  nextSlice = appendLog(nextSlice, {
+    organizationId,
+    actorUserId: actor.userId,
+    kind: 'worker-invite-created',
+    detail: `Worker invite draft created: ${email}`,
+  })
+  return { ...workspace, companyBrain: nextSlice }
+}
+
+export function markWorkerInviteInvited(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  inviteId: string,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const existing = slice.workerInvites.find((w) => w.id === inviteId && w.organizationId === organizationId)
+  if (!existing || existing.status !== 'draft') {
+    return workspace
+  }
+  const next: WorkerInvite = {
+    ...existing,
+    status: 'invited',
+    updatedAt: iso,
+  }
+  let nextSlice: CompanyBrainWorkspaceSlice = {
+    ...slice,
+    workerInvites: [next, ...slice.workerInvites.filter((w) => w.id !== inviteId)],
+  }
+  nextSlice = appendLog(nextSlice, {
+    organizationId,
+    actorUserId: actor.userId,
+    kind: 'worker-invite-marked-invited',
+    detail: `Worker invite marked invited: ${existing.email}`,
+  })
+  return { ...workspace, companyBrain: nextSlice }
+}
+
+export function revokeWorkerInvite(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  inviteId: string,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const existing = slice.workerInvites.find((w) => w.id === inviteId && w.organizationId === organizationId)
+  if (!existing || existing.status === 'joined' || existing.status === 'revoked') {
+    return workspace
+  }
+  const next: WorkerInvite = {
+    ...existing,
+    status: 'revoked',
+    updatedAt: iso,
+  }
+  let nextSlice: CompanyBrainWorkspaceSlice = {
+    ...slice,
+    workerInvites: [next, ...slice.workerInvites.filter((w) => w.id !== inviteId)],
+  }
+  nextSlice = appendLog(nextSlice, {
+    organizationId,
+    actorUserId: actor.userId,
+    kind: 'worker-invite-revoked',
+    detail: `Worker invite revoked: ${existing.email}`,
+  })
+  return { ...workspace, companyBrain: nextSlice }
+}
+
+export function deleteWorkerInviteDraft(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  inviteId: string,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const slice = workspace.companyBrain
+  const existing = slice.workerInvites.find((w) => w.id === inviteId && w.organizationId === organizationId)
+  if (!existing || existing.status !== 'draft') {
+    return workspace
+  }
+  const nextSlice: CompanyBrainWorkspaceSlice = {
+    ...slice,
+    workerInvites: slice.workerInvites.filter((w) => w.id !== inviteId),
+  }
+  return { ...workspace, companyBrain: nextSlice }
+}
+
+export interface AcceptWorkerInviteForUserInput {
+  invite: WorkerInvite
+  userId: string
+  email: string
+  displayName?: string
+}
+
+export function acceptWorkerInviteForUser(
+  workspace: WorkspaceState,
+  input: AcceptWorkerInviteForUserInput,
+): WorkspaceState {
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const inv = input.invite
+  if (inv.status !== 'invited') {
+    return workspace
+  }
+  if (normalizeWorkerInviteEmail(inv.email) !== normalizeWorkerInviteEmail(input.email)) {
+    return workspace
+  }
+  const orgExists = slice.organizations.some((o) => o.id === inv.organizationId)
+  if (!orgExists) {
+    return workspace
+  }
+
+  const roleTitle = inv.invitedRoleTitle?.trim() || 'Member'
+  const department = inv.invitedDepartment?.trim() || 'General'
+  const displayName =
+    input.displayName?.trim() ||
+    inv.displayName?.trim() ||
+    (input.email.includes('@') ? input.email.slice(0, input.email.indexOf('@')) : input.email) ||
+    'Member'
+
+  const existing = getMembershipForOrgUser(workspace, inv.organizationId, input.userId)
+  const membershipId = existing?.id ?? createId('membership')
+  const membership: OrganizationMembership = existing
+    ? {
+        ...existing,
+        email: input.email.trim(),
+        displayName,
+        roleTitle,
+        department,
+        accessRole: inv.accessRole,
+        invitedRoleTitle: inv.invitedRoleTitle?.trim() || undefined,
+        invitedDepartment: inv.invitedDepartment?.trim() || undefined,
+        roleLocked: inv.roleLocked === true ? true : undefined,
+        departmentLocked: inv.departmentLocked === true ? true : undefined,
+        updatedAt: iso,
+      }
+    : {
+        id: membershipId,
+        organizationId: inv.organizationId,
+        userId: input.userId,
+        email: input.email.trim(),
+        displayName,
+        roleTitle,
+        department,
+        accessRole: inv.accessRole,
+        createdAt: iso,
+        updatedAt: iso,
+        invitedRoleTitle: inv.invitedRoleTitle?.trim() || undefined,
+        invitedDepartment: inv.invitedDepartment?.trim() || undefined,
+        roleLocked: inv.roleLocked === true ? true : undefined,
+        departmentLocked: inv.departmentLocked === true ? true : undefined,
+      }
+
+  const updatedInvite: WorkerInvite = {
+    ...inv,
+    status: 'joined',
+    joinedUserId: input.userId,
+    joinedAt: iso,
+    updatedAt: iso,
+  }
+
+  let nextSlice: CompanyBrainWorkspaceSlice = {
+    ...slice,
+    organizationMemberships: [
+      membership,
+      ...slice.organizationMemberships.filter(
+        (m) => !(m.organizationId === inv.organizationId && m.userId === input.userId),
+      ),
+    ],
+    workerInvites: [updatedInvite, ...slice.workerInvites.filter((w) => w.id !== inv.id)],
+    activeOrganizationId: slice.activeOrganizationId || inv.organizationId,
+  }
+
+  nextSlice = appendLog(nextSlice, {
+    organizationId: inv.organizationId,
+    actorUserId: input.userId,
+    kind: 'worker-joined-from-invite',
+    detail: `Worker joined from invite: ${displayName} (${inv.accessRole})`,
+  })
+
+  return { ...workspace, companyBrain: nextSlice }
 }
 
 function appendLog(slice: CompanyBrainWorkspaceSlice, log: Omit<CompanyActivityLog, 'id' | 'createdAt'>): CompanyBrainWorkspaceSlice {

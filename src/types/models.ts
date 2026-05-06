@@ -485,6 +485,34 @@ export type CompanyActivityKind =
   | 'case-study-added'
   | 'product-service-added'
   | 'member-added'
+  | 'worker-invite-created'
+  | 'worker-invite-marked-invited'
+  | 'worker-invite-revoked'
+  | 'worker-invite-updated'
+  | 'worker-joined-from-invite'
+
+/** Workspace access granted when a worker accepts an invite (never owner). */
+export type WorkerInviteAccessRole = 'admin' | 'member' | 'viewer'
+
+export type WorkerInviteStatus = 'draft' | 'invited' | 'joined' | 'revoked'
+
+export interface WorkerInvite {
+  id: string
+  organizationId: string
+  email: string
+  displayName?: string
+  invitedRoleTitle?: string
+  invitedDepartment?: string
+  accessRole: WorkerInviteAccessRole
+  roleLocked?: boolean
+  departmentLocked?: boolean
+  status: WorkerInviteStatus
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+  joinedUserId?: string
+  joinedAt?: string
+}
 
 export interface CompanyActivityLog {
   id: string
@@ -509,6 +537,8 @@ export interface CompanyBrainWorkspaceSlice {
   activeOrganizationId: string
   organizations: Organization[]
   organizationMemberships: OrganizationMembership[]
+  /** Owner/admin-prepared worker invites (local scaffold; future sync with Supabase). */
+  workerInvites: WorkerInvite[]
   /** Company-managed job roles / titles. */
   companyRoles: CompanyBrainCatalogRole[]
   /** Company-managed departments. */

@@ -173,7 +173,7 @@ export function OwnerDashboardPage() {
     },
     {
       id: 'worker-prep',
-      title: 'Worker profile prep (mock)',
+      title: 'Worker invites (scaffold)',
       body: (
         <OwnerWorkerPrepSection
           activeOrgId={orgId}

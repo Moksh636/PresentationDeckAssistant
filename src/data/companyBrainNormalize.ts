@@ -17,6 +17,9 @@ import type {
   Organization,
   OrganizationMembership,
   ProductServiceItem,
+  WorkerInvite,
+  WorkerInviteAccessRole,
+  WorkerInviteStatus,
 } from '../types/models'
 
 const ACCESS_ROLES: MembershipAccessRole[] = ['owner', 'admin', 'member', 'viewer']
@@ -41,6 +44,9 @@ const KNOWLEDGE_ORG_PREFS = new Set<KnowledgeOrgPreferenceMode>([
   'drive-like',
 ])
 
+const WORKER_INVITE_ACCESS: WorkerInviteAccessRole[] = ['admin', 'member', 'viewer']
+const WORKER_INVITE_STATUSES: WorkerInviteStatus[] = ['draft', 'invited', 'joined', 'revoked']
+
 const ACTIVITY_KINDS = new Set<CompanyActivityKind>([
   'knowledge-item-created',
   'knowledge-item-approved',
@@ -50,6 +56,11 @@ const ACTIVITY_KINDS = new Set<CompanyActivityKind>([
   'case-study-added',
   'product-service-added',
   'member-added',
+  'worker-invite-created',
+  'worker-invite-marked-invited',
+  'worker-invite-revoked',
+  'worker-invite-updated',
+  'worker-joined-from-invite',
 ])
 
 function nowIso() {
@@ -87,11 +98,20 @@ function normalizeSourceType(value: unknown): CompanyKnowledgeSourceType {
   return SOURCE_TYPES.includes(value as CompanyKnowledgeSourceType) ? (value as CompanyKnowledgeSourceType) : 'other'
 }
 
+function normalizeWorkerInviteAccessRole(value: unknown): WorkerInviteAccessRole {
+  return WORKER_INVITE_ACCESS.includes(value as WorkerInviteAccessRole) ? (value as WorkerInviteAccessRole) : 'member'
+}
+
+function normalizeWorkerInviteStatus(value: unknown): WorkerInviteStatus {
+  return WORKER_INVITE_STATUSES.includes(value as WorkerInviteStatus) ? (value as WorkerInviteStatus) : 'draft'
+}
+
 export function createEmptyCompanyBrainWorkspaceSlice(): CompanyBrainWorkspaceSlice {
   return {
     activeOrganizationId: '',
     organizations: [],
     organizationMemberships: [],
+    workerInvites: [],
     companyRoles: [],
     companyDepartments: [],
     knowledgeFolders: [],
@@ -158,6 +178,34 @@ export function normalizeCompanyBrainWorkspaceSlice(
             typeof r.invitedDepartment === 'string' ? r.invitedDepartment : undefined,
           roleLocked: r.roleLocked === true ? true : undefined,
           departmentLocked: r.departmentLocked === true ? true : undefined,
+        }
+      })
+    : []
+
+  const workerInvites: WorkerInvite[] = Array.isArray(record.workerInvites)
+    ? record.workerInvites.map((row, index): WorkerInvite => {
+        const r = row as Record<string, unknown>
+        const rawStatus = normalizeWorkerInviteStatus(r.status)
+        return {
+          id: typeof r.id === 'string' ? r.id : `worker-invite-legacy-${index + 1}`,
+          organizationId:
+            typeof r.organizationId === 'string' ? r.organizationId : organizations[0]?.id ?? '',
+          email: typeof r.email === 'string' ? r.email : '',
+          displayName: typeof r.displayName === 'string' ? r.displayName : undefined,
+          invitedRoleTitle:
+            typeof r.invitedRoleTitle === 'string' ? r.invitedRoleTitle : undefined,
+          invitedDepartment:
+            typeof r.invitedDepartment === 'string' ? r.invitedDepartment : undefined,
+          accessRole: normalizeWorkerInviteAccessRole(r.accessRole),
+          roleLocked: r.roleLocked === true ? true : undefined,
+          departmentLocked: r.departmentLocked === true ? true : undefined,
+          status: rawStatus,
+          createdByUserId:
+            typeof r.createdByUserId === 'string' ? r.createdByUserId : 'user-owner-1',
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
+          joinedUserId: typeof r.joinedUserId === 'string' ? r.joinedUserId : undefined,
+          joinedAt: typeof r.joinedAt === 'string' ? r.joinedAt : undefined,
         }
       })
     : []
@@ -370,6 +418,7 @@ export function normalizeCompanyBrainWorkspaceSlice(
     activeOrganizationId,
     organizations,
     organizationMemberships,
+    workerInvites,
     companyRoles,
     companyDepartments,
     knowledgeFolders,

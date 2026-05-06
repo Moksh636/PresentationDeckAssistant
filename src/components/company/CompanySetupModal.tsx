@@ -36,8 +36,20 @@ interface CompanySetupModalProps {
   departmentLocked?: boolean
 }
 
-export function CompanySetupModal({
-  open,
+function inviteFieldSeedKey(props: CompanySetupModalProps): string {
+  return [
+    props.variant ?? 'worker-profile',
+    props.invitedRoleTitle ?? '',
+    props.invitedDepartment ?? '',
+    props.roleLocked ? '1' : '0',
+    props.departmentLocked ? '1' : '0',
+    props.roleOptions.map((o) => o.id).join(','),
+    props.departmentOptions.map((o) => o.id).join(','),
+  ].join('|')
+}
+
+/** Mounted only while open so invite prefills remount cleanly when invite props change (no effect sync). */
+function CompanySetupModalOpen({
   onDismiss,
   onComplete,
   variant = 'worker-profile',
@@ -112,10 +124,6 @@ export function CompanySetupModal({
     resolvedInvitedDept,
   ])
 
-  if (!open) {
-    return null
-  }
-
   const canSubmit =
     variant === 'owner-create'
       ? Boolean(companyName.trim())
@@ -185,13 +193,14 @@ export function CompanySetupModal({
             onChange={(e) => setManualRoleTitle(e.target.value)}
             placeholder="Describe your role for now"
             autoComplete="organization-title"
+            disabled={roleLocked}
           />
         </label>
       ) : null}
       {roleLocked ? (
         <label className="field-group field-group--wide">
           <span className="field-label">Your role (assigned)</span>
-          <input readOnly value={chosenRoleTitle} aria-readonly />
+          <input readOnly value={chosenRoleTitle} aria-readonly disabled />
         </label>
       ) : null}
     </>
@@ -228,13 +237,14 @@ export function CompanySetupModal({
             value={manualDepartment}
             onChange={(e) => setManualDepartment(e.target.value)}
             placeholder="e.g. Revenue, Product"
+            disabled={departmentLocked}
           />
         </label>
       ) : null}
       {departmentLocked ? (
         <label className="field-group field-group--wide">
           <span className="field-label">Department (assigned)</span>
-          <input readOnly value={chosenDepartment} aria-readonly />
+          <input readOnly value={chosenDepartment} aria-readonly disabled />
         </label>
       ) : null}
     </>
@@ -316,4 +326,11 @@ export function CompanySetupModal({
       </div>
     </div>
   )
+}
+
+export function CompanySetupModal(props: CompanySetupModalProps) {
+  if (!props.open) {
+    return null
+  }
+  return <CompanySetupModalOpen key={inviteFieldSeedKey(props)} {...props} />
 }

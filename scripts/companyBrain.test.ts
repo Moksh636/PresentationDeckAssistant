@@ -16,6 +16,7 @@ assert.equal(slugifyOrganizationName('  Acme & Co '), 'acme-co')
 
 const normalizedEmpty = normalizeCompanyBrainWorkspaceSlice({})
 assert.equal(normalizedEmpty.organizations.length, 0)
+assert.equal(normalizedEmpty.workerInvites.length, 0)
 assert.equal(normalizedEmpty.companyRoles.length, 0)
 assert.equal(normalizedEmpty.companyDepartments.length, 0)
 
