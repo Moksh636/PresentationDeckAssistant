@@ -1,3 +1,8 @@
+/**
+ * Future LLM integration: trust contract + response validation live in
+ * `promptTrustContract.ts` (Edge) and `src/data/promptGuardrails.ts` / `intelAiResponseValidation.ts` (app).
+ * Deno does not import `src/`; duplicate validators there if needed at call sites.
+ */
 export type SourceTraceType =
   | 'deck-input'
   | 'uploaded-file'
@@ -570,3 +575,5 @@ export function buildIntelReviewResponse(input: IntelReviewRequestInput): IntelR
     companyBrainSourcesUsed,
   }
 }
+
+export { PROMPT_TRUST_CONTRACT, type PromptTrustContract } from './promptTrustContract.ts'
