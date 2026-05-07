@@ -6428,6 +6428,91 @@ select:focus-visible {
   margin-bottom: 18px;
 }
 
+.owner-dashboard__hero--grid {
+  display: grid;
+  gap: 14px;
+}
+
+.owner-dashboard__status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.owner-dashboard__status-chips span {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-muted);
+}
+
+.owner-module-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.owner-module-card {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-soft);
+  display: grid;
+  gap: 8px;
+}
+
+.owner-module-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.owner-module-layout__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.owner-module-layout__content {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.owner-module-layout__sidebar {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.owner-module-layout__sidebar button {
+  text-align: left;
+  background: var(--panel-muted);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.owner-module-layout__sidebar button.is-active {
+  background: var(--accent-soft);
+  border-color: rgba(36, 87, 224, 0.3);
+  color: var(--accent-strong);
+}
+
+.owner-module-layout__main {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-soft);
+}
+
 .owner-dashboard__toc {
   display: flex;
   flex-wrap: wrap;
