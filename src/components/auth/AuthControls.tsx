@@ -7,6 +7,8 @@ import {
   type WorkspaceSnapshotClient,
 } from '../../data/workspaceCloudPersistence'
 import { supabase } from '../../data/supabaseClient'
+import { createDemoWorkspaceState } from '../../data/demoWorkspaceSeed'
+import { seedWorkspaceState } from '../../data/mockWorkspace'
 import { useToast } from '../feedback/toastContext'
 
 interface AuthControlsProps {
@@ -119,6 +121,16 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
     }
   }
 
+  const handleLoadDemoWorkspace = () => {
+    replaceWorkspace(createDemoWorkspaceState())
+    showToast('Loaded Northstar FieldOps demo workspace.', 'success')
+  }
+
+  const handleResetDemoWorkspace = () => {
+    replaceWorkspace(seedWorkspaceState())
+    showToast('Reset workspace to default local seed.', 'info')
+  }
+
   const label = !auth.isSupabaseConfigured
     ? 'Local'
     : auth.user
@@ -154,6 +166,8 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
           onSignOut={handleSignOut}
           onSaveToCloud={handleSaveToCloud}
           onLoadFromCloud={handleLoadFromCloud}
+          onLoadDemoWorkspace={handleLoadDemoWorkspace}
+          onResetDemoWorkspace={handleResetDemoWorkspace}
         />
       </div>
     </div>
@@ -165,6 +179,8 @@ interface AuthPanelContentProps {
   onSignOut: () => void
   onSaveToCloud: () => void
   onLoadFromCloud: () => void
+  onLoadDemoWorkspace: () => void
+  onResetDemoWorkspace: () => void
 }
 
 function AuthPanelContent({
@@ -172,6 +188,8 @@ function AuthPanelContent({
   onSignOut,
   onSaveToCloud,
   onLoadFromCloud,
+  onLoadDemoWorkspace,
+  onResetDemoWorkspace,
 }: AuthPanelContentProps) {
   const auth = useAuth()
 
@@ -186,6 +204,14 @@ function AuthPanelContent({
         <button type="button" className="ghost-button" disabled={isBusy} onClick={onSignOut}>
           Return to sign-in screen
         </button>
+        <div className="auth-card__actions auth-card__actions--demo">
+          <button type="button" className="secondary-button" disabled={isBusy} onClick={onLoadDemoWorkspace}>
+            Load demo workspace
+          </button>
+          <button type="button" className="ghost-button" disabled={isBusy} onClick={onResetDemoWorkspace}>
+            Reset demo workspace
+          </button>
+        </div>
       </section>
     )
   }
