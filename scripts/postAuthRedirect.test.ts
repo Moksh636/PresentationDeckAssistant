@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { createEmptyCompanyBrainWorkspaceSlice } from '../src/data/companyBrainNormalize.ts'
 import {
+  canAccessOwnerConsole,
   isOwnerOrAdmin,
   resolveDefaultAuthenticatedPath,
   resolvePostSignupPath,
 } from '../src/data/postAuthRedirect.ts'
+import { OWNER_USER_ID } from '../src/data/sourceIngestion.ts'
 import type { WorkspaceState } from '../src/types/models.ts'
 
 const skeleton = {
@@ -31,7 +33,7 @@ const ownerWorkspace = JSON.parse(
         {
           id: 'm1',
           organizationId: 'org-1',
-          userId: 'u1',
+          userId: OWNER_USER_ID,
           email: 'a@example.com',
           displayName: 'Alex',
           roleTitle: 'Owner',
@@ -56,10 +58,22 @@ const ownerWorkspace = JSON.parse(
   }),
 ) as WorkspaceState
 
-assert.equal(resolveDefaultAuthenticatedPath(ownerWorkspace, 'u1'), '/owner')
-assert.equal(isOwnerOrAdmin(ownerWorkspace, 'u1'), true)
+assert.equal(resolveDefaultAuthenticatedPath(ownerWorkspace, OWNER_USER_ID), '/owner')
+assert.equal(isOwnerOrAdmin(ownerWorkspace, OWNER_USER_ID), true)
 
 assert.equal(resolvePostSignupPath(skeleton, 'u1'), '/join-company')
-assert.equal(resolvePostSignupPath(ownerWorkspace, 'u1'), '/owner')
+assert.equal(resolvePostSignupPath(ownerWorkspace, OWNER_USER_ID), '/owner')
+assert.equal(
+  canAccessOwnerConsole(ownerWorkspace, { userId: null, isLocalDevBypass: true }),
+  true,
+)
+assert.equal(
+  canAccessOwnerConsole(ownerWorkspace, { userId: null, isLocalDevBypass: false }),
+  false,
+)
+assert.equal(
+  canAccessOwnerConsole(ownerWorkspace, { userId: OWNER_USER_ID, isLocalDevBypass: false }),
+  true,
+)
 
 console.log('postAuthRedirect tests passed')

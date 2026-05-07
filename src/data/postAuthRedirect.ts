@@ -1,5 +1,6 @@
 import type { WorkspaceState } from '../types/models'
 import { getMembershipForOrgUser } from './companyBrainMutations.ts'
+import { OWNER_USER_ID } from './sourceIngestion.ts'
 
 export function userHasAnyOrganizationMembership(workspace: WorkspaceState, userId: string): boolean {
   return workspace.companyBrain.organizationMemberships.some((m) => m.userId === userId)
@@ -42,4 +43,19 @@ export function isOwnerOrAdmin(workspace: WorkspaceState, userId: string): boole
   }
   const membership = getMembershipForOrgUser(workspace, orgId, userId)
   return membership?.accessRole === 'owner' || membership?.accessRole === 'admin'
+}
+
+export function canAccessOwnerConsole(
+  workspace: WorkspaceState,
+  auth: { userId: string | null; isLocalDevBypass: boolean },
+): boolean {
+  if (auth.userId && isOwnerOrAdmin(workspace, auth.userId)) {
+    return true
+  }
+
+  if (!auth.isLocalDevBypass) {
+    return false
+  }
+
+  return isOwnerOrAdmin(workspace, OWNER_USER_ID)
 }

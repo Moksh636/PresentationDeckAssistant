@@ -1,9 +1,12 @@
 import type {
+  ApprovedMessagingItem,
+  CaseStudyItem,
   CompanyKnowledgeItem,
   Deck,
   DeckSetup,
   DeckVersion,
   FileAsset,
+  ProductServiceItem,
   Slide,
   SlideBlock,
   SlideBlockLayout,
@@ -30,6 +33,9 @@ interface DeckGenerationRequest {
   companyKnowledgeItems?: CompanyKnowledgeItem[]
   /** Needed to resolve `fileAssetId` on knowledge rows that point at workspace library uploads. */
   workspaceFileAssets?: FileAsset[]
+  approvedMessaging?: ApprovedMessagingItem[]
+  caseStudies?: CaseStudyItem[]
+  productsServices?: ProductServiceItem[]
 }
 
 interface DeckGenerationResult {
@@ -452,6 +458,11 @@ function createGeneratedSlides(
   previousDeck?: Deck,
   brand?: DeckBrandGenerationContext,
   companyBrain?: { items: CompanyKnowledgeItem[]; workspaceFileAssets?: FileAsset[] },
+  companyLibraries?: {
+    approvedMessaging?: ApprovedMessagingItem[]
+    caseStudies?: CaseStudyItem[]
+    productsServices?: ProductServiceItem[]
+  },
 ) {
   const sections = resolveSections(deck, fileAssets)
   const assetIndexForBrain = mergeAssetsForKnowledgeTraceLookup(
@@ -504,6 +515,20 @@ function createGeneratedSlides(
     0.95,
   )
   const notesTrace = createDeckInputTrace('Notes and context', notes, 'deck-input', 0.88)
+  const approvedMessages = (companyLibraries?.approvedMessaging ?? []).filter(
+    (row) => row.approvalStatus === 'approved',
+  )
+  const approvedMessageTitles = approvedMessages.map((row) => row.title).filter(Boolean)
+  const approvedMessageContents = approvedMessages.map((row) => row.content).filter(Boolean)
+  const caseStudyBullets = (companyLibraries?.caseStudies ?? [])
+    .slice(0, 2)
+    .map((row) => `${row.customerName || row.title}: ${row.outcome || row.solution || row.challenge}`)
+  const productBullets = (companyLibraries?.productsServices ?? [])
+    .slice(0, 3)
+    .map((row) => `${row.name}: ${(row.keyBenefits?.[0] || row.description || '').trim()}`.trim())
+    .filter(Boolean)
+  const ctaMessaging = approvedMessages.find((row) => (row.category || '').toLowerCase().includes('cta'))?.content
+  const titleMessage = approvedMessageContents[0]
   let executiveBullets = getExecutiveSummaryBullets(deck.setup, fileAssets, sections)
   if (brainInfluence) {
     const extraBrainBullets = [
@@ -513,6 +538,9 @@ function createGeneratedSlides(
       ...brainInfluence.contextLines.slice(0, 2).map((line) => `Context (Company Brain): ${line}`),
     ]
     executiveBullets = [...executiveBullets, ...extraBrainBullets].slice(0, 12)
+  }
+  if (approvedMessageTitles.length > 0) {
+    executiveBullets = [...executiveBullets, `Approved messaging: ${approvedMessageTitles.slice(0, 3).join('; ')}`]
   }
   const brainCitationTraces = dedupeSourceTrace(
     (brainInfluence?.citedTraces ?? []).filter((trace) => citationEligibleKeys.has(traceApprovalKey(trace))),
@@ -577,7 +605,7 @@ function createGeneratedSlides(
     ),
     buildBlock(
       'body',
-      goal,
+      titleMessage ? `${goal} Messaging anchor: ${titleMessage}` : goal,
       { align: 'left', fontSize: 'md' },
       [goalTrace, audienceTrace],
       undefined,
@@ -783,6 +811,12 @@ function createGeneratedSlides(
             [
               `Anchor the slide to the goal: ${goal}`,
               `Keep the tone ${tone.toLowerCase()}.`,
+            ...(index === 0
+              ? caseStudyBullets.slice(0, 1).map((line) => `Proof signal from case studies: ${line}`)
+              : []),
+            ...(index === 1
+              ? productBullets.slice(0, 2).map((line) => `Solution signal from products/services: ${line}`)
+              : []),
               relatedAsset
                 ? `Pull supporting evidence from ${relatedAsset.name}.`
                 : 'Add the strongest supporting evidence available.',
@@ -931,7 +965,7 @@ function createGeneratedSlides(
           'bullet-list',
           [
             deck.setup.desiredCta
-              ? `Primary ask: ${deck.setup.desiredCta}`
+              ? `Primary ask: ${ctaMessaging ?? deck.setup.desiredCta}`
               : 'Confirm the primary recommendation and owner.',
             'Replace placeholders with validated evidence and visuals.',
             'Refine the story for the target audience before sharing.',
@@ -1022,6 +1056,9 @@ export async function runMockDeckGenerationPipeline({
   brand,
   companyKnowledgeItems,
   workspaceFileAssets,
+  approvedMessaging,
+  caseStudies,
+  productsServices,
 }: DeckGenerationRequest): Promise<DeckGenerationResult> {
   const generatedAt = new Date().toISOString()
   const generatedDeckId = createId('deck')
@@ -1047,6 +1084,11 @@ export async function runMockDeckGenerationPipeline({
     previousDeck,
     brand,
     companyBrainSlice,
+    {
+      approvedMessaging,
+      caseStudies,
+      productsServices,
+    },
   ).map((slide) => ({
     ...slide,
     deckId: generatedDeckId,
@@ -1079,13 +1121,23 @@ export function createSlidesFromDeck(
   deck: Deck,
   fileAssets: FileAsset[] = [],
   brand?: DeckBrandGenerationContext,
-  companyBrain?: { items?: CompanyKnowledgeItem[]; workspaceFileAssets?: FileAsset[] },
+  companyBrain?: {
+    items?: CompanyKnowledgeItem[]
+    workspaceFileAssets?: FileAsset[]
+    approvedMessaging?: ApprovedMessagingItem[]
+    caseStudies?: CaseStudyItem[]
+    productsServices?: ProductServiceItem[]
+  },
 ): Slide[] {
   const slice =
     companyBrain?.items && companyBrain.items.length > 0
       ? { items: companyBrain.items, workspaceFileAssets: companyBrain.workspaceFileAssets }
       : undefined
-  return createGeneratedSlides(deck, fileAssets, undefined, brand, slice)
+  return createGeneratedSlides(deck, fileAssets, undefined, brand, slice, {
+    approvedMessaging: companyBrain?.approvedMessaging,
+    caseStudies: companyBrain?.caseStudies,
+    productsServices: companyBrain?.productsServices,
+  })
 }
 
 export function createAlternateSlides(deck: Deck, currentSlides: Slide[]) {

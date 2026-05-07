@@ -936,6 +936,18 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     const selectedBrainItems = selectedBrainIds
       .map((id) => knowledgeById.get(id))
       .filter((item): item is CompanyKnowledgeItem => Boolean(item))
+    const activeOrganizationId = workspace.companyBrain.activeOrganizationId
+    const approvedMessaging = activeOrganizationId
+      ? workspace.companyBrain.approvedMessaging.filter(
+          (item) => item.organizationId === activeOrganizationId && item.approvalStatus === 'approved',
+        )
+      : []
+    const caseStudies = activeOrganizationId
+      ? workspace.companyBrain.caseStudies.filter((item) => item.organizationId === activeOrganizationId)
+      : []
+    const productsServices = activeOrganizationId
+      ? workspace.companyBrain.productsServices.filter((item) => item.organizationId === activeOrganizationId)
+      : []
     const result = await runMockDeckGenerationPipeline({
       sourceDeck,
       sourceFiles,
@@ -944,6 +956,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       companyKnowledgeItems:
         selectedBrainItems.length > 0 ? selectedBrainItems : undefined,
       workspaceFileAssets: workspace.fileAssets,
+      approvedMessaging,
+      caseStudies,
+      productsServices,
     })
 
     setWorkspace((current) => ({

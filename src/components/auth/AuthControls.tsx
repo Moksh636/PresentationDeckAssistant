@@ -7,7 +7,7 @@ import {
   type WorkspaceSnapshotClient,
 } from '../../data/workspaceCloudPersistence'
 import { supabase } from '../../data/supabaseClient'
-import { createDemoWorkspaceState } from '../../data/demoWorkspaceSeed'
+import { loadDemoWorkspaceLocally, resetDemoWorkspaceLocally } from '../../data/demoWorkspaceActions'
 import { seedWorkspaceState } from '../../data/mockWorkspace'
 import { useToast } from '../feedback/toastContext'
 
@@ -122,13 +122,15 @@ export function AuthControls({ variant = 'full' }: AuthControlsProps) {
   }
 
   const handleLoadDemoWorkspace = () => {
-    replaceWorkspace(createDemoWorkspaceState())
-    showToast('Loaded Northstar FieldOps demo workspace.', 'success')
+    loadDemoWorkspaceLocally({ replaceWorkspace, showToast })
   }
 
   const handleResetDemoWorkspace = () => {
-    replaceWorkspace(seedWorkspaceState())
-    showToast('Reset workspace to default local seed.', 'info')
+    resetDemoWorkspaceLocally({
+      replaceWorkspace,
+      showToast,
+      createResetWorkspace: seedWorkspaceState,
+    })
   }
 
   const label = !auth.isSupabaseConfigured

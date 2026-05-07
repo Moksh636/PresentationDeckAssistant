@@ -12,12 +12,16 @@ import { useAuth } from '../context/useAuth'
 import { useWorkspace } from '../context/useWorkspace'
 import { canManageCompanyBrain, getMembershipForOrgUser } from '../data/companyBrainMutations'
 import { suggestCompanyKnowledgeOrganization } from '../data/companyKnowledgeOrganization'
+import { loadDemoWorkspaceLocally, resetDemoWorkspaceLocally } from '../data/demoWorkspaceActions'
+import { seedWorkspaceState } from '../data/mockWorkspace'
 import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
+import { useToast } from '../components/feedback/toastContext'
 import { formatShortDate } from '../utils/formatters'
 
 export function OwnerDashboardPage() {
   const auth = useAuth()
   const workspaceApi = useWorkspace()
+  const { showToast } = useToast()
   const { workspace } = workspaceApi
   const profile = workspaceUserProfileFromAuth(auth.user ?? null, auth.isLocalDevBypass)
 
@@ -379,10 +383,39 @@ export function OwnerDashboardPage() {
       id: 'settings',
       title: 'Settings',
       body: (
-        <p>
-          Org metadata still lives in local workspace JSON for this MVP—pair with Supabase tables when you promote the
-          scaffold.
-        </p>
+        <>
+          <p>
+            Org metadata still lives in local workspace JSON for this MVP—pair with Supabase tables when you promote
+            the scaffold.
+          </p>
+          <p className="muted-copy">
+            Demo data replaces the current local workspace view. Save important work first.
+          </p>
+          <div className="owner-suggestion-list__actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                loadDemoWorkspaceLocally({ replaceWorkspace: workspaceApi.replaceWorkspace, showToast })
+              }}
+            >
+              Load demo workspace
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                resetDemoWorkspaceLocally({
+                  replaceWorkspace: workspaceApi.replaceWorkspace,
+                  showToast,
+                  createResetWorkspace: seedWorkspaceState,
+                })
+              }}
+            >
+              Reset demo workspace
+            </button>
+          </div>
+        </>
       ),
     },
   ]

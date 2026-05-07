@@ -162,4 +162,59 @@ function agendaBullets(slides: Slide[]) {
   )
 }
 
+{
+  const slides = createSlidesFromDeck(baseDeck('Sales proposal deck'), [], undefined, {
+    approvedMessaging: [
+      {
+        id: 'msg-1',
+        organizationId: 'org-1',
+        title: 'pilot clarity',
+        content: 'Lead with a low-risk pilot and measurable weekly scorecards.',
+        category: 'CTA',
+        tags: [],
+        approvalStatus: 'approved',
+        createdAt: '2026-05-06',
+        updatedAt: '2026-05-06',
+      },
+    ],
+    caseStudies: [
+      {
+        id: 'case-1',
+        organizationId: 'org-1',
+        title: 'MetroFlow gains',
+        customerName: 'MetroFlow',
+        industry: 'Home services',
+        challenge: 'Missed after-hours calls',
+        solution: 'AI intake and callback automation',
+        outcome: '31-point callback completion gain',
+        sourceKnowledgeItemIds: [],
+        createdAt: '2026-05-06',
+        updatedAt: '2026-05-06',
+      },
+    ],
+    productsServices: [
+      {
+        id: 'svc-1',
+        organizationId: 'org-1',
+        name: 'Dispatcher Dashboard',
+        description: 'Tracks callback queue health.',
+        targetBuyer: 'Ops leader',
+        keyBenefits: ['Faster triage'],
+        proofPoints: [],
+        commonObjections: [],
+        createdAt: '2026-05-06',
+        updatedAt: '2026-05-06',
+      },
+    ],
+  })
+  const flattened = JSON.stringify(slides.map((slide) => slide.blocks.map((block) => block.content)))
+  assert.ok(flattened.includes('Approved messaging:'), 'approved messaging should influence summary wording')
+  assert.ok(flattened.includes('Proof signal from case studies:'), 'case studies should influence proof bullets')
+  assert.ok(
+    flattened.includes('Solution signal from products/services:'),
+    'products/services should influence solution bullets',
+  )
+  assert.ok(flattened.includes('Primary ask: Lead with a low-risk pilot'), 'CTA messaging should influence ask wording')
+}
+
 console.info('deckGeneratorQuality OK')
