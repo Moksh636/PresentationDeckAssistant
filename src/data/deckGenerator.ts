@@ -22,6 +22,7 @@ import {
   buildCompanyKnowledgeDeckInfluence,
   mergeAssetsForKnowledgeTraceLookup,
 } from './companyBrainDeckPipeline.ts'
+import { runDeckDesignEngine } from './deckDesignEngine.ts'
 import { createDeckInputTrace } from './sourceIngestion.ts'
 import { normalizeSlideBlock } from './slideLayout.ts'
 import { filterAssetSourceTraces, resolveCitationReviewMode } from './sourceCitationReview.ts'
@@ -1079,7 +1080,14 @@ function createGeneratedSlides(
     )
   }
 
-  return slides
+  const designed = runDeckDesignEngine({
+    slides,
+    deckSetup: deck.setup,
+    brandKit: brand?.kit,
+    intel: deck.setup.intel,
+  })
+
+  return designed.slides
 }
 
 export async function runMockDeckGenerationPipeline({

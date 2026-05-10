@@ -191,6 +191,102 @@ export interface Slide {
   notes: string
   sourceTrace: SourceTrace[]
   blocks: SlideBlock[]
+  /** Optional design-engine metadata (theme role, layout intent, transitions). Editable blocks are unchanged. */
+  designIntent?: SlideDesignIntent
+}
+
+export type DeckThemeMood =
+  | 'executive'
+  | 'modern'
+  | 'technical'
+  | 'warm'
+  | 'bold'
+  | 'minimal'
+  | 'premium'
+  | 'operational'
+
+export type DeckThemeCardStyle = 'flat' | 'bordered' | 'soft-shadow' | 'glass'
+export type DeckThemeChartStyle = 'clean' | 'bold' | 'muted' | 'executive'
+export type DeckThemeVisualDensity = 'light' | 'balanced' | 'dense'
+
+export interface DeckThemeProfile {
+  id: string
+  name: string
+  description: string
+  mood: DeckThemeMood
+  primaryColor: string
+  secondaryColor: string
+  accentColor: string
+  backgroundColor: string
+  textColor: string
+  mutedTextColor: string
+  fontFamily: string
+  headingFontFamily?: string
+  borderRadius: number
+  cardStyle: DeckThemeCardStyle
+  chartStyle: DeckThemeChartStyle
+  visualDensity: DeckThemeVisualDensity
+}
+
+export interface DeckVisualDirection {
+  themeProfileId: string
+  reason: string
+  audienceFit: string
+  deckTypeFit: string
+  brandFit: string
+  confidence: number
+}
+
+export type SlideTransitionType =
+  | 'none'
+  | 'fade'
+  | 'push'
+  | 'reveal'
+  | 'zoom'
+  | 'section-break'
+
+export interface SlideTransition {
+  id: string
+  type: SlideTransitionType
+  durationMs: number
+  easing: string
+  reason?: string
+}
+
+export type SlideRole =
+  | 'title'
+  | 'agenda'
+  | 'problem'
+  | 'insight'
+  | 'solution'
+  | 'proof'
+  | 'case-study'
+  | 'proposal'
+  | 'risk'
+  | 'timeline'
+  | 'pricing'
+  | 'next-step'
+  | 'closing'
+  | 'section-divider'
+
+export type SlideVisualPriority =
+  | 'text'
+  | 'proof'
+  | 'metric'
+  | 'comparison'
+  | 'timeline'
+  | 'image'
+  | 'chart'
+  | 'quote'
+
+export interface SlideDesignIntent {
+  slideId: string
+  role: SlideRole
+  layoutIntent: string
+  visualPriority: SlideVisualPriority
+  transitionIn?: SlideTransition
+  transitionOut?: SlideTransition
+  speakerBridge?: string
 }
 
 export interface SourceTrace {

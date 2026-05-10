@@ -41,6 +41,33 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
+/**
+ * Build a short addendum for speaker notes that captures design-engine metadata.
+ * Safe no-op when `slide.designIntent` is absent so exports never break.
+ * (pptxgenjs at this version does not expose slide transitions on the public API,
+ * so we surface intent in notes for now.)
+ */
+function buildDesignNotesAddendum(slide: Slide): string {
+  const intent = slide.designIntent
+  if (!intent) {
+    return ''
+  }
+  const lines = [
+    `Design intent — role: ${intent.role}, layout: ${intent.layoutIntent}, visual: ${intent.visualPriority}`,
+  ]
+  if (intent.transitionIn) {
+    lines.push(
+      `Transition in: ${intent.transitionIn.type} (${intent.transitionIn.durationMs}ms${
+        intent.transitionIn.reason ? ` — ${intent.transitionIn.reason}` : ''
+      })`,
+    )
+  }
+  if (intent.transitionOut) {
+    lines.push(`Transition out: ${intent.transitionOut.type} (${intent.transitionOut.durationMs}ms)`)
+  }
+  return lines.join('\n')
+}
+
 function getSafeFileName(title: string) {
   const safeTitle = title
     .trim()
@@ -263,8 +290,11 @@ export async function exportDeckAsPptx({ deck, slides, exportBrand }: ExportDeck
           }),
         )
 
-      if (slide.notes.trim()) {
-        pptxSlide.addNotes(slide.notes)
+      const designNotes = buildDesignNotesAddendum(slide)
+      const combinedNotes = [slide.notes.trim(), designNotes].filter(Boolean).join('\n\n')
+
+      if (combinedNotes) {
+        pptxSlide.addNotes(combinedNotes)
       }
     })
 

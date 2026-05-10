@@ -171,7 +171,18 @@ export function PresentMode({
     >
       {shouldRenderSlide ? (
         <div className="present-mode__stage">
-          <div className="present-mode__slide" aria-label={`Slide ${index + 1}: ${slide.title}`}>
+          <div
+            key={slide.id}
+            className={`present-mode__slide present-mode__slide--transition-${
+              slide.designIntent?.transitionIn?.type ?? 'fade'
+            }`}
+            style={{
+              animationDuration: `${slide.designIntent?.transitionIn?.durationMs ?? 220}ms`,
+              animationTimingFunction:
+                slide.designIntent?.transitionIn?.easing ?? 'cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+            aria-label={`Slide ${index + 1}: ${slide.title}`}
+          >
             {slide.blocks
               .map((block, blockIndex) => ({
                 block,

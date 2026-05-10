@@ -4,6 +4,11 @@ import {
   resolveBrandKitForDeckSetup,
   svgBrandGlyphDataUrl,
 } from '../src/data/brandKitResolve.ts'
+import {
+  chooseThemeProfile,
+  getBuiltinThemeProfile,
+  resolveDeckTheme,
+} from '../src/data/deckDesignEngine.ts'
 import { createSlidesFromDeck } from '../src/data/deckGenerator.ts'
 import type { CompanyBrandKit, Deck, Organization } from '../src/types/models.ts'
 
@@ -92,4 +97,17 @@ assert.equal(chartBlock?.visualStyle?.fillColor, kit.primaryColor)
 
 const plainSlides = createSlidesFromDeck(minimalDeck(), [], undefined)
 const plainTitle = plainSlides[0]?.blocks.find((b) => b.type === 'title')
-assert.equal(plainTitle?.textStyle?.color, undefined)
+const plainDirection = chooseThemeProfile({ deckSetup: minimalDeck().setup })
+const plainTheme = resolveDeckTheme({ visualDirection: plainDirection })
+assert.equal(
+  plainTitle?.textStyle?.color,
+  plainTheme.primaryColor,
+  'plain deck title should pick up the built-in theme primary color when no brand kit is attached',
+)
+assert.ok(plainTitle?.textStyle?.fontFamily, 'plain deck title should have a fontFamily applied by the design engine')
+
+assert.equal(
+  getBuiltinThemeProfile('unknown-id').id,
+  'modern-azure',
+  'theme lookup should fall back to the default modern theme for unknown ids',
+)
