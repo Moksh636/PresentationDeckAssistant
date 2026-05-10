@@ -1,12 +1,13 @@
 import type { FileAsset, SourceCitationReviewMode } from '../../types/models'
-import { formatConfidence } from '../../utils/formatters'
 import {
+  computeCitationQAStats,
   isSnippetEnabled,
   isSourceApproved,
   isSourceExcluded,
   snippetLabel,
   snippetReviewKey,
 } from '../../data/sourceCitationReview'
+import { formatConfidence } from '../../utils/formatters'
 
 interface SourceCitationQAPanelProps {
   assets: FileAsset[]
@@ -17,33 +18,6 @@ interface SourceCitationQAPanelProps {
   onSetSnippetLabelOverride: (assetId: string, snippetKey: string, labelOverride: string) => void
 }
 
-function citationQAStats(assets: FileAsset[]) {
-  let approved = 0
-  let excluded = 0
-  let snippetsEnabled = 0
-
-  for (const asset of assets) {
-    if (isSourceApproved(asset)) {
-      approved++
-    }
-    if (isSourceExcluded(asset)) {
-      excluded++
-    }
-    for (const trace of asset.sourceTrace) {
-      if (isSnippetEnabled(asset, trace)) {
-        snippetsEnabled++
-      }
-    }
-  }
-
-  return {
-    files: assets.length,
-    approved,
-    excluded,
-    snippetsEnabled,
-  }
-}
-
 export function SourceCitationQAPanel({
   assets,
   citationReviewMode,
@@ -52,10 +26,10 @@ export function SourceCitationQAPanel({
   onSetSnippetEnabled,
   onSetSnippetLabelOverride,
 }: SourceCitationQAPanelProps) {
-  const stats = citationQAStats(assets)
+  const stats = computeCitationQAStats(assets)
 
   const modeToggle = (
-    <div className="scope-toggle" role="group" aria-label="Citation review mode">
+    <div className="scope-toggle source-citation-qa__mode-toggle" role="group" aria-label="Citation review mode">
       <button
         type="button"
         className={citationReviewMode === 'permissive' ? 'is-active' : ''}
@@ -68,14 +42,14 @@ export function SourceCitationQAPanel({
         className={citationReviewMode === 'strict-approved-only' ? 'is-active' : ''}
         onClick={() => onSetCitationReviewMode('strict-approved-only')}
       >
-        Strict approved-only
+        Strict
       </button>
     </div>
   )
 
   return (
-    <div className="panel-card source-citation-qa source-citation-qa--compact">
-      <div className="source-citation-qa__summary">
+    <div className="source-citation-qa source-citation-qa--compact">
+      <div className="source-citation-qa__toolbar">
         <div className="source-citation-qa__metrics" aria-live="polite">
           <span className="source-citation-qa__metric">
             Files <strong>{stats.files}</strong>
@@ -87,21 +61,13 @@ export function SourceCitationQAPanel({
             Excluded <strong>{stats.excluded}</strong>
           </span>
           <span className="source-citation-qa__metric">
-            Snippets on <strong>{stats.snippetsEnabled}</strong>
-          </span>
-          <span className="source-citation-qa__metric source-citation-qa__metric--wide">
-            Mode{' '}
-            <strong>
-              {citationReviewMode === 'strict-approved-only'
-                ? 'Strict approved-only'
-                : 'Permissive'}
-            </strong>
+            Snippets <strong>{stats.snippetsEnabled}</strong>
           </span>
         </div>
         {modeToggle}
       </div>
       <p className="muted-copy source-citation-qa__hint">
-        Review warnings and snippets before Intel Review. Strict mode only uses approved sources.
+        Strict mode uses approved sources only for citations.
       </p>
       {assets.length === 0 ? (
         <p className="muted-copy">No sources uploaded yet.</p>
@@ -179,7 +145,7 @@ export function SourceCitationQAPanel({
                         <ul className="intel-citation-list source-qa-snippet-root">
                           {asset.sourceTrace.map((trace) => {
                             const key = snippetReviewKey(trace)
-                            const enabled = asset.sourceReview?.snippetReviews?.[key]?.enabled !== false
+                            const enabled = isSnippetEnabled(asset, trace)
                             return (
                               <li key={`${asset.id}-${key}`}>
                                 <details className="source-qa-snippet-item">

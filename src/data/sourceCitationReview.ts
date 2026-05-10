@@ -62,3 +62,31 @@ export function filterAssetsForCitationUse(
 ): FileAsset[] {
   return assets.filter((asset) => isSourceIncludedForCitations(asset, mode))
 }
+
+/** Aggregate QA counts for builder UI (matches Source QA panel metrics). */
+export function computeCitationQAStats(assets: FileAsset[]) {
+  let approved = 0
+  let excluded = 0
+  let snippetsEnabled = 0
+
+  for (const asset of assets) {
+    if (isSourceApproved(asset)) {
+      approved++
+    }
+    if (isSourceExcluded(asset)) {
+      excluded++
+    }
+    for (const trace of asset.sourceTrace) {
+      if (isSnippetEnabled(asset, trace)) {
+        snippetsEnabled++
+      }
+    }
+  }
+
+  return {
+    files: assets.length,
+    approved,
+    excluded,
+    snippetsEnabled,
+  }
+}

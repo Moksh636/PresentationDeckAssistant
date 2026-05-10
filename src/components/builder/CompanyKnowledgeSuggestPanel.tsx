@@ -391,14 +391,14 @@ function SuggestedKnowledgeRow({
               <div className="company-knowledge-tags">{item.tags.map((t) => `#${t}`).join(' ')}</div>
             ) : null}
           </details>
-          <div className="company-knowledge-why">
-            <span className="company-knowledge-why-label">Why suggested</span>
-            <ul>
+          <details className="company-knowledge-why-fold">
+            <summary className="company-knowledge-why-fold__summary">Why suggested</summary>
+            <ul className="company-knowledge-why-fold__list">
               {bullets.map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>
-          </div>
+          </details>
           <details className="company-knowledge-preview">
             <summary>Preview metadata</summary>
             <dl className="company-knowledge-preview-dl">

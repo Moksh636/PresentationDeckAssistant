@@ -20,7 +20,7 @@ export function SourceMaterialsSummary({
     return (
       <div className="source-materials-compact">
         <div className="source-materials-compact__head">
-          <span className="field-label">Parse status</span>
+          <span className="field-label">Ingestion</span>
           <button
             type="button"
             className="secondary-button secondary-button--sm"
@@ -30,7 +30,6 @@ export function SourceMaterialsSummary({
             Auto-fill from sources
           </button>
         </div>
-        <p className="muted-copy source-materials-compact__lede">{summary.summaryText}</p>
         {assets.length > 0 ? (
           <>
             <div className="source-materials-compact__stats">
@@ -38,14 +37,15 @@ export function SourceMaterialsSummary({
                 Parsed <strong>{summary.parsedFiles}</strong>
               </span>
               <span>
-                Owner flags <strong>{summary.highlightedFiles}</strong>
+                Flags <strong>{summary.highlightedFiles}</strong>
               </span>
               <span>
                 Sections <strong>{summary.suggestedSections.length}</strong>
               </span>
             </div>
             <details className="source-materials-compact__details">
-              <summary>Signals &amp; trace preview</summary>
+              <summary>Summary text &amp; signal preview</summary>
+              <p className="muted-copy source-materials-compact__lede">{summary.summaryText}</p>
               <div className="source-materials-compact__signals">
                 <div className="context-note">
                   <span className="field-label">Suggested buyer persona / role</span>

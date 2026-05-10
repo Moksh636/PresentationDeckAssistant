@@ -148,33 +148,40 @@ export function IntelReviewPanel({
   ])
 
   return (
-    <div className="panel-card intel-review-card">
-      <div className="intel-review-panel__intro">
-        <p className="muted-copy intel-review-lede">
-          Review this account intel before generating the pitch deck. Uploaded files with trace metadata can
-          surface as citations; Company Brain memory-only rows stay honest (no fabricated file traces).
-        </p>
-        <p className="muted-copy intel-review-mode-line">
-          <strong>{aiBackendEnabled ? 'Backend AI enabled' : 'Local generator'}</strong>
-          {' · '}
-          Intel runs {aiBackendEnabled ? 'through the configured edge backend when available.' : 'offline with bundled heuristics.'}
-        </p>
-
+    <div className="intel-review-card intel-review-card--compact">
+      <div className="intel-review-panel__intro intel-review-panel__intro--compact">
         <div className="intel-review-toolbar">
           <button type="button" className="primary-button" onClick={handleGenerateDraft}>
             Generate Intel Review
           </button>
-          <button type="button" className="ghost-button" onClick={handleRefreshCitations}>
-            Refresh citations from uploads
+          <button type="button" className="ghost-button ghost-button--sm" onClick={handleRefreshCitations}>
+            Refresh citations
           </button>
         </div>
+        <p className="muted-copy intel-review-mode-line intel-review-mode-line--compact">
+          <strong>{aiBackendEnabled ? 'Backend AI on' : 'Local generator'}</strong>
+          {' · '}
+          Citations respect upload traces; memory-only Brain rows stay non-file-backed.
+        </p>
+        <details className="intel-review-about-fold">
+          <summary>How Intel Review uses sources</summary>
+          <p className="muted-copy intel-review-lede">
+            Review this account intel before generating the pitch deck. Uploaded files with trace metadata can surface as
+            citations; Company Brain memory-only rows stay honest (no fabricated file traces).
+          </p>
+          <p className="muted-copy intel-review-mode-line">
+            Intel runs{' '}
+            {aiBackendEnabled ? 'through the configured edge backend when available.' : 'offline with bundled heuristics.'}
+          </p>
+        </details>
       </div>
 
       <div className="form-grid intel-review-grid">
           <label className="field-group field-group--wide">
             <span className="field-label">Company summary</span>
             <textarea
-              rows={4}
+              rows={3}
+              className="intel-review-textarea"
               value={intel.companySummary ?? ''}
               placeholder="Account context, trigger event, and why now."
               onChange={(event) => patchIntel({ companySummary: event.target.value })}
@@ -184,7 +191,8 @@ export function IntelReviewPanel({
           <label className="field-group field-group--wide">
             <span className="field-label">Inferred priorities</span>
             <textarea
-              rows={4}
+              rows={3}
+              className="intel-review-textarea"
               value={linesFromArray(intel.inferredPriorities)}
               placeholder={'One priority per line\ne.g. reduce cycle time'}
               onChange={(event) => patchIntel({ inferredPriorities: arrayFromLines(event.target.value) })}
@@ -194,7 +202,8 @@ export function IntelReviewPanel({
           <label className="field-group field-group--wide">
             <span className="field-label">Pain points</span>
             <textarea
-              rows={4}
+              rows={3}
+              className="intel-review-textarea"
               value={linesFromArray(intel.painPoints)}
               placeholder="One pain point per line"
               onChange={(event) => patchIntel({ painPoints: arrayFromLines(event.target.value) })}
@@ -204,7 +213,8 @@ export function IntelReviewPanel({
           <label className="field-group field-group--wide">
             <span className="field-label">Proof points</span>
             <textarea
-              rows={4}
+              rows={3}
+              className="intel-review-textarea"
               value={linesFromArray(intel.proofPoints)}
               placeholder="One proof point or metric per line"
               onChange={(event) => patchIntel({ proofPoints: arrayFromLines(event.target.value) })}
@@ -214,7 +224,8 @@ export function IntelReviewPanel({
           <label className="field-group field-group--wide">
             <span className="field-label">Likely objections</span>
             <textarea
-              rows={3}
+              rows={2}
+              className="intel-review-textarea"
               value={linesFromArray(intel.objections)}
               placeholder="One objection per line"
               onChange={(event) => patchIntel({ objections: arrayFromLines(event.target.value) })}
@@ -224,19 +235,25 @@ export function IntelReviewPanel({
           <label className="field-group field-group--wide">
             <span className="field-label">Recommended pitch angle</span>
             <textarea
-              rows={3}
+              rows={2}
+              className="intel-review-textarea"
               value={intel.recommendedPitchAngle ?? ''}
               placeholder="How you want to open and frame the story."
               onChange={(event) => patchIntel({ recommendedPitchAngle: event.target.value })}
             />
           </label>
 
-          <div className="field-group field-group--wide">
-            <span className="field-label">Company Brain sources used</span>
+          <details className="intel-review-brain-fold">
+            <summary className="intel-review-brain-fold__summary">
+              Company Brain sources used
+              {hasBrainSelection && companyKnowledgeItems?.length ? (
+                <span className="muted-copy intel-review-brain-fold__hint"> · {companyKnowledgeItems.length} selected</span>
+              ) : null}
+            </summary>
             {!hasBrainSelection ? (
               <p className="muted-copy">
-                No Company Brain items selected for this pitch. Choose suggestions under Company knowledge
-                above, or pull collateral from <Link to="/company">Company Brain</Link>.
+                No Company Brain items selected for this pitch. Choose suggestions under Company knowledge above, or pull
+                collateral from <Link to="/company">Company Brain</Link>.
               </p>
             ) : !companyKnowledgeItems?.length ? (
               <p className="muted-copy">
@@ -301,14 +318,19 @@ export function IntelReviewPanel({
                 })}
               </div>
             )}
-          </div>
+          </details>
 
-          <div className="field-group field-group--wide">
-            <span className="field-label">Company Brain context used</span>
+          <details className="intel-review-brain-fold">
+            <summary className="intel-review-brain-fold__summary">
+              Company Brain context used (Brain Map)
+              {brainMapContextRows.length > 0 ? (
+                <span className="muted-copy intel-review-brain-fold__hint"> · {brainMapContextRows.length} links</span>
+              ) : null}
+            </summary>
             {!hasBrainSelection ? (
               <p className="muted-copy">
-                Select Company Brain knowledge for this pitch to surface linked Brain Map processes, policies, and
-                skill files.
+                Select Company Brain knowledge for this pitch to surface linked Brain Map processes, policies, and skill
+                files.
               </p>
             ) : !brainMapContextRows.length ? (
               <p className="muted-copy">
@@ -340,9 +362,9 @@ export function IntelReviewPanel({
                 ))}
               </ul>
             )}
-          </div>
+          </details>
 
-          <div className="field-group field-group--wide">
+          <div className="field-group field-group--wide intel-review-citations-field">
             <span className="field-label">Citations / supporting sources</span>
             {intel.citations && intel.citations.length > 0 ? (
               <details className="intel-review-citations-fold">
