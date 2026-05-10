@@ -148,27 +148,29 @@ export function IntelReviewPanel({
   ])
 
   return (
-    <section className="panel-card intel-review-card">
-      <details className="builder-details intel-review-details" open>
-        <summary>Intel Review</summary>
+    <div className="panel-card intel-review-card">
+      <div className="intel-review-panel__intro">
         <p className="muted-copy intel-review-lede">
           Review this account intel before generating the pitch deck. Uploaded files with trace metadata can
           surface as citations; Company Brain memory-only rows stay honest (no fabricated file traces).
         </p>
-        <p className="muted-copy">
-          Mode: {aiBackendEnabled ? 'Edge backend enabled.' : 'Running in local mode.'}
+        <p className="muted-copy intel-review-mode-line">
+          <strong>{aiBackendEnabled ? 'Backend AI enabled' : 'Local generator'}</strong>
+          {' · '}
+          Intel runs {aiBackendEnabled ? 'through the configured edge backend when available.' : 'offline with bundled heuristics.'}
         </p>
 
         <div className="intel-review-toolbar">
-          <button type="button" className="secondary-button" onClick={handleGenerateDraft}>
-            Generate intel draft from sources
+          <button type="button" className="primary-button" onClick={handleGenerateDraft}>
+            Generate Intel Review
           </button>
           <button type="button" className="ghost-button" onClick={handleRefreshCitations}>
             Refresh citations from uploads
           </button>
         </div>
+      </div>
 
-        <div className="form-grid intel-review-grid">
+      <div className="form-grid intel-review-grid">
           <label className="field-group field-group--wide">
             <span className="field-label">Company summary</span>
             <textarea
@@ -343,25 +345,32 @@ export function IntelReviewPanel({
           <div className="field-group field-group--wide">
             <span className="field-label">Citations / supporting sources</span>
             {intel.citations && intel.citations.length > 0 ? (
-              <ul className="intel-citation-list">
-                {intel.citations.map((citation, index) => (
-                  <li key={`${citation.fileId}-${index}-${citation.extractedSnippet.slice(0, 24)}`}>
-                    <strong>{citation.fileName}</strong>
-                    <span className="intel-citation-meta">{citation.sourceType}</span>
-                    <p>{citation.extractedSnippet}</p>
-                  </li>
-                ))}
-              </ul>
+              <details className="intel-review-citations-fold">
+                <summary>
+                  {intel.citations.length} citation{intel.citations.length === 1 ? '' : 's'} · expand to review
+                </summary>
+                <ul className="intel-citation-list intel-citation-list--compact">
+                  {intel.citations.map((citation, index) => (
+                    <li key={`${citation.fileId}-${index}-${citation.extractedSnippet.slice(0, 24)}`}>
+                      <details className="intel-citation-entry">
+                        <summary className="intel-citation-entry__summary">
+                          <strong>{citation.fileName}</strong>
+                          <span className="intel-citation-meta">{citation.sourceType}</span>
+                        </summary>
+                        <p>{citation.extractedSnippet}</p>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             ) : (
               <p className="muted-copy">
-                No citations yet. Upload sources with traces, use &quot;Generate intel draft from
-                sources&quot;, or &quot;Refresh citations from uploads&quot; when files include source
-                metadata.
+                No citations yet. Upload sources with traces, use &quot;Generate Intel Review&quot;, or
+                &quot;Refresh citations from uploads&quot; when files include source metadata.
               </p>
             )}
           </div>
-        </div>
-      </details>
-    </section>
+      </div>
+    </div>
   )
 }

@@ -1,6 +1,7 @@
 import type { FileAsset, SourceCitationReviewMode } from '../../types/models'
 import { formatConfidence } from '../../utils/formatters'
 import {
+  isSnippetEnabled,
   isSourceApproved,
   isSourceExcluded,
   snippetLabel,
@@ -16,6 +17,33 @@ interface SourceCitationQAPanelProps {
   onSetSnippetLabelOverride: (assetId: string, snippetKey: string, labelOverride: string) => void
 }
 
+function citationQAStats(assets: FileAsset[]) {
+  let approved = 0
+  let excluded = 0
+  let snippetsEnabled = 0
+
+  for (const asset of assets) {
+    if (isSourceApproved(asset)) {
+      approved++
+    }
+    if (isSourceExcluded(asset)) {
+      excluded++
+    }
+    for (const trace of asset.sourceTrace) {
+      if (isSnippetEnabled(asset, trace)) {
+        snippetsEnabled++
+      }
+    }
+  }
+
+  return {
+    files: assets.length,
+    approved,
+    excluded,
+    snippetsEnabled,
+  }
+}
+
 export function SourceCitationQAPanel({
   assets,
   citationReviewMode,
@@ -24,133 +52,178 @@ export function SourceCitationQAPanel({
   onSetSnippetEnabled,
   onSetSnippetLabelOverride,
 }: SourceCitationQAPanelProps) {
+  const stats = citationQAStats(assets)
+
+  const modeToggle = (
+    <div className="scope-toggle" role="group" aria-label="Citation review mode">
+      <button
+        type="button"
+        className={citationReviewMode === 'permissive' ? 'is-active' : ''}
+        onClick={() => onSetCitationReviewMode('permissive')}
+      >
+        Permissive
+      </button>
+      <button
+        type="button"
+        className={citationReviewMode === 'strict-approved-only' ? 'is-active' : ''}
+        onClick={() => onSetCitationReviewMode('strict-approved-only')}
+      >
+        Strict approved-only
+      </button>
+    </div>
+  )
+
   return (
-    <section className="panel-card">
-      <div className="section-heading">
-        <div>
-          <span className="section-label">Source citation QA</span>
-          <h3>Snippet and trace review</h3>
-          <p className="muted-copy">
-            Review parse warnings and citations before Intel Review/deck generation. Default mode is
-            permissive: all traces are used unless excluded or disabled. These decisions control which
-            sources can appear in Intel Review, deck citations, and Intel Briefs.
-          </p>
-          <div className="scope-toggle" role="group" aria-label="Citation review mode">
-            <button
-              type="button"
-              className={citationReviewMode === 'permissive' ? 'is-active' : ''}
-              onClick={() => onSetCitationReviewMode('permissive')}
-            >
-              Permissive
-            </button>
-            <button
-              type="button"
-              className={citationReviewMode === 'strict-approved-only' ? 'is-active' : ''}
-              onClick={() => onSetCitationReviewMode('strict-approved-only')}
-            >
-              Strict approved-only
-            </button>
-          </div>
-          <p className="muted-copy">
-            Active citation mode:{' '}
+    <div className="panel-card source-citation-qa source-citation-qa--compact">
+      <div className="source-citation-qa__summary">
+        <div className="source-citation-qa__metrics" aria-live="polite">
+          <span className="source-citation-qa__metric">
+            Files <strong>{stats.files}</strong>
+          </span>
+          <span className="source-citation-qa__metric">
+            Approved <strong>{stats.approved}</strong>
+          </span>
+          <span className="source-citation-qa__metric">
+            Excluded <strong>{stats.excluded}</strong>
+          </span>
+          <span className="source-citation-qa__metric">
+            Snippets on <strong>{stats.snippetsEnabled}</strong>
+          </span>
+          <span className="source-citation-qa__metric source-citation-qa__metric--wide">
+            Mode{' '}
             <strong>
               {citationReviewMode === 'strict-approved-only'
                 ? 'Strict approved-only'
                 : 'Permissive'}
             </strong>
-            . Strict mode only uses sources you approved.
-          </p>
+          </span>
         </div>
+        {modeToggle}
       </div>
-      {assets.length === 0 ? <p className="muted-copy">No sources uploaded yet.</p> : null}
-      <div className="asset-list">
-        {assets.map((asset) => (
-          <article key={asset.id} className="asset-card asset-card--detailed">
-            <div className="asset-card__header">
-              <div className="asset-card__title">
-                <strong>{asset.name}</strong>
-                <p>{asset.summary}</p>
-              </div>
-              <div className="asset-card__status-stack">
-                <span>{asset.status}</span>
-                <span>{asset.sizeLabel}</span>
-              </div>
-            </div>
+      <p className="muted-copy source-citation-qa__hint">
+        Review warnings and snippets before Intel Review. Strict mode only uses approved sources.
+      </p>
+      {assets.length === 0 ? (
+        <p className="muted-copy">No sources uploaded yet.</p>
+      ) : (
+        <div className="source-qa-asset-list source-qa-asset-list--compact">
+          {assets.map((asset) => (
+            <details key={asset.id} className="source-qa-file">
+              <summary className="source-qa-file__summary">
+                <span className="source-qa-file__name">{asset.name}</span>
+                <span className="source-qa-file__meta">{asset.status}</span>
+                <span className="source-qa-file__meta">{asset.sizeLabel}</span>
+                {asset.summary ? <span className="source-qa-file__dim">{asset.summary}</span> : null}
+              </summary>
+              <div className="source-qa-file__body">
+                <div className="asset-card__chip-row">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => onSetSourceStatus(asset.id, 'approved')}
+                  >
+                    {isSourceApproved(asset) ? 'Approved' : 'Mark approved'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => onSetSourceStatus(asset.id, 'excluded')}
+                  >
+                    {isSourceExcluded(asset) ? 'Excluded' : 'Exclude source'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => onSetSourceStatus(asset.id, 'pending')}
+                  >
+                    Clear status
+                  </button>
+                </div>
 
-            <div className="asset-card__chip-row">
-              <button type="button" className="secondary-button" onClick={() => onSetSourceStatus(asset.id, 'approved')}>
-                {isSourceApproved(asset) ? 'Approved' : 'Mark approved'}
-              </button>
-              <button type="button" className="ghost-button" onClick={() => onSetSourceStatus(asset.id, 'excluded')}>
-                {isSourceExcluded(asset) ? 'Excluded' : 'Exclude source'}
-              </button>
-              <button type="button" className="ghost-button" onClick={() => onSetSourceStatus(asset.id, 'pending')}>
-                Clear status
-              </button>
-            </div>
+                <div className="asset-card__details">
+                  <details className="source-qa-subdetail">
+                    <summary>Extracted preview</summary>
+                    <div className="asset-card__detail-block asset-card__detail-block--wide">
+                      <p>{asset.extractedTextPreview || 'No extracted preview available.'}</p>
+                    </div>
+                  </details>
 
-            <div className="asset-card__details">
-              <div className="asset-card__detail-block asset-card__detail-block--wide">
-                <span className="field-label">Extracted preview</span>
-                <p>{asset.extractedTextPreview || 'No extracted preview available.'}</p>
+                  <details className="source-qa-subdetail">
+                    <summary>
+                      Parse warnings
+                      {asset.parseWarnings && asset.parseWarnings.length > 0
+                        ? ` (${asset.parseWarnings.length})`
+                        : ''}
+                    </summary>
+                    <div className="asset-card__detail-block asset-card__detail-block--wide">
+                      {asset.parseWarnings && asset.parseWarnings.length > 0 ? (
+                        <ul className="intel-citation-list">
+                          {asset.parseWarnings.map((warning, index) => (
+                            <li key={`${asset.id}-warning-${index}`}>
+                              <p>{warning}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>None</p>
+                      )}
+                    </div>
+                  </details>
+
+                  <details className="source-qa-subdetail">
+                    <summary>Source traces / snippets ({asset.sourceTrace.length})</summary>
+                    <div className="asset-card__detail-block asset-card__detail-block--wide">
+                      {asset.sourceTrace.length === 0 ? (
+                        <p>No snippets extracted from this source.</p>
+                      ) : (
+                        <ul className="intel-citation-list source-qa-snippet-root">
+                          {asset.sourceTrace.map((trace) => {
+                            const key = snippetReviewKey(trace)
+                            const enabled = asset.sourceReview?.snippetReviews?.[key]?.enabled !== false
+                            return (
+                              <li key={`${asset.id}-${key}`}>
+                                <details className="source-qa-snippet-item">
+                                  <summary className="source-qa-snippet-item__summary">
+                                    <span>{snippetLabel(asset, trace)}</span>
+                                    <span className="intel-citation-meta">{formatConfidence(trace.confidence)}</span>
+                                  </summary>
+                                  <div className="source-qa-snippet-item__body">
+                                    <div className="intel-knowledge-row-heading">
+                                      <label>
+                                        <input
+                                          type="checkbox"
+                                          checked={enabled}
+                                          onChange={(event) =>
+                                            onSetSnippetEnabled(asset.id, key, event.target.checked)
+                                          }
+                                        />{' '}
+                                        Enable
+                                      </label>
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={snippetLabel(asset, trace)}
+                                      onChange={(event) =>
+                                        onSetSnippetLabelOverride(asset.id, key, event.target.value)
+                                      }
+                                      placeholder={trace.fileName}
+                                    />
+                                    <p>{trace.extractedSnippet}</p>
+                                  </div>
+                                </details>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </details>
+                </div>
               </div>
-              <div className="asset-card__detail-block asset-card__detail-block--wide">
-                <span className="field-label">Parse warnings</span>
-                {asset.parseWarnings && asset.parseWarnings.length > 0 ? (
-                  <ul className="intel-citation-list">
-                    {asset.parseWarnings.map((warning, index) => (
-                      <li key={`${asset.id}-warning-${index}`}>
-                        <p>{warning}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>None</p>
-                )}
-              </div>
-              <div className="asset-card__detail-block asset-card__detail-block--wide">
-                <span className="field-label">Source traces/snippets</span>
-                {asset.sourceTrace.length === 0 ? (
-                  <p>No snippets extracted from this source.</p>
-                ) : (
-                  <ul className="intel-citation-list">
-                    {asset.sourceTrace.map((trace) => {
-                      const key = snippetReviewKey(trace)
-                      const enabled = asset.sourceReview?.snippetReviews?.[key]?.enabled !== false
-                      return (
-                        <li key={`${asset.id}-${key}`}>
-                          <div className="intel-knowledge-row-heading">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={enabled}
-                                onChange={(event) =>
-                                  onSetSnippetEnabled(asset.id, key, event.target.checked)
-                                }
-                              />{' '}
-                              Enable
-                            </label>
-                            <span className="intel-citation-meta">{formatConfidence(trace.confidence)}</span>
-                          </div>
-                          <input
-                            type="text"
-                            value={snippetLabel(asset, trace)}
-                            onChange={(event) =>
-                              onSetSnippetLabelOverride(asset.id, key, event.target.value)
-                            }
-                            placeholder={trace.fileName}
-                          />
-                          <p>{trace.extractedSnippet}</p>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
+            </details>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

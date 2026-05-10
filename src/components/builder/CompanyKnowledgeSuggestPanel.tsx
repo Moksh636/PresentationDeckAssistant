@@ -23,6 +23,8 @@ interface CompanyKnowledgeSuggestPanelProps {
   membership: MembershipBrief
   workspaceFileAssets: FileAsset[]
   updateDeckSetup: (deckId: string, updates: Partial<DeckSetup>) => void
+  /** Hide the large intro heading when the page provides its own section title */
+  introVariant?: 'default' | 'minimal'
 }
 
 const SALES_READY_TYPES = new Set(['deck', 'proposal', 'case-study', 'notes'])
@@ -114,6 +116,7 @@ export function CompanyKnowledgeSuggestPanel({
   membership,
   workspaceFileAssets,
   updateDeckSetup,
+  introVariant = 'default',
 }: CompanyKnowledgeSuggestPanelProps) {
   const selectedIds = new Set(setup.selectedCompanyKnowledgeItemIds ?? [])
   const assetLookupForBrain = mergeAssetsForKnowledgeTraceLookup([], workspaceFileAssets)
@@ -201,39 +204,66 @@ export function CompanyKnowledgeSuggestPanel({
   }
 
   return (
-    <section className="panel-card company-knowledge-suggest-panel">
-      <div className="section-heading">
-        <div>
-          <span className="section-label">Company Brain</span>
-          <h3>Company knowledge suggested for this pitch</h3>
-          <p className="muted-copy">
-            Ranked from visibility, approval, your role and department, tag overlap with brief tokens, source
-            type vs deck setup — heuristic only (no embeddings).
-          </p>
+    <div className="panel-card company-knowledge-suggest-panel">
+      {introVariant === 'default' ? (
+        <div className="section-heading">
+          <div>
+            <span className="section-label">Company Brain</span>
+            <h3>Company knowledge suggested for this pitch</h3>
+            <p className="muted-copy">
+              Ranked from visibility, approval, your role and department, tag overlap with brief tokens, source
+              type vs deck setup — heuristic only (no embeddings).
+            </p>
+          </div>
+          <div className="company-knowledge-suggest-actions">
+            <span className="company-knowledge-selected-count pill-muted" aria-live="polite">
+              Selected for this deck: {selectedIds.size}
+            </span>
+            <button type="button" className="secondary-button secondary-button--sm" onClick={selectAllHighRelevanceFiltered}>
+              Select all high relevance
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={selectedIds.size === 0}
+              onClick={clearSelectedKnowledge}
+            >
+              Clear selected
+            </button>
+            <button type="button" className="ghost-button" onClick={applyTopSuggestions}>
+              Select top 5 from filter
+            </button>
+            <Link to="/company" className="secondary-button secondary-button--sm">
+              Open Company Brain
+            </Link>
+          </div>
         </div>
-        <div className="company-knowledge-suggest-actions">
-          <span className="company-knowledge-selected-count pill-muted" aria-live="polite">
-            Selected for this deck: {selectedIds.size}
+      ) : (
+        <div className="company-knowledge-suggest-toolbar">
+          <span className="company-knowledge-selected-count company-knowledge-selected-count--prominent" aria-live="polite">
+            Selected · <strong>{selectedIds.size}</strong>
           </span>
-          <button type="button" className="secondary-button secondary-button--sm" onClick={selectAllHighRelevanceFiltered}>
-            Select all high relevance
-          </button>
-          <button
-            type="button"
-            className="ghost-button"
-            disabled={selectedIds.size === 0}
-            onClick={clearSelectedKnowledge}
-          >
-            Clear selected
-          </button>
-          <button type="button" className="ghost-button" onClick={applyTopSuggestions}>
-            Select top 5 from filter
-          </button>
-          <Link to="/company" className="secondary-button secondary-button--sm">
-            Open Company Brain
-          </Link>
+          <div className="company-knowledge-suggest-actions company-knowledge-suggest-actions--compact">
+            <button type="button" className="secondary-button secondary-button--sm" onClick={selectAllHighRelevanceFiltered}>
+              High relevance
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={selectedIds.size === 0}
+              onClick={clearSelectedKnowledge}
+            >
+              Clear
+            </button>
+            <button type="button" className="ghost-button" onClick={applyTopSuggestions}>
+              Top 5
+            </button>
+            <Link to="/company" className="secondary-button secondary-button--sm">
+              Company Brain
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="company-knowledge-filter-bar" aria-label="Suggestion filters">
         <label className="company-knowledge-filter-chip">
@@ -309,7 +339,7 @@ export function CompanyKnowledgeSuggestPanel({
           ))}
         </ul>
       )}
-    </section>
+    </div>
   )
 }
 
@@ -344,20 +374,23 @@ function SuggestedKnowledgeRow({
               {bandLabel(band)} · score {Math.round(score)}
             </span>
           </div>
-          <div className="company-knowledge-meta-chips" aria-label="Knowledge metadata">
-            <span className="company-knowledge-meta-chip">{item.sourceType}</span>
-            <span className="company-knowledge-meta-chip">{item.approvalStatus}</span>
-            <span className="company-knowledge-meta-chip">{formatCompanyKnowledgeVisibilityBrief(item)}</span>
-            <span
-              className={`company-knowledge-meta-chip company-knowledge-meta-chip--${hasFileTrace ? 'trace' : 'memory'}`}
-            >
-              {hasFileTrace ? 'Linked file · trace available' : 'Company-memory only'}
-            </span>
-          </div>
-          <div className="muted-copy">{item.description || item.sourceType}</div>
-          {item.tags?.length ? (
-            <div className="company-knowledge-tags">{item.tags.map((t) => `#${t}`).join(' ')}</div>
-          ) : null}
+          <details className="company-knowledge-meta-fold">
+            <summary>Record metadata</summary>
+            <div className="company-knowledge-meta-chips" aria-label="Knowledge metadata">
+              <span className="company-knowledge-meta-chip">{item.sourceType}</span>
+              <span className="company-knowledge-meta-chip">{item.approvalStatus}</span>
+              <span className="company-knowledge-meta-chip">{formatCompanyKnowledgeVisibilityBrief(item)}</span>
+              <span
+                className={`company-knowledge-meta-chip company-knowledge-meta-chip--${hasFileTrace ? 'trace' : 'memory'}`}
+              >
+                {hasFileTrace ? 'Linked file · trace available' : 'Company-memory only'}
+              </span>
+            </div>
+            <div className="muted-copy">{item.description || item.sourceType}</div>
+            {item.tags?.length ? (
+              <div className="company-knowledge-tags">{item.tags.map((t) => `#${t}`).join(' ')}</div>
+            ) : null}
+          </details>
           <div className="company-knowledge-why">
             <span className="company-knowledge-why-label">Why suggested</span>
             <ul>
