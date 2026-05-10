@@ -19,6 +19,23 @@ assert.equal(normalizedEmpty.organizations.length, 0)
 assert.equal(normalizedEmpty.workerInvites.length, 0)
 assert.equal(normalizedEmpty.companyRoles.length, 0)
 assert.equal(normalizedEmpty.companyDepartments.length, 0)
+assert.equal(normalizedEmpty.brainProcesses.length, 0)
+assert.equal(normalizedEmpty.brainPolicies.length, 0)
+assert.equal(normalizedEmpty.brainDecisions.length, 0)
+assert.equal(normalizedEmpty.brainSystems.length, 0)
+assert.equal(normalizedEmpty.brainSkillFiles.length, 0)
+
+{
+  const weird = normalizeCompanyBrainWorkspaceSlice({
+    brainProcesses: [{ title: 123, approvalStatus: 'bogus', steps: 'nope' }],
+    brainSystems: [{ connectedStatus: 'wat', systemType: 1 }],
+  })
+  assert.equal(weird.brainProcesses[0]?.approvalStatus, 'needs-review')
+  assert.ok(Array.isArray(weird.brainProcesses[0]?.steps))
+  assert.equal(weird.brainProcesses[0]?.steps.length, 0)
+  assert.equal(weird.brainSystems[0]?.connectedStatus, 'not-connected')
+  assert.equal(weird.brainSystems[0]?.systemType, 'other')
+}
 
 const legacyWorkspaceSkeleton = {
   activeDeckId: 'd1',

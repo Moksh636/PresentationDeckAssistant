@@ -204,7 +204,7 @@ Current behavior:
 - never fabricates citations (returns only sanitized `sourceTraces` from request)
 - if `webResearchEnabled=true`, returns a warning that web research is not connected yet
 
-Future AI provider integration should use **Supabase Function Secrets** (server-side only), not frontend `VITE_` variables.
+Future AI provider integration should use **Supabase Function Secrets** (server-side only), not frontend `VITE_` variables. Intel Review Gemini (optional): set secret `GEMINI_API_KEY`, `AI_PROVIDER=gemini`, and optionally `AI_MODEL` (defaults to `gemini-2.5-flash`); optional mock guards `SUPABASE_TEST` / `INTEL_REVIEW_FORCE_MOCK`.
 
 ## Architecture
 

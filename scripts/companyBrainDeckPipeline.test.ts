@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  buildBrainMapDeckInfluence,
   buildCompanyKnowledgeDeckInfluence,
   buildDeckReportCompanyBrainEntriesFromItems,
   filterRankedKnowledgeBySelection,
@@ -225,6 +226,57 @@ function item(overrides: Partial<CompanyKnowledgeItem> & Pick<CompanyKnowledgeIt
 function getSlideHeading(slide: Slide) {
   const titleBlock = slide.blocks.find((b) => b.type === 'title')
   return typeof titleBlock?.content === 'string' ? titleBlock.content : slide.title
+}
+
+// —— Brain Map deck influence: approved skill + linked knowledge traces only ——
+{
+  const lib = sampleLibraryAsset('linked-price-doc')
+  const linked = item({
+    id: 'know-price',
+    title: 'Pilot pricing terms',
+    description: 'Commercial guardrails',
+    sourceType: 'proposal',
+    fileAssetId: lib.id,
+  })
+  const proc = {
+    id: 'proc-1',
+    organizationId: 'org-1',
+    title: 'Pilot workflow',
+    description: 'Onboarding checkpoints',
+    category: 'CS',
+    steps: ['Kickoff', 'QA'],
+    inputs: [],
+    outputs: [],
+    relatedKnowledgeItemIds: ['know-price'],
+    relatedRoleTitles: [],
+    approvalStatus: 'approved' as const,
+    createdAt: '2026-05-05',
+    updatedAt: '2026-05-05',
+  }
+  const skill = {
+    id: 'skill-1',
+    organizationId: 'org-1',
+    title: 'Approved deck skill',
+    description: '',
+    skillType: 'sales-deck' as const,
+    instructions: ['Lead with ROI proof before product detail'],
+    requiredInputs: [],
+    outputFormat: '',
+    allowedSourceTypes: ['proposal'] as const,
+    relatedProcessIds: [],
+    relatedPolicyIds: [],
+    relatedKnowledgeItemIds: ['know-price'],
+    approvalStatus: 'approved' as const,
+    createdAt: '2026-05-05',
+    updatedAt: '2026-05-05',
+  }
+  const infl = buildBrainMapDeckInfluence([linked], new Map([[lib.id, lib]]), [proc], [], [skill])
+  assert.ok(infl.linkedKnowledgeTraces.length >= 1, 'expected real traces from linked knowledge')
+  assert.ok(
+    infl.structureSectionHints.some((h) => h.includes('Approved deck skill')),
+    'expected sales-deck skill to influence structure hints',
+  )
+  assert.ok(infl.processSpeakerNoteLines.some((line) => line.includes('Pilot workflow')))
 }
 
 console.info('companyBrainDeckPipeline OK')

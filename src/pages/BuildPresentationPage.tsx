@@ -223,6 +223,30 @@ export function BuildPresentationPage() {
     return workspace.companyBrain.knowledgeItems.filter((item) => known.has(item.id))
   }, [activeDeck, workspace.companyBrain.knowledgeItems])
 
+  const brainProcessesForIntel = useMemo(
+    () =>
+      organizationId
+        ? workspace.companyBrain.brainProcesses.filter((p) => p.organizationId === organizationId)
+        : [],
+    [organizationId, workspace.companyBrain.brainProcesses],
+  )
+
+  const brainPoliciesForIntel = useMemo(
+    () =>
+      organizationId
+        ? workspace.companyBrain.brainPolicies.filter((p) => p.organizationId === organizationId)
+        : [],
+    [organizationId, workspace.companyBrain.brainPolicies],
+  )
+
+  const brainSkillFilesForIntel = useMemo(
+    () =>
+      organizationId
+        ? workspace.companyBrain.brainSkillFiles.filter((s) => s.organizationId === organizationId)
+        : [],
+    [organizationId, workspace.companyBrain.brainSkillFiles],
+  )
+
   const rankedSelectedCompanyKnowledge = useMemo(() => {
     if (!activeDeck) {
       return undefined
@@ -669,6 +693,9 @@ export function BuildPresentationPage() {
             workspaceFileAssets={workspace.fileAssets}
             companyKnowledgeItems={selectedCompanyKnowledgeItems}
             rankedSelectedKnowledge={rankedSelectedCompanyKnowledge}
+            brainProcesses={brainProcessesForIntel}
+            brainPolicies={brainPoliciesForIntel}
+            brainSkillFiles={brainSkillFilesForIntel}
             updateDeckSetup={updateDeckSetup}
           />
 

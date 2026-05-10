@@ -72,6 +72,19 @@ assert.equal(deck?.setup.offeringSummary, 'AI missed-call handling and workflow 
 assert.equal(deck?.setup.meetingGoal, 'Secure a pilot program')
 assert.equal(deck?.setup.desiredCta, 'Approve a 30-day pilot')
 
+assert.ok(
+  workspace.companyBrain.brainProcesses.some((row) => row.title === 'Missed call handling workflow'),
+  'Expected demo Brain Map process',
+)
+assert.ok(
+  workspace.companyBrain.brainPolicies.some((row) => row.title === 'Pilot pricing exception policy'),
+  'Expected demo Brain Map policy',
+)
+assert.ok(
+  workspace.companyBrain.brainSkillFiles.some((row) => row.title === 'Generate account pitch deck'),
+  'Expected demo Brain Map skill file',
+)
+
 const assetsById = new Map(workspace.fileAssets.map((asset) => [asset.id, asset]))
 for (const item of workspace.companyBrain.knowledgeItems) {
   if (!item.fileAssetId) {

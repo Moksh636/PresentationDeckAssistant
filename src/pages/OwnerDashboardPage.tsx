@@ -8,6 +8,7 @@ import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import { useToast } from '../components/feedback/toastContext'
 import {
   OwnerActivitySettingsModule,
+  OwnerBrainMapModule,
   OwnerBrandKitModule,
   OwnerCaseStudiesModule,
   OwnerConsoleHome,
@@ -28,6 +29,7 @@ type OwnerSection =
   | 'messaging'
   | 'case-studies'
   | 'products'
+  | 'brain-map'
   | 'activity-settings'
 
 type KnowledgeSubsection = 'all' | 'needs-review' | 'approved' | 'archived' | 'folders' | 'upload'
@@ -69,6 +71,11 @@ const OWNER_MODULES: Array<{ id: OwnerSection; title: string; description: strin
     id: 'products',
     title: 'Products & Services',
     description: 'Capture offerings, benefits, proof points, and common objections.',
+  },
+  {
+    id: 'brain-map',
+    title: 'Brain Map',
+    description: 'Map company processes, policies, decisions, systems, and skills files.',
   },
   {
     id: 'activity-settings',
@@ -120,6 +127,7 @@ export function OwnerDashboardPage() {
   const caseStudies = workspace.companyBrain.caseStudies.filter((c) => c.organizationId === orgId)
   const products = workspace.companyBrain.productsServices.filter((p) => p.organizationId === orgId)
   const brandKit = workspace.companyBrain.brandKits.find((b) => b.organizationId === orgId) ?? null
+  const catalogRoleNames = useMemo(() => catalogRoles.map((r) => r.name), [catalogRoles])
   const syncStatus = workspaceApi.companyIdentitySyncStatus
   const knowledgeSyncStatus = workspaceApi.companyKnowledgeSyncStatus
   const librarySyncStatus = workspaceApi.companyLibrarySyncStatus
@@ -276,6 +284,16 @@ export function OwnerDashboardPage() {
           {activeOwnerSection === 'messaging' ? <OwnerMessagingModule activeOrgId={orgId} items={messaging} workspaceApi={workspaceApi} search={messagingSearch} setSearch={setMessagingSearch} /> : null}
           {activeOwnerSection === 'case-studies' ? <OwnerCaseStudiesModule activeOrgId={orgId} items={caseStudies} workspaceApi={workspaceApi} search={caseSearch} setSearch={setCaseSearch} /> : null}
           {activeOwnerSection === 'products' ? <OwnerProductsServicesModule activeOrgId={orgId} items={products} workspaceApi={workspaceApi} search={productSearch} setSearch={setProductSearch} /> : null}
+          {activeOwnerSection === 'brain-map' ? (
+            <OwnerBrainMapModule
+              activeOrgId={orgId}
+              admin={admin}
+              workspaceApi={workspaceApi}
+              knowledgeItems={knowledgeItems}
+              departments={departments}
+              roleNames={catalogRoleNames}
+            />
+          ) : null}
           {activeOwnerSection === 'activity-settings' ? (
             <OwnerActivitySettingsModule
               activity={activity}

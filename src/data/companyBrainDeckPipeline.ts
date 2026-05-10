@@ -1,4 +1,7 @@
 import type {
+  CompanyBrainPolicy,
+  CompanyBrainProcess,
+  CompanyBrainSkillFile,
   CompanyKnowledgeItem,
   DeckReportCompanyBrainEntry,
   FileAsset,
@@ -299,4 +302,116 @@ export function buildDeckReportCompanyBrainEntriesFromItems(
       ...(citationCount > 0 ? { citationCount } : {}),
     }
   })
+}
+
+function selectedKnowledgeIdSet(items: CompanyKnowledgeItem[]): Set<string> {
+  return new Set(items.map((i) => i.id))
+}
+
+function intersectsSelection(relatedIds: string[], selected: Set<string>): boolean {
+  return relatedIds.some((id) => selected.has(id))
+}
+
+function clipLine(text: string, max: number): string {
+  const t = text.trim()
+  return t.length > max ? `${t.slice(0, max)}…` : t
+}
+
+/** Mock deck: approved Brain Map rows scoped to selected knowledge; citations only via linked files. */
+export interface BrainMapDeckInfluence {
+  structureSectionHints: string[]
+  objectionLines: string[]
+  pricingValueLines: string[]
+  processSpeakerNoteLines: string[]
+  linkedKnowledgeTraces: SourceTrace[]
+}
+
+export function buildBrainMapDeckInfluence(
+  selectedKnowledgeItems: CompanyKnowledgeItem[],
+  assetsById: Map<string, FileAsset>,
+  brainProcesses: CompanyBrainProcess[],
+  brainPolicies: CompanyBrainPolicy[],
+  brainSkillFiles: CompanyBrainSkillFile[],
+): BrainMapDeckInfluence {
+  const selected = selectedKnowledgeIdSet(selectedKnowledgeItems)
+  const knowledgeById = new Map(selectedKnowledgeItems.map((item) => [item.id, item]))
+
+  const structureSectionHints: string[] = []
+  const objectionLines: string[] = []
+  const pricingValueLines: string[] = []
+  const processSpeakerNoteLines: string[] = []
+  const linkedKnowledgeTraces: SourceTrace[] = []
+  const seenTrace = new Set<string>()
+
+  const pushTracesForKnowledgeIds = (ids: string[]) => {
+    for (const kid of ids) {
+      if (!selected.has(kid)) continue
+      const item = knowledgeById.get(kid)
+      if (!item) continue
+      for (const tr of collectSourceTracesForKnowledgeItem(item, assetsById)) {
+        const key = [tr.fileId, tr.fileName, tr.extractedSnippet, tr.addedByUserId].join('|')
+        if (seenTrace.has(key)) continue
+        seenTrace.add(key)
+        linkedKnowledgeTraces.push(tr)
+      }
+    }
+  }
+
+  for (const proc of brainProcesses) {
+    if (proc.approvalStatus !== 'approved') continue
+    if (!intersectsSelection(proc.relatedKnowledgeItemIds, selected)) continue
+    pushTracesForKnowledgeIds(proc.relatedKnowledgeItemIds)
+    const stepBrief = proc.steps.slice(0, 4).filter(Boolean).join(' → ')
+    const body = stepBrief || proc.description.trim()
+    if (body) {
+      processSpeakerNoteLines.push(
+        `Process “${proc.title}”: ${clipLine(body, 220)}`,
+      )
+    }
+  }
+
+  for (const pol of brainPolicies) {
+    if (pol.approvalStatus !== 'approved' || pol.policyType !== 'pricing') continue
+    if (!intersectsSelection(pol.relatedKnowledgeItemIds, selected)) continue
+    pushTracesForKnowledgeIds(pol.relatedKnowledgeItemIds)
+    const ruleBrief = pol.rules.slice(0, 3).filter(Boolean).join('; ')
+    const line = [pol.summary.trim(), ruleBrief].filter(Boolean).join(' — ')
+    if (line) {
+      pricingValueLines.push(`Pricing policy “${pol.title}”: ${clipLine(line, 220)}`)
+    }
+  }
+
+  for (const skill of brainSkillFiles) {
+    if (skill.approvalStatus !== 'approved') continue
+    if (!intersectsSelection(skill.relatedKnowledgeItemIds, selected)) continue
+    pushTracesForKnowledgeIds(skill.relatedKnowledgeItemIds)
+
+    if (skill.skillType === 'sales-deck') {
+      const hint =
+        skill.instructions.find((x) => x.trim())?.trim() ||
+        skill.outputFormat.trim() ||
+        skill.description.trim()
+      if (hint) {
+        structureSectionHints.push(`Sales deck skill “${skill.title}”: ${clipLine(hint, 180)}`)
+      }
+    }
+
+    if (skill.skillType === 'objection-handling') {
+      for (const line of skill.instructions.slice(0, 4)) {
+        const t = line.trim()
+        if (t) objectionLines.push(clipLine(t, 200))
+      }
+      if (skill.description.trim()) {
+        objectionLines.push(clipLine(skill.description.trim(), 200))
+      }
+    }
+  }
+
+  return {
+    structureSectionHints,
+    objectionLines,
+    pricingValueLines,
+    processSpeakerNoteLines,
+    linkedKnowledgeTraces,
+  }
 }

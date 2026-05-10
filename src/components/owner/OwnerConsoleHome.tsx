@@ -6,6 +6,7 @@ type OwnerSection =
   | 'messaging'
   | 'case-studies'
   | 'products'
+  | 'brain-map'
   | 'activity-settings'
 
 type OwnerModule = {

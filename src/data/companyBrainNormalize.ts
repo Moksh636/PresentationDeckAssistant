@@ -6,6 +6,17 @@ import type {
   CompanyBrandKit,
   CompanyBrainCatalogDepartment,
   CompanyBrainCatalogRole,
+  CompanyBrainConnectedStatus,
+  CompanyBrainDecision,
+  CompanyBrainDecisionType,
+  CompanyBrainMapApprovalStatus,
+  CompanyBrainPolicy,
+  CompanyBrainPolicyType,
+  CompanyBrainProcess,
+  CompanyBrainSkillFile,
+  CompanyBrainSkillFileType,
+  CompanyBrainSystem,
+  CompanyBrainSystemType,
   CompanyBrainWorkspaceSlice,
   CompanyKnowledgeItem,
   CompanyKnowledgeSourceType,
@@ -46,6 +57,55 @@ const KNOWLEDGE_ORG_PREFS = new Set<KnowledgeOrgPreferenceMode>([
 
 const WORKER_INVITE_ACCESS: WorkerInviteAccessRole[] = ['admin', 'member', 'viewer']
 const WORKER_INVITE_STATUSES: WorkerInviteStatus[] = ['draft', 'invited', 'joined', 'revoked']
+
+const BRAIN_MAP_APPROVAL: CompanyBrainMapApprovalStatus[] = ['draft', 'approved', 'needs-review', 'archived']
+
+const POLICY_TYPES: CompanyBrainPolicyType[] = [
+  'pricing',
+  'legal',
+  'sales',
+  'support',
+  'operations',
+  'product',
+  'security',
+  'other',
+]
+
+const DECISION_TYPES: CompanyBrainDecisionType[] = [
+  'customer',
+  'pricing',
+  'product',
+  'legal',
+  'operations',
+  'sales',
+  'other',
+]
+
+const SYSTEM_TYPES: CompanyBrainSystemType[] = [
+  'crm',
+  'drive',
+  'slack',
+  'email',
+  'ticketing',
+  'docs',
+  'calendar',
+  'code',
+  'other',
+]
+
+const CONNECTED_STATUSES: CompanyBrainConnectedStatus[] = ['not-connected', 'planned', 'connected']
+
+const SKILL_FILE_TYPES: CompanyBrainSkillFileType[] = [
+  'sales-deck',
+  'intel-brief',
+  'objection-handling',
+  'onboarding',
+  'support',
+  'legal-review',
+  'pricing',
+  'incident-response',
+  'custom',
+]
 
 const ACTIVITY_KINDS = new Set<CompanyActivityKind>([
   'knowledge-item-created',
@@ -106,6 +166,40 @@ function normalizeWorkerInviteStatus(value: unknown): WorkerInviteStatus {
   return WORKER_INVITE_STATUSES.includes(value as WorkerInviteStatus) ? (value as WorkerInviteStatus) : 'draft'
 }
 
+function normalizeBrainMapApprovalStatus(value: unknown): CompanyBrainMapApprovalStatus {
+  return BRAIN_MAP_APPROVAL.includes(value as CompanyBrainMapApprovalStatus)
+    ? (value as CompanyBrainMapApprovalStatus)
+    : 'needs-review'
+}
+
+function normalizePolicyType(value: unknown): CompanyBrainPolicyType {
+  return POLICY_TYPES.includes(value as CompanyBrainPolicyType) ? (value as CompanyBrainPolicyType) : 'other'
+}
+
+function normalizeDecisionType(value: unknown): CompanyBrainDecisionType {
+  return DECISION_TYPES.includes(value as CompanyBrainDecisionType) ? (value as CompanyBrainDecisionType) : 'other'
+}
+
+function normalizeSystemType(value: unknown): CompanyBrainSystemType {
+  return SYSTEM_TYPES.includes(value as CompanyBrainSystemType) ? (value as CompanyBrainSystemType) : 'other'
+}
+
+function normalizeConnectedStatus(value: unknown): CompanyBrainConnectedStatus {
+  return CONNECTED_STATUSES.includes(value as CompanyBrainConnectedStatus)
+    ? (value as CompanyBrainConnectedStatus)
+    : 'not-connected'
+}
+
+function normalizeSkillFileType(value: unknown): CompanyBrainSkillFileType {
+  return SKILL_FILE_TYPES.includes(value as CompanyBrainSkillFileType)
+    ? (value as CompanyBrainSkillFileType)
+    : 'custom'
+}
+
+function normalizeStringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((s): s is string => typeof s === 'string') : []
+}
+
 export function createEmptyCompanyBrainWorkspaceSlice(): CompanyBrainWorkspaceSlice {
   return {
     activeOrganizationId: '',
@@ -120,6 +214,11 @@ export function createEmptyCompanyBrainWorkspaceSlice(): CompanyBrainWorkspaceSl
     approvedMessaging: [],
     caseStudies: [],
     productsServices: [],
+    brainProcesses: [],
+    brainPolicies: [],
+    brainDecisions: [],
+    brainSystems: [],
+    brainSkillFiles: [],
     activityLogs: [],
     onboarding: {
       dismissed: false,
@@ -413,6 +512,119 @@ export function normalizeCompanyBrainWorkspaceSlice(
         : undefined,
   }
 
+  const defaultOrgId = organizations[0]?.id ?? ''
+
+  const brainProcesses: CompanyBrainProcess[] = Array.isArray(record.brainProcesses)
+    ? record.brainProcesses.map((row, index): CompanyBrainProcess => {
+        const r = row as Record<string, unknown>
+        const orgId = typeof r.organizationId === 'string' ? r.organizationId : defaultOrgId
+        return {
+          id: typeof r.id === 'string' ? r.id : `brain-process-legacy-${index + 1}`,
+          organizationId: orgId,
+          title: typeof r.title === 'string' ? r.title : 'Process',
+          description: typeof r.description === 'string' ? r.description : '',
+          category: typeof r.category === 'string' ? r.category : 'General',
+          ownerRoleTitle: typeof r.ownerRoleTitle === 'string' ? r.ownerRoleTitle : undefined,
+          department: typeof r.department === 'string' ? r.department : undefined,
+          steps: normalizeStringList(r.steps),
+          inputs: normalizeStringList(r.inputs),
+          outputs: normalizeStringList(r.outputs),
+          relatedKnowledgeItemIds: normalizeStringList(r.relatedKnowledgeItemIds),
+          relatedRoleTitles: normalizeStringList(r.relatedRoleTitles),
+          approvalStatus: normalizeBrainMapApprovalStatus(r.approvalStatus),
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
+          lastReviewedAt: typeof r.lastReviewedAt === 'string' ? r.lastReviewedAt : undefined,
+        }
+      })
+    : []
+
+  const brainPolicies: CompanyBrainPolicy[] = Array.isArray(record.brainPolicies)
+    ? record.brainPolicies.map((row, index): CompanyBrainPolicy => {
+        const r = row as Record<string, unknown>
+        const orgId = typeof r.organizationId === 'string' ? r.organizationId : defaultOrgId
+        return {
+          id: typeof r.id === 'string' ? r.id : `brain-policy-legacy-${index + 1}`,
+          organizationId: orgId,
+          title: typeof r.title === 'string' ? r.title : 'Policy',
+          summary: typeof r.summary === 'string' ? r.summary : '',
+          policyType: normalizePolicyType(r.policyType),
+          rules: normalizeStringList(r.rules),
+          appliesToDepartments: normalizeStringList(r.appliesToDepartments),
+          appliesToRoleTitles: normalizeStringList(r.appliesToRoleTitles),
+          relatedKnowledgeItemIds: normalizeStringList(r.relatedKnowledgeItemIds),
+          approvalStatus: normalizeBrainMapApprovalStatus(r.approvalStatus),
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
+          lastReviewedAt: typeof r.lastReviewedAt === 'string' ? r.lastReviewedAt : undefined,
+        }
+      })
+    : []
+
+  const brainDecisions: CompanyBrainDecision[] = Array.isArray(record.brainDecisions)
+    ? record.brainDecisions.map((row, index): CompanyBrainDecision => {
+        const r = row as Record<string, unknown>
+        const orgId = typeof r.organizationId === 'string' ? r.organizationId : defaultOrgId
+        return {
+          id: typeof r.id === 'string' ? r.id : `brain-decision-legacy-${index + 1}`,
+          organizationId: orgId,
+          title: typeof r.title === 'string' ? r.title : 'Decision',
+          summary: typeof r.summary === 'string' ? r.summary : '',
+          decisionType: normalizeDecisionType(r.decisionType),
+          context: typeof r.context === 'string' ? r.context : '',
+          outcome: typeof r.outcome === 'string' ? r.outcome : '',
+          ownerRoleTitle: typeof r.ownerRoleTitle === 'string' ? r.ownerRoleTitle : undefined,
+          relatedKnowledgeItemIds: normalizeStringList(r.relatedKnowledgeItemIds),
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
+        }
+      })
+    : []
+
+  const brainSystems: CompanyBrainSystem[] = Array.isArray(record.brainSystems)
+    ? record.brainSystems.map((row, index): CompanyBrainSystem => {
+        const r = row as Record<string, unknown>
+        const orgId = typeof r.organizationId === 'string' ? r.organizationId : defaultOrgId
+        return {
+          id: typeof r.id === 'string' ? r.id : `brain-system-legacy-${index + 1}`,
+          organizationId: orgId,
+          name: typeof r.name === 'string' ? r.name : 'System',
+          systemType: normalizeSystemType(r.systemType),
+          description: typeof r.description === 'string' ? r.description : '',
+          ownerRoleTitle: typeof r.ownerRoleTitle === 'string' ? r.ownerRoleTitle : undefined,
+          connectedStatus: normalizeConnectedStatus(r.connectedStatus),
+          notes: typeof r.notes === 'string' ? r.notes : '',
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
+        }
+      })
+    : []
+
+  const brainSkillFiles: CompanyBrainSkillFile[] = Array.isArray(record.brainSkillFiles)
+    ? record.brainSkillFiles.map((row, index): CompanyBrainSkillFile => {
+        const r = row as Record<string, unknown>
+        const orgId = typeof r.organizationId === 'string' ? r.organizationId : defaultOrgId
+        const allowedRaw = normalizeStringList(r.allowedSourceTypes).map((st) => normalizeSourceType(st))
+        return {
+          id: typeof r.id === 'string' ? r.id : `brain-skill-legacy-${index + 1}`,
+          organizationId: orgId,
+          title: typeof r.title === 'string' ? r.title : 'Skill file',
+          description: typeof r.description === 'string' ? r.description : '',
+          skillType: normalizeSkillFileType(r.skillType),
+          instructions: normalizeStringList(r.instructions),
+          requiredInputs: normalizeStringList(r.requiredInputs),
+          outputFormat: typeof r.outputFormat === 'string' ? r.outputFormat : '',
+          allowedSourceTypes: allowedRaw,
+          relatedProcessIds: normalizeStringList(r.relatedProcessIds),
+          relatedPolicyIds: normalizeStringList(r.relatedPolicyIds),
+          relatedKnowledgeItemIds: normalizeStringList(r.relatedKnowledgeItemIds),
+          approvalStatus: normalizeBrainMapApprovalStatus(r.approvalStatus),
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : iso,
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : iso,
+        }
+      })
+    : []
+
   return {
     ...base,
     activeOrganizationId,
@@ -427,6 +639,11 @@ export function normalizeCompanyBrainWorkspaceSlice(
     approvedMessaging,
     caseStudies,
     productsServices,
+    brainProcesses,
+    brainPolicies,
+    brainDecisions,
+    brainSystems,
+    brainSkillFiles,
     activityLogs,
     onboarding,
   }

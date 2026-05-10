@@ -1,11 +1,16 @@
 import { mergeAssetsForKnowledgeTraceLookup } from './companyBrainDeckPipeline.ts'
 import {
+  buildCompanyBrainMapContextUsed,
   buildCompanyBrainSourcesUsed,
   collectSourceTracesFromAssets,
   generateIntelDraftFromSources,
 } from './intelReview.ts'
 import { filterAssetsForCitationUse, resolveCitationReviewMode } from './sourceCitationReview.ts'
 import type {
+  CompanyBrainMapContextUsed,
+  CompanyBrainPolicy,
+  CompanyBrainProcess,
+  CompanyBrainSkillFile,
   CompanyBrainSourceUsed,
   CompanyKnowledgeItem,
   DeckIntel,
@@ -23,12 +28,16 @@ export interface GenerateIntelReviewRequest {
   companyKnowledgeItems?: CompanyKnowledgeItem[]
   selectedCompanyKnowledgeItemIds?: string[]
   workspaceFileAssets?: FileAsset[]
+  brainProcesses?: CompanyBrainProcess[]
+  brainPolicies?: CompanyBrainPolicy[]
+  brainSkillFiles?: CompanyBrainSkillFile[]
 }
 
 export interface GenerateIntelReviewResponse {
   intel: DeckIntel
   warnings: string[]
   companyBrainSourcesUsed: CompanyBrainSourceUsed[]
+  companyBrainMapContextUsed?: CompanyBrainMapContextUsed[]
 }
 
 function createLocalIntelReviewResponse(
@@ -40,12 +49,24 @@ function createLocalIntelReviewResponse(
     request.workspaceFileAssets ?? [],
   )
   const brainItems = request.companyKnowledgeItems ?? []
+  const selectedRaw = request.selectedCompanyKnowledgeItemIds
+  const selectedIds =
+    selectedRaw && selectedRaw.length > 0 ? selectedRaw : brainItems.map((item) => item.id)
+  const companyBrainMapContextUsed = buildCompanyBrainMapContextUsed(
+    selectedIds,
+    brainItems,
+    assetLookup,
+    request.brainProcesses ?? [],
+    request.brainPolicies ?? [],
+    request.brainSkillFiles ?? [],
+  )
   return {
     intel: generateIntelDraftFromSources(request.setup, request.fileAssets, {
       companyKnowledgeItems: brainItems,
     }),
     warnings,
     companyBrainSourcesUsed: buildCompanyBrainSourcesUsed(brainItems, assetLookup),
+    ...(companyBrainMapContextUsed.length > 0 ? { companyBrainMapContextUsed } : {}),
   }
 }
 

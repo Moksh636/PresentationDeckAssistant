@@ -20,6 +20,10 @@ import { supabase } from './supabaseClient.ts'
 import { generateIntelReviewWithFallback as generateIntelReviewWithFallbackBase } from './intelReviewBackendFallback.ts'
 import type {
   ChartSuggestion,
+  CompanyBrainMapContextUsed,
+  CompanyBrainPolicy,
+  CompanyBrainProcess,
+  CompanyBrainSkillFile,
   CompanyBrainSourceUsed,
   CompanyBrainWorkspaceSlice,
   CompanyKnowledgeItem,
@@ -75,12 +79,16 @@ export interface GenerateIntelReviewRequest {
   selectedCompanyKnowledgeItemIds?: string[]
   /** Workspace library files for resolving `CompanyKnowledgeItem.fileAssetId` → real `SourceTrace` rows. */
   workspaceFileAssets?: FileAsset[]
+  brainProcesses?: CompanyBrainProcess[]
+  brainPolicies?: CompanyBrainPolicy[]
+  brainSkillFiles?: CompanyBrainSkillFile[]
 }
 
 export interface GenerateIntelReviewResponse {
   intel: DeckIntel
   warnings: string[]
   companyBrainSourcesUsed: CompanyBrainSourceUsed[]
+  companyBrainMapContextUsed?: CompanyBrainMapContextUsed[]
 }
 
 export interface GenerateDeckResponse {
@@ -323,6 +331,35 @@ const SOURCE_TYPE_SET = new Set<CompanyKnowledgeSourceType>([
   'other',
 ])
 
+function normalizeCompanyBrainMapContextUsed(raw: unknown): CompanyBrainMapContextUsed[] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined
+  }
+  const out: CompanyBrainMapContextUsed[] = []
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue
+    const o = row as Record<string, unknown>
+    const kind = o.kind === 'process' || o.kind === 'policy' || o.kind === 'skill-file' ? o.kind : null
+    if (!kind) continue
+    const id = typeof o.id === 'string' ? o.id.trim() : ''
+    const title = typeof o.title === 'string' ? o.title : ''
+    if (!id || !title.trim()) continue
+    const backing = o.backing === 'citation-backed' ? 'citation-backed' : 'memory-only'
+    const citationCount =
+      typeof o.citationCount === 'number' && Number.isFinite(o.citationCount)
+        ? Math.max(0, Math.floor(o.citationCount))
+        : undefined
+    out.push({
+      kind,
+      id,
+      title,
+      backing,
+      ...(backing === 'citation-backed' && citationCount !== undefined ? { citationCount } : {}),
+    })
+  }
+  return out.length > 0 ? out : undefined
+}
+
 function normalizeCompanyBrainSourcesUsed(raw: unknown): CompanyBrainSourceUsed[] {
   if (!Array.isArray(raw)) {
     return []
@@ -380,10 +417,13 @@ function normalizeGenerateIntelReviewResponse(raw: unknown): GenerateIntelReview
     ? r.warnings.filter((w): w is string => typeof w === 'string')
     : []
 
+  const companyBrainMapContextUsed = normalizeCompanyBrainMapContextUsed(r.companyBrainMapContextUsed)
+
   return {
     intel: r.intel as DeckIntel,
     warnings,
     companyBrainSourcesUsed: normalizeCompanyBrainSourcesUsed(r.companyBrainSourcesUsed),
+    ...(companyBrainMapContextUsed ? { companyBrainMapContextUsed } : {}),
   }
 }
 

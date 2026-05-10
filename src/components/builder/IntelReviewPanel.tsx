@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { RankedCompanyKnowledgeEntry } from '../../data/companyKnowledgeRetrieval'
 import {
@@ -9,6 +9,9 @@ import {
   mergeAssetsForKnowledgeTraceLookup,
 } from '../../data/companyBrainDeckPipeline'
 import type {
+  CompanyBrainPolicy,
+  CompanyBrainProcess,
+  CompanyBrainSkillFile,
   CompanyBrainSourceUsed,
   CompanyKnowledgeItem,
   DeckIntel,
@@ -18,6 +21,7 @@ import type {
 import { useToast } from '../feedback/toastContext'
 import { aiClient } from '../../data/aiClient'
 import {
+  buildCompanyBrainMapContextUsed,
   collectSourceTracesFromAssets,
   mergeIntelDraftWithExisting,
 } from '../../data/intelReview'
@@ -42,6 +46,9 @@ interface IntelReviewPanelProps {
   workspaceFileAssets?: FileAsset[]
   companyKnowledgeItems?: CompanyKnowledgeItem[]
   rankedSelectedKnowledge?: RankedCompanyKnowledgeEntry[]
+  brainProcesses?: CompanyBrainProcess[]
+  brainPolicies?: CompanyBrainPolicy[]
+  brainSkillFiles?: CompanyBrainSkillFile[]
   updateDeckSetup: (deckId: string, updates: Partial<DeckSetup>) => void
 }
 
@@ -52,6 +59,9 @@ export function IntelReviewPanel({
   workspaceFileAssets = [],
   companyKnowledgeItems,
   rankedSelectedKnowledge,
+  brainProcesses = [],
+  brainPolicies = [],
+  brainSkillFiles = [],
   updateDeckSetup,
 }: IntelReviewPanelProps) {
   const { showToast } = useToast()
@@ -76,6 +86,9 @@ export function IntelReviewPanel({
       companyKnowledgeItems,
       selectedCompanyKnowledgeItemIds: setup.selectedCompanyKnowledgeItemIds,
       workspaceFileAssets,
+      brainProcesses,
+      brainPolicies,
+      brainSkillFiles,
     })
     const merged = mergeIntelDraftWithExisting(intel, response.intel)
     updateDeckSetup(deckId, { intel: merged })
@@ -108,6 +121,31 @@ export function IntelReviewPanel({
   const buckets = companyKnowledgeItems?.length
     ? groupCompanyKnowledgeByIntelBucket(companyKnowledgeItems)
     : null
+
+  const brainMapContextRows = useMemo(() => {
+    if (!hasBrainSelection || !companyKnowledgeItems?.length) {
+      return []
+    }
+    const ids = setup.selectedCompanyKnowledgeItemIds ?? []
+    const assetLookup = mergeAssetsForKnowledgeTraceLookup(fileAssets, workspaceFileAssets)
+    return buildCompanyBrainMapContextUsed(
+      ids,
+      companyKnowledgeItems,
+      assetLookup,
+      brainProcesses,
+      brainPolicies,
+      brainSkillFiles,
+    )
+  }, [
+    hasBrainSelection,
+    companyKnowledgeItems,
+    setup.selectedCompanyKnowledgeItemIds,
+    fileAssets,
+    workspaceFileAssets,
+    brainProcesses,
+    brainPolicies,
+    brainSkillFiles,
+  ])
 
   return (
     <section className="panel-card intel-review-card">
@@ -260,6 +298,45 @@ export function IntelReviewPanel({
                   )
                 })}
               </div>
+            )}
+          </div>
+
+          <div className="field-group field-group--wide">
+            <span className="field-label">Company Brain context used</span>
+            {!hasBrainSelection ? (
+              <p className="muted-copy">
+                Select Company Brain knowledge for this pitch to surface linked Brain Map processes, policies, and
+                skill files.
+              </p>
+            ) : !brainMapContextRows.length ? (
+              <p className="muted-copy">
+                No Brain Map rows reference the selected knowledge yet. Add links under Owner Console → Brain Map, or
+                generate again after updating selections.
+              </p>
+            ) : (
+              <ul className="intel-company-knowledge-list">
+                {brainMapContextRows.map((row) => (
+                  <li key={`${row.kind}-${row.id}`}>
+                    <div className="intel-knowledge-row-heading">
+                      <strong>
+                        {row.kind === 'process'
+                          ? 'Process'
+                          : row.kind === 'policy'
+                            ? 'Policy'
+                            : 'Skill file'}
+                        : {row.title}
+                      </strong>
+                      <span
+                        className={`intel-knowledge-backing-pill ${row.backing === 'citation-backed' ? 'intel-knowledge-backing-pill--cited' : ''}`}
+                      >
+                        {row.backing === 'citation-backed'
+                          ? `Citation-backed (linked knowledge traces)${row.citationCount ? ` · ${row.citationCount}` : ''}`
+                          : 'Memory-only (linked knowledge has no file traces)'}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 

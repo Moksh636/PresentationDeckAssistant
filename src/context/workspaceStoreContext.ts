@@ -15,6 +15,11 @@ import type {
   CompanyBrandKit,
   CompanyBrainCatalogDepartment,
   CompanyBrainCatalogRole,
+  CompanyBrainDecision,
+  CompanyBrainPolicy,
+  CompanyBrainProcess,
+  CompanyBrainSkillFile,
+  CompanyBrainSystem,
   KnowledgeApprovalStatus,
   KnowledgeFolder,
   OrganizationMembership,
@@ -218,6 +223,34 @@ export interface WorkspaceContextValue {
     input: Omit<ProductServiceItem, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
   ) => void
   deleteCompanyProductService: (organizationId: string, productId: string) => void
+  upsertBrainProcess: (
+    organizationId: string,
+    input: Omit<CompanyBrainProcess, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => void
+  archiveBrainProcess: (organizationId: string, processId: string) => void
+  deleteBrainProcess: (organizationId: string, processId: string) => void
+  upsertBrainPolicy: (
+    organizationId: string,
+    input: Omit<CompanyBrainPolicy, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => void
+  archiveBrainPolicy: (organizationId: string, policyId: string) => void
+  deleteBrainPolicy: (organizationId: string, policyId: string) => void
+  upsertBrainDecision: (
+    organizationId: string,
+    input: Omit<CompanyBrainDecision, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => void
+  deleteBrainDecision: (organizationId: string, decisionId: string) => void
+  upsertBrainSystem: (
+    organizationId: string,
+    input: Omit<CompanyBrainSystem, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => void
+  deleteBrainSystem: (organizationId: string, systemId: string) => void
+  upsertBrainSkillFile: (
+    organizationId: string,
+    input: Omit<CompanyBrainSkillFile, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => void
+  archiveBrainSkillFile: (organizationId: string, skillFileId: string) => void
+  deleteBrainSkillFile: (organizationId: string, skillFileId: string) => void
   addCompanyMember: (
     organizationId: string,
     member: Omit<OrganizationMembership, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'> & {

@@ -1,5 +1,9 @@
 import { collectSourceTracesForKnowledgeItem } from './companyBrainDeckPipeline.ts'
 import type {
+  CompanyBrainMapContextUsed,
+  CompanyBrainPolicy,
+  CompanyBrainProcess,
+  CompanyBrainSkillFile,
   CompanyBrainSourceUsed,
   CompanyKnowledgeItem,
   DeckIntel,
@@ -46,6 +50,94 @@ export function buildCompanyBrainSourcesUsed(
       memoryOnly: !citationBacked,
     }
   })
+}
+
+function tracesForLinkedKnowledge(
+  relatedKnowledgeItemIds: string[],
+  selectedIds: Set<string>,
+  knowledgeById: Map<string, CompanyKnowledgeItem>,
+  assetsById: Map<string, FileAsset>,
+): { citationCount: number; citationBacked: boolean } {
+  let citationCount = 0
+  for (const kid of relatedKnowledgeItemIds) {
+    if (!selectedIds.has(kid)) continue
+    const item = knowledgeById.get(kid)
+    if (!item) continue
+    citationCount += collectSourceTracesForKnowledgeItem(item, assetsById).length
+  }
+  return { citationCount, citationBacked: citationCount > 0 }
+}
+
+/** Brain Map rows pointing at selected knowledge; backing follows linked file traces only. */
+export function buildCompanyBrainMapContextUsed(
+  selectedKnowledgeItemIds: string[],
+  knowledgeItems: CompanyKnowledgeItem[],
+  assetsById: Map<string, FileAsset>,
+  processes: CompanyBrainProcess[],
+  policies: CompanyBrainPolicy[],
+  skillFiles: CompanyBrainSkillFile[],
+): CompanyBrainMapContextUsed[] {
+  const selected = new Set(selectedKnowledgeItemIds)
+  if (selected.size === 0) {
+    return []
+  }
+  const knowledgeById = new Map(knowledgeItems.map((item) => [item.id, item]))
+  const rows: CompanyBrainMapContextUsed[] = []
+
+  const consider = (
+    kind: CompanyBrainMapContextUsed['kind'],
+    id: string,
+    title: string,
+    relatedIds: string[],
+    approvalOk: boolean,
+  ) => {
+    if (!approvalOk) return
+    const touches = relatedIds.some((rid) => selected.has(rid))
+    if (!touches) return
+    const { citationCount, citationBacked } = tracesForLinkedKnowledge(
+      relatedIds,
+      selected,
+      knowledgeById,
+      assetsById,
+    )
+    rows.push({
+      kind,
+      id,
+      title,
+      backing: citationBacked ? 'citation-backed' : 'memory-only',
+      ...(citationBacked ? { citationCount } : {}),
+    })
+  }
+
+  for (const proc of processes) {
+    consider(
+      'process',
+      proc.id,
+      proc.title,
+      proc.relatedKnowledgeItemIds,
+      proc.approvalStatus !== 'archived',
+    )
+  }
+  for (const pol of policies) {
+    consider(
+      'policy',
+      pol.id,
+      pol.title,
+      pol.relatedKnowledgeItemIds,
+      pol.approvalStatus !== 'archived',
+    )
+  }
+  for (const skill of skillFiles) {
+    consider(
+      'skill-file',
+      skill.id,
+      skill.title,
+      skill.relatedKnowledgeItemIds,
+      skill.approvalStatus !== 'archived',
+    )
+  }
+
+  return rows
 }
 
 /** Collects real `SourceTrace` rows from uploaded assets only (no fabrication). */

@@ -528,6 +528,141 @@ export interface ProductServiceItem {
   updatedAt: string
 }
 
+/** Approval lifecycle for Brain Map entities (processes, policies, skill files). */
+export type CompanyBrainMapApprovalStatus = 'draft' | 'approved' | 'needs-review' | 'archived'
+
+export type CompanyBrainPolicyType =
+  | 'pricing'
+  | 'legal'
+  | 'sales'
+  | 'support'
+  | 'operations'
+  | 'product'
+  | 'security'
+  | 'other'
+
+export type CompanyBrainDecisionType =
+  | 'customer'
+  | 'pricing'
+  | 'product'
+  | 'legal'
+  | 'operations'
+  | 'sales'
+  | 'other'
+
+export type CompanyBrainSystemType =
+  | 'crm'
+  | 'drive'
+  | 'slack'
+  | 'email'
+  | 'ticketing'
+  | 'docs'
+  | 'calendar'
+  | 'code'
+  | 'other'
+
+export type CompanyBrainConnectedStatus = 'not-connected' | 'planned' | 'connected'
+
+export type CompanyBrainSkillFileType =
+  | 'sales-deck'
+  | 'intel-brief'
+  | 'objection-handling'
+  | 'onboarding'
+  | 'support'
+  | 'legal-review'
+  | 'pricing'
+  | 'incident-response'
+  | 'custom'
+
+export interface CompanyBrainProcess {
+  id: string
+  organizationId: string
+  title: string
+  description: string
+  category: string
+  ownerRoleTitle?: string
+  department?: string
+  steps: string[]
+  inputs: string[]
+  outputs: string[]
+  relatedKnowledgeItemIds: string[]
+  relatedRoleTitles: string[]
+  approvalStatus: CompanyBrainMapApprovalStatus
+  createdAt: string
+  updatedAt: string
+  lastReviewedAt?: string
+}
+
+export interface CompanyBrainPolicy {
+  id: string
+  organizationId: string
+  title: string
+  summary: string
+  policyType: CompanyBrainPolicyType
+  rules: string[]
+  appliesToDepartments: string[]
+  appliesToRoleTitles: string[]
+  relatedKnowledgeItemIds: string[]
+  approvalStatus: CompanyBrainMapApprovalStatus
+  createdAt: string
+  updatedAt: string
+  lastReviewedAt?: string
+}
+
+export interface CompanyBrainDecision {
+  id: string
+  organizationId: string
+  title: string
+  summary: string
+  decisionType: CompanyBrainDecisionType
+  context: string
+  outcome: string
+  ownerRoleTitle?: string
+  relatedKnowledgeItemIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CompanyBrainSystem {
+  id: string
+  organizationId: string
+  name: string
+  systemType: CompanyBrainSystemType
+  description: string
+  ownerRoleTitle?: string
+  connectedStatus: CompanyBrainConnectedStatus
+  notes: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CompanyBrainSkillFile {
+  id: string
+  organizationId: string
+  title: string
+  description: string
+  skillType: CompanyBrainSkillFileType
+  instructions: string[]
+  requiredInputs: string[]
+  outputFormat: string
+  allowedSourceTypes: CompanyKnowledgeSourceType[]
+  relatedProcessIds: string[]
+  relatedPolicyIds: string[]
+  relatedKnowledgeItemIds: string[]
+  approvalStatus: CompanyBrainMapApprovalStatus
+  createdAt: string
+  updatedAt: string
+}
+
+/** Intel Review / Edge: Brain Map rows tied to selected knowledge (citation honesty). */
+export interface CompanyBrainMapContextUsed {
+  kind: 'process' | 'policy' | 'skill-file'
+  id: string
+  title: string
+  backing: 'citation-backed' | 'memory-only'
+  citationCount?: number
+}
+
 export type CompanyActivityKind =
   | 'knowledge-item-created'
   | 'knowledge-item-approved'
@@ -601,6 +736,12 @@ export interface CompanyBrainWorkspaceSlice {
   approvedMessaging: ApprovedMessagingItem[]
   caseStudies: CaseStudyItem[]
   productsServices: ProductServiceItem[]
+  /** Structured Brain Map (processes, policies, decisions, systems, skill files). */
+  brainProcesses: CompanyBrainProcess[]
+  brainPolicies: CompanyBrainPolicy[]
+  brainDecisions: CompanyBrainDecision[]
+  brainSystems: CompanyBrainSystem[]
+  brainSkillFiles: CompanyBrainSkillFile[]
   activityLogs: CompanyActivityLog[]
   onboarding: CompanyBrainOnboardingDraft
 }

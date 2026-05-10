@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import {
+  buildCompanyBrainMapContextUsed,
   collectSourceTracesFromAssets,
   generateIntelDraftFromSources,
   mergeIntelDraftWithExisting,
 } from '../src/data/intelReview.ts'
 import { SOURCE_CITATION_REVIEW_MODE } from '../src/data/sourceCitationReview.ts'
-import type { DeckSetup, FileAsset } from '../src/types/models.ts'
+import type { CompanyBrainProcess, CompanyKnowledgeItem, DeckSetup, FileAsset } from '../src/types/models.ts'
 
 const minimalSetup = (): DeckSetup => ({
   goal: 'Close expansion',
@@ -119,3 +120,57 @@ const merged = mergeIntelDraftWithExisting(
 )
 assert.equal(merged.companySummary, 'Keep me')
 assert.ok(merged.inferredPriorities && merged.inferredPriorities.length > 0)
+
+const brainKnowledge: CompanyKnowledgeItem = {
+  id: 'bk-intel',
+  organizationId: 'org',
+  uploadedByUserId: 'u1',
+  title: 'Intel note',
+  description: 'context',
+  sourceType: 'notes',
+  tags: [],
+  approvalStatus: 'approved',
+  visibility: 'company',
+  createdAt: '2026-01-01',
+  updatedAt: '2026-01-01',
+}
+
+const brainProc: CompanyBrainProcess = {
+  id: 'bp-intel',
+  organizationId: 'org',
+  title: 'Workflow',
+  description: '',
+  category: 'ops',
+  steps: [],
+  inputs: [],
+  outputs: [],
+  relatedKnowledgeItemIds: ['bk-intel'],
+  relatedRoleTitles: [],
+  approvalStatus: 'approved',
+  createdAt: '2026-01-01',
+  updatedAt: '2026-01-01',
+}
+
+let brainRows = buildCompanyBrainMapContextUsed(['bk-intel'], [brainKnowledge], new Map(), [brainProc], [], [])
+assert.equal(brainRows.length, 1)
+assert.equal(brainRows[0]?.backing, 'memory-only')
+
+const linkedKnowledge: CompanyKnowledgeItem = {
+  ...brainKnowledge,
+  id: 'bk-intel-file',
+  fileAssetId: asset.id,
+}
+const brainProcLinked: CompanyBrainProcess = {
+  ...brainProc,
+  id: 'bp-intel-2',
+  relatedKnowledgeItemIds: ['bk-intel-file'],
+}
+brainRows = buildCompanyBrainMapContextUsed(
+  ['bk-intel-file'],
+  [linkedKnowledge],
+  new Map([[asset.id, asset]]),
+  [brainProcLinked],
+  [],
+  [],
+)
+assert.equal(brainRows[0]?.backing, 'citation-backed')

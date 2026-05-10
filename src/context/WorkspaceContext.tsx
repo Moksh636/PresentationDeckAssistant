@@ -21,6 +21,7 @@ import {
 import { filterAssetsForCitationUse, resolveCitationReviewMode } from '../data/sourceCitationReview'
 import { generateDeckReport } from '../data/reportGenerator'
 import {
+  buildBrainMapDeckInfluence,
   buildDeckReportCompanyBrainEntries,
   buildDeckReportCompanyBrainEntriesFromItems,
   filterRankedKnowledgeBySelection,
@@ -56,10 +57,18 @@ import { isSupabaseConfigured, supabase } from '../data/supabaseClient'
 import {
   acceptWorkerInviteForUser,
   addOrganizationMember,
+  archiveBrainPolicy,
+  archiveBrainProcess,
+  archiveBrainSkillFile,
   archiveCompanyCatalogDepartment as applyArchiveCompanyCatalogDepartment,
   archiveCompanyCatalogRole as applyArchiveCompanyCatalogRole,
   completeCompanyOnboarding,
   deleteApprovedMessaging,
+  deleteBrainDecision,
+  deleteBrainPolicy,
+  deleteBrainProcess,
+  deleteBrainSkillFile,
+  deleteBrainSystem,
   deleteCaseStudy,
   deleteCompanyKnowledgeItem as applyDeleteCompanyKnowledgeItem,
   deleteProductService,
@@ -72,6 +81,11 @@ import {
   setActiveOrganization,
   setKnowledgeApproval,
   upsertApprovedMessaging,
+  upsertBrainDecision,
+  upsertBrainPolicy,
+  upsertBrainProcess,
+  upsertBrainSkillFile,
+  upsertBrainSystem,
   upsertBrandKit,
   upsertCaseStudy,
   upsertCompanyCatalogDepartment as applyUpsertCompanyCatalogDepartment,
@@ -948,6 +962,17 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     const productsServices = activeOrganizationId
       ? workspace.companyBrain.productsServices.filter((item) => item.organizationId === activeOrganizationId)
       : []
+    const assetIndexForBrain = mergeAssetsForKnowledgeTraceLookup(sourceFiles, workspace.fileAssets)
+    const brainMapDeckInfluence =
+      selectedBrainItems.length > 0 && activeOrganizationId
+        ? buildBrainMapDeckInfluence(
+            selectedBrainItems,
+            assetIndexForBrain,
+            workspace.companyBrain.brainProcesses.filter((p) => p.organizationId === activeOrganizationId),
+            workspace.companyBrain.brainPolicies.filter((p) => p.organizationId === activeOrganizationId),
+            workspace.companyBrain.brainSkillFiles.filter((s) => s.organizationId === activeOrganizationId),
+          )
+        : undefined
     const result = await runMockDeckGenerationPipeline({
       sourceDeck,
       sourceFiles,
@@ -959,6 +984,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       approvedMessaging,
       caseStudies,
       productsServices,
+      brainMapDeckInfluence,
     })
 
     setWorkspace((current) => ({
@@ -2751,6 +2777,74 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     markLibraryDirty()
   }
 
+  const upsertBrainProcessMutation: WorkspaceContextValue['upsertBrainProcess'] = (organizationId, input) => {
+    commitWorkspace((current) => upsertBrainProcess(current, organizationId, resolveActorProfile(), input))
+    markKnowledgeDirty()
+  }
+
+  const archiveBrainProcessMutation: WorkspaceContextValue['archiveBrainProcess'] = (organizationId, processId) => {
+    commitWorkspace((current) => archiveBrainProcess(current, organizationId, resolveActorProfile(), processId))
+    markKnowledgeDirty()
+  }
+
+  const deleteBrainProcessMutation: WorkspaceContextValue['deleteBrainProcess'] = (organizationId, processId) => {
+    commitWorkspace((current) => deleteBrainProcess(current, organizationId, resolveActorProfile(), processId))
+    markKnowledgeDirty()
+  }
+
+  const upsertBrainPolicyMutation: WorkspaceContextValue['upsertBrainPolicy'] = (organizationId, input) => {
+    commitWorkspace((current) => upsertBrainPolicy(current, organizationId, resolveActorProfile(), input))
+    markKnowledgeDirty()
+  }
+
+  const archiveBrainPolicyMutation: WorkspaceContextValue['archiveBrainPolicy'] = (organizationId, policyId) => {
+    commitWorkspace((current) => archiveBrainPolicy(current, organizationId, resolveActorProfile(), policyId))
+    markKnowledgeDirty()
+  }
+
+  const deleteBrainPolicyMutation: WorkspaceContextValue['deleteBrainPolicy'] = (organizationId, policyId) => {
+    commitWorkspace((current) => deleteBrainPolicy(current, organizationId, resolveActorProfile(), policyId))
+    markKnowledgeDirty()
+  }
+
+  const upsertBrainDecisionMutation: WorkspaceContextValue['upsertBrainDecision'] = (organizationId, input) => {
+    commitWorkspace((current) => upsertBrainDecision(current, organizationId, resolveActorProfile(), input))
+    markKnowledgeDirty()
+  }
+
+  const deleteBrainDecisionMutation: WorkspaceContextValue['deleteBrainDecision'] = (organizationId, decisionId) => {
+    commitWorkspace((current) => deleteBrainDecision(current, organizationId, resolveActorProfile(), decisionId))
+    markKnowledgeDirty()
+  }
+
+  const upsertBrainSystemMutation: WorkspaceContextValue['upsertBrainSystem'] = (organizationId, input) => {
+    commitWorkspace((current) => upsertBrainSystem(current, organizationId, resolveActorProfile(), input))
+    markKnowledgeDirty()
+  }
+
+  const deleteBrainSystemMutation: WorkspaceContextValue['deleteBrainSystem'] = (organizationId, systemId) => {
+    commitWorkspace((current) => deleteBrainSystem(current, organizationId, resolveActorProfile(), systemId))
+    markKnowledgeDirty()
+  }
+
+  const upsertBrainSkillFileMutation: WorkspaceContextValue['upsertBrainSkillFile'] = (organizationId, input) => {
+    commitWorkspace((current) => upsertBrainSkillFile(current, organizationId, resolveActorProfile(), input))
+    markKnowledgeDirty()
+  }
+
+  const archiveBrainSkillFileMutation: WorkspaceContextValue['archiveBrainSkillFile'] = (
+    organizationId,
+    skillFileId,
+  ) => {
+    commitWorkspace((current) => archiveBrainSkillFile(current, organizationId, resolveActorProfile(), skillFileId))
+    markKnowledgeDirty()
+  }
+
+  const deleteBrainSkillFileMutation: WorkspaceContextValue['deleteBrainSkillFile'] = (organizationId, skillFileId) => {
+    commitWorkspace((current) => deleteBrainSkillFile(current, organizationId, resolveActorProfile(), skillFileId))
+    markKnowledgeDirty()
+  }
+
   const addCompanyMember: WorkspaceContextValue['addCompanyMember'] = (organizationId, member) => {
     commitWorkspace((current) =>
       addOrganizationMember(current, organizationId, resolveActorProfile(), member),
@@ -2956,6 +3050,19 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         deleteCompanyCaseStudy,
         upsertCompanyProductService,
         deleteCompanyProductService,
+        upsertBrainProcess: upsertBrainProcessMutation,
+        archiveBrainProcess: archiveBrainProcessMutation,
+        deleteBrainProcess: deleteBrainProcessMutation,
+        upsertBrainPolicy: upsertBrainPolicyMutation,
+        archiveBrainPolicy: archiveBrainPolicyMutation,
+        deleteBrainPolicy: deleteBrainPolicyMutation,
+        upsertBrainDecision: upsertBrainDecisionMutation,
+        deleteBrainDecision: deleteBrainDecisionMutation,
+        upsertBrainSystem: upsertBrainSystemMutation,
+        deleteBrainSystem: deleteBrainSystemMutation,
+        upsertBrainSkillFile: upsertBrainSkillFileMutation,
+        archiveBrainSkillFile: archiveBrainSkillFileMutation,
+        deleteBrainSkillFile: deleteBrainSkillFileMutation,
         addCompanyMember,
         acceptWorkerInvite,
         upsertWorkerInviteDraft: upsertWorkerInviteDraftMutation,

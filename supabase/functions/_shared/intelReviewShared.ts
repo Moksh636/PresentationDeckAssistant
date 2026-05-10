@@ -3,6 +3,8 @@
  * `promptTrustContract.ts` (Edge) and `src/data/promptGuardrails.ts` / `intelAiResponseValidation.ts` (app).
  * Deno does not import `src/`; duplicate validators there if needed at call sites.
  */
+
+import { buildCitationFileIdAllowlistEdge } from './intelAiResponseValidationEdge.ts'
 export type SourceTraceType =
   | 'deck-input'
   | 'uploaded-file'
@@ -401,6 +403,21 @@ function buildCompanyBrainSourcesUsed(
       citationCount,
       memoryOnly: !citationBacked,
     }
+  })
+}
+
+/** Citation-eligible file IDs for this request (upload traces + file-backed Company Brain only). */
+export function buildIntelCitationFileIdAllowlist(input: IntelReviewRequestInput): Set<string> {
+  const knowledgeItems = effectiveCompanyKnowledgeItems(
+    input.companyKnowledgeItems,
+    input.selectedCompanyKnowledgeItemIds,
+  )
+  const brainTraces = knowledgeItems.flatMap((item) =>
+    collectTracesForKnowledgeItem(item, input.assetTracesByFileId),
+  )
+  return buildCitationFileIdAllowlistEdge({
+    requestTraces: input.sourceTraces,
+    companyBrainResolvedTraces: brainTraces,
   })
 }
 

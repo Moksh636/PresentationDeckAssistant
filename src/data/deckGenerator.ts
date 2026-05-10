@@ -17,7 +17,11 @@ import type {
   SourceTrace,
 } from '../types/models.ts'
 import type { DeckBrandGenerationContext } from './brandKitResolve.ts'
-import { buildCompanyKnowledgeDeckInfluence, mergeAssetsForKnowledgeTraceLookup } from './companyBrainDeckPipeline.ts'
+import type { BrainMapDeckInfluence } from './companyBrainDeckPipeline.ts'
+import {
+  buildCompanyKnowledgeDeckInfluence,
+  mergeAssetsForKnowledgeTraceLookup,
+} from './companyBrainDeckPipeline.ts'
 import { createDeckInputTrace } from './sourceIngestion.ts'
 import { normalizeSlideBlock } from './slideLayout.ts'
 import { filterAssetSourceTraces, resolveCitationReviewMode } from './sourceCitationReview.ts'
@@ -36,6 +40,7 @@ interface DeckGenerationRequest {
   approvedMessaging?: ApprovedMessagingItem[]
   caseStudies?: CaseStudyItem[]
   productsServices?: ProductServiceItem[]
+  brainMapDeckInfluence?: BrainMapDeckInfluence
 }
 
 interface DeckGenerationResult {
@@ -463,8 +468,16 @@ function createGeneratedSlides(
     caseStudies?: CaseStudyItem[]
     productsServices?: ProductServiceItem[]
   },
+  brainMapDeckInfluence?: BrainMapDeckInfluence,
 ) {
-  const sections = resolveSections(deck, fileAssets)
+  let sections = resolveSections(deck, fileAssets)
+  if (brainMapDeckInfluence?.structureSectionHints.length) {
+    const raw = brainMapDeckInfluence.structureSectionHints[0]!.trim()
+    const condensed = raw.length > 96 ? `${raw.slice(0, 96)}…` : raw
+    if (condensed) {
+      sections = [...sections, `Skill-guided arc: ${condensed}`]
+    }
+  }
   const assetIndexForBrain = mergeAssetsForKnowledgeTraceLookup(
     fileAssets,
     companyBrain?.workspaceFileAssets ?? [],
@@ -539,11 +552,24 @@ function createGeneratedSlides(
     ]
     executiveBullets = [...executiveBullets, ...extraBrainBullets].slice(0, 12)
   }
+  if (brainMapDeckInfluence?.pricingValueLines.length) {
+    executiveBullets = [
+      ...executiveBullets,
+      ...brainMapDeckInfluence.pricingValueLines.slice(0, 2).map((line) => `Brain Map (pricing): ${line}`),
+    ].slice(0, 12)
+  }
   if (approvedMessageTitles.length > 0) {
     executiveBullets = [...executiveBullets, `Approved messaging: ${approvedMessageTitles.slice(0, 3).join('; ')}`]
   }
   const brainCitationTraces = dedupeSourceTrace(
-    (brainInfluence?.citedTraces ?? []).filter((trace) => citationEligibleKeys.has(traceApprovalKey(trace))),
+    [
+      ...(brainInfluence?.citedTraces ?? []).filter((trace) =>
+        citationEligibleKeys.has(traceApprovalKey(trace)),
+      ),
+      ...(brainMapDeckInfluence?.linkedKnowledgeTraces ?? []).filter((trace) =>
+        citationEligibleKeys.has(traceApprovalKey(trace)),
+      ),
+    ],
   )
   const visualPlaceholder = createVisualPlaceholder(fileAssets, sections, deck.setup)
   const chartSuggestion = createChartSuggestion(fileAssets, goal, deck.setup)
@@ -628,6 +654,9 @@ function createGeneratedSlides(
       : '',
     brainInfluence?.legalTitles.length
       ? `Legal / policy sources in play: ${brainInfluence.legalTitles.join(', ')} — keep precise claims in speaker notes until reviewed.`
+      : '',
+    brainMapDeckInfluence?.processSpeakerNoteLines.length
+      ? `Brain Map processes (speaker cues): ${brainMapDeckInfluence.processSpeakerNoteLines.slice(0, 3).join(' | ')}`
       : '',
   ]
     .filter(Boolean)
@@ -775,6 +804,9 @@ function createGeneratedSlides(
           'Use this as a flexible content slide for the core evidence and argument.',
           brainInfluence?.legalTitles.length && index === sections.length - 1
             ? `Risk / terms note: ${brainInfluence.legalTitles.join(', ')} — align claims with approved legal language.`
+            : '',
+          brainMapDeckInfluence?.processSpeakerNoteLines.length && index === 0
+            ? brainMapDeckInfluence.processSpeakerNoteLines.slice(0, 2).join('\n')
             : '',
         ]
           .filter(Boolean)
@@ -1000,6 +1032,7 @@ function createGeneratedSlides(
     ...(deck.setup.knownPainPoints ?? []),
     ...(deck.setup.intel?.objections ?? []),
     ...((brainInfluence?.legalTitles ?? []).map((t) => `Legal/policy watchout: ${t}`)),
+    ...(brainMapDeckInfluence?.objectionLines ?? []),
   ].filter(Boolean)
   if (objectionSignals.length > 0) {
     const objectionTrace = createDeckInputTrace(
@@ -1059,6 +1092,7 @@ export async function runMockDeckGenerationPipeline({
   approvedMessaging,
   caseStudies,
   productsServices,
+  brainMapDeckInfluence,
 }: DeckGenerationRequest): Promise<DeckGenerationResult> {
   const generatedAt = new Date().toISOString()
   const generatedDeckId = createId('deck')
@@ -1089,6 +1123,7 @@ export async function runMockDeckGenerationPipeline({
       caseStudies,
       productsServices,
     },
+    brainMapDeckInfluence,
   ).map((slide) => ({
     ...slide,
     deckId: generatedDeckId,
@@ -1127,6 +1162,7 @@ export function createSlidesFromDeck(
     approvedMessaging?: ApprovedMessagingItem[]
     caseStudies?: CaseStudyItem[]
     productsServices?: ProductServiceItem[]
+    brainMapDeckInfluence?: BrainMapDeckInfluence
   },
 ): Slide[] {
   const slice =
@@ -1137,7 +1173,7 @@ export function createSlidesFromDeck(
     approvedMessaging: companyBrain?.approvedMessaging,
     caseStudies: companyBrain?.caseStudies,
     productsServices: companyBrain?.productsServices,
-  })
+  }, companyBrain?.brainMapDeckInfluence)
 }
 
 export function createAlternateSlides(deck: Deck, currentSlides: Slide[]) {

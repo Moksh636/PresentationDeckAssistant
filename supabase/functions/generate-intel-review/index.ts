@@ -1,5 +1,14 @@
+/**
+ * Intel Review Edge function.
+ *
+ * Secrets (Supabase dashboard → Edge Functions → Secrets): `GEMINI_API_KEY` when using Gemini;
+ * optional `AI_PROVIDER=gemini` to enable; optional `AI_MODEL` (defaults to gemini-2.5-flash).
+ * Optional guards: `SUPABASE_TEST`, `INTEL_REVIEW_FORCE_MOCK` — skip live AI (deterministic mock).
+ * Never expose these keys to the frontend / VITE_*.
+ */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8'
-import { buildIntelReviewResponse, sanitizeIntelReviewRequest } from '../_shared/intelReviewShared.ts'
+import { generateIntelReviewWithOptionalGemini } from '../_shared/geminiIntelReview.ts'
+import { sanitizeIntelReviewRequest } from '../_shared/intelReviewShared.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,8 +74,8 @@ denoRuntime.Deno.serve(async (request) => {
   try {
     const sanitized = sanitizeIntelReviewRequest(body)
 
-    // Future expansion: read additional user-scoped rows via RLS (authData.user.id).
-    const result = buildIntelReviewResponse(sanitized)
+    const envGet = (key: string) => denoRuntime.Deno?.env.get(key)
+    const result = await generateIntelReviewWithOptionalGemini(sanitized, { envGet })
 
     return json(200, result)
   } catch (error) {

@@ -25,6 +25,7 @@ type CompanyTab =
   | 'library'
   | 'review'
   | 'roles-depts'
+  | 'brain-map'
   | 'brand'
   | 'messaging'
   | 'cases'
@@ -37,6 +38,7 @@ const TAB_LABELS: { id: CompanyTab; label: string }[] = [
   { id: 'library', label: 'Knowledge Library' },
   { id: 'review', label: 'Needs Review' },
   { id: 'roles-depts', label: 'Roles & Departments' },
+  { id: 'brain-map', label: 'Brain Map' },
   { id: 'brand', label: 'Brand Kit' },
   { id: 'messaging', label: 'Approved Messaging' },
   { id: 'cases', label: 'Case Studies' },
@@ -124,6 +126,11 @@ export function CompanyBrainPage() {
   const products = slice.productsServices.filter((p) => p.organizationId === activeOrgId)
   const members = slice.organizationMemberships.filter((m) => m.organizationId === activeOrgId)
   const logs = slice.activityLogs.filter((l) => l.organizationId === activeOrgId)
+  const brainProcessCount = slice.brainProcesses.filter((p) => p.organizationId === activeOrgId).length
+  const brainPolicyCount = slice.brainPolicies.filter((p) => p.organizationId === activeOrgId).length
+  const brainDecisionCount = slice.brainDecisions.filter((p) => p.organizationId === activeOrgId).length
+  const brainSystemCount = slice.brainSystems.filter((p) => p.organizationId === activeOrgId).length
+  const brainSkillCount = slice.brainSkillFiles.filter((p) => p.organizationId === activeOrgId).length
 
   const deckFileOptions = workspace.fileAssets.filter((a) => a.deckId === workspace.activeDeckId)
 
@@ -273,6 +280,41 @@ export function CompanyBrainPage() {
           roles={slice.companyRoles.filter((row) => row.organizationId === activeOrgId)}
           workspaceApi={workspaceApi}
         />
+      ) : null}
+
+      {tab === 'brain-map' ? (
+        <div className="panel-card company-brain-panel">
+          <h3>Brain Map</h3>
+          <p className="muted-copy">
+            Structured processes, policies, decisions, systems, and skill files connect to knowledge rows for pitch
+            decks and Intel Review. Owners manage the full Brain Map in the Owner Console.
+          </p>
+          <div className="company-brain-metrics">
+            <div>
+              <span className="muted-copy">Processes</span>
+              <strong>{brainProcessCount}</strong>
+            </div>
+            <div>
+              <span className="muted-copy">Policies</span>
+              <strong>{brainPolicyCount}</strong>
+            </div>
+            <div>
+              <span className="muted-copy">Decisions</span>
+              <strong>{brainDecisionCount}</strong>
+            </div>
+            <div>
+              <span className="muted-copy">Systems</span>
+              <strong>{brainSystemCount}</strong>
+            </div>
+            <div>
+              <span className="muted-copy">Skill files</span>
+              <strong>{brainSkillCount}</strong>
+            </div>
+          </div>
+          <Link className="primary-button" to="/owner">
+            Open Owner Brain Map module
+          </Link>
+        </div>
       ) : null}
 
       {tab === 'brand' ? (

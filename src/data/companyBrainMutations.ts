@@ -6,6 +6,11 @@ import type {
   CompanyBrandKit,
   CompanyBrainCatalogDepartment,
   CompanyBrainCatalogRole,
+  CompanyBrainDecision,
+  CompanyBrainPolicy,
+  CompanyBrainProcess,
+  CompanyBrainSkillFile,
+  CompanyBrainSystem,
   CompanyBrainWorkspaceSlice,
   CompanyKnowledgeItem,
   CompanyKnowledgeSourceType,
@@ -1212,6 +1217,371 @@ export function deleteProductService(
       ...slice,
       productsServices: slice.productsServices.filter(
         (p) => !(p.id === productId && p.organizationId === organizationId),
+      ),
+    },
+  }
+}
+
+export function upsertBrainProcess(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  input: Omit<CompanyBrainProcess, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const id = input.id ?? createId('brain-process')
+  const existing = slice.brainProcesses.find((p) => p.id === id)
+  const nextRow: CompanyBrainProcess = existing
+    ? {
+        ...existing,
+        ...input,
+        organizationId,
+        updatedAt: iso,
+      }
+    : {
+        id,
+        organizationId,
+        title: input.title,
+        description: input.description,
+        category: input.category,
+        ownerRoleTitle: input.ownerRoleTitle,
+        department: input.department,
+        steps: input.steps,
+        inputs: input.inputs,
+        outputs: input.outputs,
+        relatedKnowledgeItemIds: input.relatedKnowledgeItemIds,
+        relatedRoleTitles: input.relatedRoleTitles,
+        approvalStatus: input.approvalStatus,
+        createdAt: iso,
+        updatedAt: iso,
+        lastReviewedAt: input.lastReviewedAt,
+      }
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainProcesses: [nextRow, ...slice.brainProcesses.filter((p) => p.id !== id)],
+    },
+  }
+}
+
+export function archiveBrainProcess(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  processId: string,
+): WorkspaceState {
+  const row = workspace.companyBrain.brainProcesses.find(
+    (p) => p.id === processId && p.organizationId === organizationId,
+  )
+  if (!row) {
+    return workspace
+  }
+  return upsertBrainProcess(workspace, organizationId, actor, { ...row, approvalStatus: 'archived', id: row.id })
+}
+
+export function deleteBrainProcess(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  processId: string,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const slice = workspace.companyBrain
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainProcesses: slice.brainProcesses.filter(
+        (p) => !(p.id === processId && p.organizationId === organizationId),
+      ),
+    },
+  }
+}
+
+export function upsertBrainPolicy(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  input: Omit<CompanyBrainPolicy, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const id = input.id ?? createId('brain-policy')
+  const existing = slice.brainPolicies.find((p) => p.id === id)
+  const nextRow: CompanyBrainPolicy = existing
+    ? {
+        ...existing,
+        ...input,
+        organizationId,
+        updatedAt: iso,
+      }
+    : {
+        id,
+        organizationId,
+        title: input.title,
+        summary: input.summary,
+        policyType: input.policyType,
+        rules: input.rules,
+        appliesToDepartments: input.appliesToDepartments,
+        appliesToRoleTitles: input.appliesToRoleTitles,
+        relatedKnowledgeItemIds: input.relatedKnowledgeItemIds,
+        approvalStatus: input.approvalStatus,
+        createdAt: iso,
+        updatedAt: iso,
+        lastReviewedAt: input.lastReviewedAt,
+      }
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainPolicies: [nextRow, ...slice.brainPolicies.filter((p) => p.id !== id)],
+    },
+  }
+}
+
+export function archiveBrainPolicy(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  policyId: string,
+): WorkspaceState {
+  const row = workspace.companyBrain.brainPolicies.find((p) => p.id === policyId && p.organizationId === organizationId)
+  if (!row) return workspace
+  return upsertBrainPolicy(workspace, organizationId, actor, { ...row, approvalStatus: 'archived' })
+}
+
+export function deleteBrainPolicy(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  policyId: string,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const slice = workspace.companyBrain
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainPolicies: slice.brainPolicies.filter((p) => !(p.id === policyId && p.organizationId === organizationId)),
+    },
+  }
+}
+
+export function upsertBrainDecision(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  input: Omit<CompanyBrainDecision, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const id = input.id ?? createId('brain-decision')
+  const existing = slice.brainDecisions.find((d) => d.id === id)
+  const nextRow: CompanyBrainDecision = existing
+    ? {
+        ...existing,
+        ...input,
+        organizationId,
+        updatedAt: iso,
+      }
+    : {
+        id,
+        organizationId,
+        title: input.title,
+        summary: input.summary,
+        decisionType: input.decisionType,
+        context: input.context,
+        outcome: input.outcome,
+        ownerRoleTitle: input.ownerRoleTitle,
+        relatedKnowledgeItemIds: input.relatedKnowledgeItemIds,
+        createdAt: iso,
+        updatedAt: iso,
+      }
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainDecisions: [nextRow, ...slice.brainDecisions.filter((d) => d.id !== id)],
+    },
+  }
+}
+
+export function deleteBrainDecision(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  decisionId: string,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const slice = workspace.companyBrain
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainDecisions: slice.brainDecisions.filter(
+        (d) => !(d.id === decisionId && d.organizationId === organizationId),
+      ),
+    },
+  }
+}
+
+export function upsertBrainSystem(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  input: Omit<CompanyBrainSystem, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const id = input.id ?? createId('brain-system')
+  const existing = slice.brainSystems.find((s) => s.id === id)
+  const nextRow: CompanyBrainSystem = existing
+    ? {
+        ...existing,
+        ...input,
+        organizationId,
+        updatedAt: iso,
+      }
+    : {
+        id,
+        organizationId,
+        name: input.name,
+        systemType: input.systemType,
+        description: input.description,
+        ownerRoleTitle: input.ownerRoleTitle,
+        connectedStatus: input.connectedStatus,
+        notes: input.notes,
+        createdAt: iso,
+        updatedAt: iso,
+      }
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainSystems: [nextRow, ...slice.brainSystems.filter((s) => s.id !== id)],
+    },
+  }
+}
+
+export function deleteBrainSystem(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  systemId: string,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const slice = workspace.companyBrain
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainSystems: slice.brainSystems.filter((s) => !(s.id === systemId && s.organizationId === organizationId)),
+    },
+  }
+}
+
+export function upsertBrainSkillFile(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  input: Omit<CompanyBrainSkillFile, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> & { id?: string },
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const iso = nowIso()
+  const slice = workspace.companyBrain
+  const id = input.id ?? createId('brain-skill')
+  const existing = slice.brainSkillFiles.find((s) => s.id === id)
+  const nextRow: CompanyBrainSkillFile = existing
+    ? {
+        ...existing,
+        ...input,
+        organizationId,
+        updatedAt: iso,
+      }
+    : {
+        id,
+        organizationId,
+        title: input.title,
+        description: input.description,
+        skillType: input.skillType,
+        instructions: input.instructions,
+        requiredInputs: input.requiredInputs,
+        outputFormat: input.outputFormat,
+        allowedSourceTypes: input.allowedSourceTypes,
+        relatedProcessIds: input.relatedProcessIds,
+        relatedPolicyIds: input.relatedPolicyIds,
+        relatedKnowledgeItemIds: input.relatedKnowledgeItemIds,
+        approvalStatus: input.approvalStatus,
+        createdAt: iso,
+        updatedAt: iso,
+      }
+
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainSkillFiles: [nextRow, ...slice.brainSkillFiles.filter((s) => s.id !== id)],
+    },
+  }
+}
+
+export function archiveBrainSkillFile(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  skillFileId: string,
+): WorkspaceState {
+  const row = workspace.companyBrain.brainSkillFiles.find(
+    (s) => s.id === skillFileId && s.organizationId === organizationId,
+  )
+  if (!row) return workspace
+  return upsertBrainSkillFile(workspace, organizationId, actor, { ...row, approvalStatus: 'archived' })
+}
+
+export function deleteBrainSkillFile(
+  workspace: WorkspaceState,
+  organizationId: string,
+  actor: UserProfileRef,
+  skillFileId: string,
+): WorkspaceState {
+  if (!canManageCompanyBrain(workspace, organizationId, actor.userId)) {
+    return workspace
+  }
+  const slice = workspace.companyBrain
+  return {
+    ...workspace,
+    companyBrain: {
+      ...slice,
+      brainSkillFiles: slice.brainSkillFiles.filter(
+        (s) => !(s.id === skillFileId && s.organizationId === organizationId),
       ),
     },
   }
