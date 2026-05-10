@@ -351,9 +351,6 @@ export function BuildPresentationPage() {
                 {setup.targetCompany.trim()}
               </span>
             ) : null}
-            <span className={`builder-ai-pill ${aiBackendEnabled ? 'builder-ai-pill--on' : ''}`}>
-              {aiBackendEnabled ? 'AI backend on' : 'Local mode'}
-            </span>
           </div>
         </div>
         <div className="builder-command-bar__actions builder-command-bar__actions--compact">
@@ -385,7 +382,7 @@ export function BuildPresentationPage() {
                 <div className="builder-inline-actions builder-inline-actions--tight">
                   <span className="field-label field-label--compact">Research uploads</span>
                   <a href="#qa" className="builder-jump-link">
-                    Source QA
+                    Review snippets in Source QA
                   </a>
                 </div>
                 <SourceUploadDropzone
@@ -648,6 +645,10 @@ export function BuildPresentationPage() {
               <p className="muted-copy builder-advanced-shell__lede">
                 Account: <strong>{activeProject?.name ?? '—'}</strong>
                 {activeProject?.summary ? ` · ${activeProject.summary}` : null}
+                {' · '}
+                <span className={`builder-ai-pill ${aiBackendEnabled ? 'builder-ai-pill--on' : ''}`}>
+                  {aiBackendEnabled ? 'AI backend on' : 'Local mode'}
+                </span>
               </p>
 
               <div className="field-group">
@@ -884,34 +885,12 @@ export function BuildPresentationPage() {
             </button>
           </div>
 
-          <div className="builder-rail-card builder-rail-card--bare">
-            <span className="field-label field-label--compact">Citation mode</span>
-            <div className="scope-toggle builder-rail-scope" role="group" aria-label="Citation review mode">
-              <button
-                type="button"
-                className={citationReviewMode === 'permissive' ? 'is-active' : ''}
-                onClick={() => updateDeckSetup(activeDeck.id, { citationReviewMode: 'permissive' })}
-              >
-                Permissive
-              </button>
-              <button
-                type="button"
-                className={citationReviewMode === 'strict-approved-only' ? 'is-active' : ''}
-                onClick={() =>
-                  updateDeckSetup(activeDeck.id, { citationReviewMode: 'strict-approved-only' })
-                }
-              >
-                Strict
-              </button>
-            </div>
-          </div>
-
           <div className="builder-rail-inline-metrics muted-copy">
             <span>{deckAssets.length} sources</span>
-            <span aria-hidden="true">
-              ·
-            </span>
+            <span aria-hidden="true">·</span>
             <span>{selectedKnowledgeCount} knowledge</span>
+            <span aria-hidden="true">·</span>
+            <span>{citationModeShortLabel} citations</span>
           </div>
         </aside>
       </div>

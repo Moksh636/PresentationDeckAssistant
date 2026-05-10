@@ -7,6 +7,7 @@ import {
   snippetLabel,
   snippetReviewKey,
 } from '../../data/sourceCitationReview'
+import { sanitizeParseWarningsForUserDisplay } from '../../data/sourceParseWarnings'
 import { formatConfidence } from '../../utils/formatters'
 
 interface SourceCitationQAPanelProps {
@@ -67,127 +68,196 @@ export function SourceCitationQAPanel({
         {modeToggle}
       </div>
       <p className="muted-copy source-citation-qa__hint">
-        Strict mode uses approved sources only for citations.
+        Approve, exclude, and enable individual citation-ready snippets here. Strict mode uses approved sources
+        only when generating citations.
       </p>
       {assets.length === 0 ? (
         <p className="muted-copy">No sources uploaded yet.</p>
       ) : (
         <div className="source-qa-asset-list source-qa-asset-list--compact">
-          {assets.map((asset) => (
-            <details key={asset.id} className="source-qa-file">
-              <summary className="source-qa-file__summary">
-                <span className="source-qa-file__name">{asset.name}</span>
-                <span className="source-qa-file__meta">{asset.status}</span>
-                <span className="source-qa-file__meta">{asset.sizeLabel}</span>
-                {asset.summary ? <span className="source-qa-file__dim">{asset.summary}</span> : null}
-              </summary>
-              <div className="source-qa-file__body">
-                <div className="asset-card__chip-row">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => onSetSourceStatus(asset.id, 'approved')}
-                  >
-                    {isSourceApproved(asset) ? 'Approved' : 'Mark approved'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => onSetSourceStatus(asset.id, 'excluded')}
-                  >
-                    {isSourceExcluded(asset) ? 'Excluded' : 'Exclude source'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => onSetSourceStatus(asset.id, 'pending')}
-                  >
-                    Clear status
-                  </button>
-                </div>
+          {assets.map((asset) => {
+            const sanitized = sanitizeParseWarningsForUserDisplay(asset.parseWarnings)
+            return (
+              <details key={asset.id} className="source-qa-file">
+                <summary className="source-qa-file__summary">
+                  <span className="source-qa-file__name">{asset.name}</span>
+                  <span className="source-qa-file__meta">{asset.sizeLabel}</span>
+                  {asset.summary ? (
+                    <span className="source-qa-file__dim">{asset.summary}</span>
+                  ) : null}
+                </summary>
+                <div className="source-qa-file__body">
+                  <div className="asset-card__chip-row">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => onSetSourceStatus(asset.id, 'approved')}
+                    >
+                      {isSourceApproved(asset) ? 'Approved' : 'Mark approved'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => onSetSourceStatus(asset.id, 'excluded')}
+                    >
+                      {isSourceExcluded(asset) ? 'Excluded' : 'Exclude source'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => onSetSourceStatus(asset.id, 'pending')}
+                    >
+                      Clear status
+                    </button>
+                  </div>
 
-                <div className="asset-card__details">
-                  <details className="source-qa-subdetail">
-                    <summary>Extracted preview</summary>
-                    <div className="asset-card__detail-block asset-card__detail-block--wide">
-                      <p>{asset.extractedTextPreview || 'No extracted preview available.'}</p>
-                    </div>
-                  </details>
+                  {sanitized.friendlyMessage ? (
+                    <p className="source-qa-file__friendly">{sanitized.friendlyMessage}</p>
+                  ) : null}
 
-                  <details className="source-qa-subdetail">
-                    <summary>
-                      Parse warnings
-                      {asset.parseWarnings && asset.parseWarnings.length > 0
-                        ? ` (${asset.parseWarnings.length})`
-                        : ''}
-                    </summary>
-                    <div className="asset-card__detail-block asset-card__detail-block--wide">
-                      {asset.parseWarnings && asset.parseWarnings.length > 0 ? (
-                        <ul className="intel-citation-list">
-                          {asset.parseWarnings.map((warning, index) => (
-                            <li key={`${asset.id}-warning-${index}`}>
-                              <p>{warning}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p>None</p>
-                      )}
-                    </div>
-                  </details>
+                  <div className="asset-card__details">
+                    <details className="source-qa-subdetail">
+                      <summary>Extracted preview</summary>
+                      <div className="asset-card__detail-block asset-card__detail-block--wide">
+                        <p>{asset.extractedTextPreview || 'No extracted preview available.'}</p>
+                      </div>
+                    </details>
 
-                  <details className="source-qa-subdetail">
-                    <summary>Source traces / snippets ({asset.sourceTrace.length})</summary>
-                    <div className="asset-card__detail-block asset-card__detail-block--wide">
-                      {asset.sourceTrace.length === 0 ? (
-                        <p>No snippets extracted from this source.</p>
-                      ) : (
-                        <ul className="intel-citation-list source-qa-snippet-root">
-                          {asset.sourceTrace.map((trace) => {
-                            const key = snippetReviewKey(trace)
-                            const enabled = isSnippetEnabled(asset, trace)
-                            return (
-                              <li key={`${asset.id}-${key}`}>
-                                <details className="source-qa-snippet-item">
-                                  <summary className="source-qa-snippet-item__summary">
-                                    <span>{snippetLabel(asset, trace)}</span>
-                                    <span className="intel-citation-meta">{formatConfidence(trace.confidence)}</span>
-                                  </summary>
-                                  <div className="source-qa-snippet-item__body">
-                                    <div className="intel-knowledge-row-heading">
-                                      <label>
-                                        <input
-                                          type="checkbox"
-                                          checked={enabled}
-                                          onChange={(event) =>
-                                            onSetSnippetEnabled(asset.id, key, event.target.checked)
-                                          }
-                                        />{' '}
-                                        Enable
-                                      </label>
+                    <details className="source-qa-subdetail" open>
+                      <summary>Source snippets ({asset.sourceTrace.length})</summary>
+                      <div className="asset-card__detail-block asset-card__detail-block--wide">
+                        {asset.sourceTrace.length === 0 ? (
+                          <p>No snippets extracted from this source.</p>
+                        ) : (
+                          <ul className="intel-citation-list source-qa-snippet-root">
+                            {asset.sourceTrace.map((trace) => {
+                              const key = snippetReviewKey(trace)
+                              const enabled = isSnippetEnabled(asset, trace)
+                              return (
+                                <li key={`${asset.id}-${key}`}>
+                                  <details className="source-qa-snippet-item">
+                                    <summary className="source-qa-snippet-item__summary">
+                                      <span>{snippetLabel(asset, trace)}</span>
+                                      <span className="intel-citation-meta">
+                                        {formatConfidence(trace.confidence)}
+                                      </span>
+                                    </summary>
+                                    <div className="source-qa-snippet-item__body">
+                                      <div className="intel-knowledge-row-heading">
+                                        <label>
+                                          <input
+                                            type="checkbox"
+                                            checked={enabled}
+                                            onChange={(event) =>
+                                              onSetSnippetEnabled(
+                                                asset.id,
+                                                key,
+                                                event.target.checked,
+                                              )
+                                            }
+                                          />{' '}
+                                          Enable
+                                        </label>
+                                      </div>
+                                      <input
+                                        type="text"
+                                        value={snippetLabel(asset, trace)}
+                                        onChange={(event) =>
+                                          onSetSnippetLabelOverride(
+                                            asset.id,
+                                            key,
+                                            event.target.value,
+                                          )
+                                        }
+                                        placeholder={trace.fileName}
+                                      />
+                                      <p>{trace.extractedSnippet}</p>
                                     </div>
-                                    <input
-                                      type="text"
-                                      value={snippetLabel(asset, trace)}
-                                      onChange={(event) =>
-                                        onSetSnippetLabelOverride(asset.id, key, event.target.value)
-                                      }
-                                      placeholder={trace.fileName}
-                                    />
-                                    <p>{trace.extractedSnippet}</p>
-                                  </div>
-                                </details>
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  </details>
+                                  </details>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    </details>
+
+                    <details className="source-qa-subdetail">
+                      <summary>
+                        Advanced source details
+                        {sanitized.rawWarnings.length > 0
+                          ? ` (${sanitized.rawWarnings.length} parser note${sanitized.rawWarnings.length === 1 ? '' : 's'})`
+                          : ''}
+                      </summary>
+                      <div className="asset-card__detail-block asset-card__detail-block--wide">
+                        <dl className="uploaded-file-row__facts">
+                          <div>
+                            <dt className="field-label">Parse status</dt>
+                            <dd>{asset.status}</dd>
+                          </div>
+                          <div>
+                            <dt className="field-label">File type</dt>
+                            <dd>{asset.kind}</dd>
+                          </div>
+                          <div>
+                            <dt className="field-label">Trace confidence (top)</dt>
+                            <dd>
+                              {formatConfidence(asset.sourceTrace[0]?.confidence ?? 0)}
+                            </dd>
+                          </div>
+                        </dl>
+
+                        <div className="asset-card__detail-block asset-card__detail-block--wide">
+                          <span className="field-label">Raw parser warnings</span>
+                          {sanitized.rawWarnings.length > 0 ? (
+                            <ul className="intel-citation-list">
+                              {sanitized.rawWarnings.map((warning, index) => (
+                                <li key={`${asset.id}-warning-${index}`}>
+                                  <p>{warning}</p>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p>None</p>
+                          )}
+                        </div>
+
+                        <div className="asset-card__detail-block asset-card__detail-block--wide">
+                          <span className="field-label">Extraction metadata</span>
+                          <div className="asset-card__metadata">
+                            {Object.entries(asset.extractedMetadata).map(([key, value]) => (
+                              <div key={key} className="asset-card__metadata-item">
+                                <span className="field-label">{key}</span>
+                                <strong>{String(value)}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="asset-card__detail-block asset-card__detail-block--wide">
+                          <span className="field-label">Snippet trace ids</span>
+                          <div className="asset-card__trace">
+                            {asset.sourceTrace.length === 0 ? (
+                              <span className="muted-copy">No snippets extracted.</span>
+                            ) : (
+                              asset.sourceTrace.map((trace) => (
+                                <span
+                                  key={`${asset.id}-${trace.fileId}-${trace.extractedSnippet.slice(0, 24)}`}
+                                  title={trace.extractedSnippet}
+                                >
+                                  {trace.fileName} | {formatConfidence(trace.confidence)}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
                 </div>
-              </div>
-            </details>
-          ))}
+              </details>
+            )
+          })}
         </div>
       )}
     </div>

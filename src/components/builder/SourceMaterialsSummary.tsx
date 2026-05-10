@@ -20,7 +20,7 @@ export function SourceMaterialsSummary({
     return (
       <div className="source-materials-compact">
         <div className="source-materials-compact__head">
-          <span className="field-label">Ingestion</span>
+          <span className="field-label">Auto-fill brief</span>
           <button
             type="button"
             className="secondary-button secondary-button--sm"
@@ -44,7 +44,7 @@ export function SourceMaterialsSummary({
               </span>
             </div>
             <details className="source-materials-compact__details">
-              <summary>Summary text &amp; signal preview</summary>
+              <summary>Auto-fill suggestions preview</summary>
               <p className="muted-copy source-materials-compact__lede">{summary.summaryText}</p>
               <div className="source-materials-compact__signals">
                 <div className="context-note">
@@ -62,22 +62,13 @@ export function SourceMaterialsSummary({
                 <div className="source-summary__section">
                   <span className="field-label">Suggested sections</span>
                   <div className="asset-card__chip-row">
-                    {summary.suggestedSections.map((section) => (
-                      <span key={section}>{section}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="source-summary__section">
-                  <span className="field-label">Citation trace preview</span>
-                  <div className="source-trace source-trace--detailed">
-                    {summary.tracePreview.map((trace) => (
-                      <span
-                        key={`${trace.fileId}-${trace.extractedSnippet}`}
-                        title={trace.extractedSnippet}
-                      >
-                        {trace.fileName} | {formatConfidence(trace.confidence)}
-                      </span>
-                    ))}
+                    {summary.suggestedSections.length === 0 ? (
+                      <span className="muted-copy">—</span>
+                    ) : (
+                      summary.suggestedSections.map((section) => (
+                        <span key={section}>{section}</span>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

@@ -161,7 +161,7 @@ export function IntelReviewPanel({
         <p className="muted-copy intel-review-mode-line intel-review-mode-line--compact">
           <strong>{aiBackendEnabled ? 'Backend AI on' : 'Local generator'}</strong>
           {' · '}
-          Citations respect upload traces; memory-only Brain rows stay non-file-backed.
+          Citations use approved source snippets; memory-only Brain rows stay non-file-backed.
         </p>
         <details className="intel-review-about-fold">
           <summary>How Intel Review uses sources</summary>
@@ -289,7 +289,7 @@ export function IntelReviewPanel({
                                   className={`intel-knowledge-backing-pill ${cited ? 'intel-knowledge-backing-pill--cited' : ''}`}
                                 >
                                   {cited
-                                    ? `Cited source (linked file trace)${meta && meta.citationCount > 0 ? ` · ${meta.citationCount}` : ''}`
+                                    ? `Cited source (linked file)${meta && meta.citationCount > 0 ? ` · ${meta.citationCount}` : ''}`
                                     : 'Company knowledge, not citation-backed'}
                                 </span>
                               </div>
@@ -305,7 +305,7 @@ export function IntelReviewPanel({
                               <p className="muted-copy">{item.description?.trim() || item.title}</p>
                               {cited ? (
                                 <p className="muted-copy intel-knowledge-citation-hint">
-                                  File-linked traces can appear in deck citations when the library asset
+                                  Linked file snippets can appear as deck citations when the library asset
                                   retains parsed metadata.
                                 </p>
                               ) : null}
@@ -354,8 +354,8 @@ export function IntelReviewPanel({
                         className={`intel-knowledge-backing-pill ${row.backing === 'citation-backed' ? 'intel-knowledge-backing-pill--cited' : ''}`}
                       >
                         {row.backing === 'citation-backed'
-                          ? `Citation-backed (linked knowledge traces)${row.citationCount ? ` · ${row.citationCount}` : ''}`
-                          : 'Memory-only (linked knowledge has no file traces)'}
+                          ? `Citation-backed (linked knowledge sources)${row.citationCount ? ` · ${row.citationCount}` : ''}`
+                          : 'Memory-only (linked knowledge has no file sources)'}
                       </span>
                     </div>
                   </li>

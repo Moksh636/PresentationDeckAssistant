@@ -2201,7 +2201,8 @@ select:focus-visible {
   margin: 2px 0 0;
 }
 
-.uploaded-file-row__deep {
+.uploaded-file-row__deep,
+.uploaded-file-row__advanced {
   margin-top: 4px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
@@ -2209,11 +2210,37 @@ select:focus-visible {
   background: rgba(248, 249, 252, 0.65);
 }
 
-.uploaded-file-row__deep summary {
+.uploaded-file-row__deep summary,
+.uploaded-file-row__advanced summary {
   cursor: pointer;
   font-weight: 700;
   font-size: 12px;
   color: var(--muted);
+}
+
+.uploaded-file-row__friendly {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(120, 85, 20, 0.95);
+  background: rgba(220, 180, 60, 0.1);
+  border: 1px solid rgba(180, 140, 40, 0.32);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+
+.uploaded-file-row__snippets-line {
+  margin: 0;
+  font-size: 12px;
+}
+
+.source-qa-file__friendly {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(120, 85, 20, 0.95);
+  background: rgba(220, 180, 60, 0.1);
+  border: 1px solid rgba(180, 140, 40, 0.32);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
 }
 
 .company-knowledge-why-fold {
