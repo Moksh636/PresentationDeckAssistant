@@ -18,7 +18,10 @@ import type {
 } from '../types/models'
 import { workspaceUserProfileFromAuth } from '../data/workspaceUserProfile'
 import { RolesDepartmentsCatalogTab } from '../components/companyBrain/RolesDepartmentsCatalogTab'
+import { useRenameModal } from '../components/workspace/useRenameModal'
 import { formatShortDate } from '../utils/formatters'
+
+const DEMO_MODE_STORAGE_COPY = 'Demo mode stores changes locally in this browser.'
 
 type CompanyTab =
   | 'overview'
@@ -87,6 +90,7 @@ export function CompanyBrainPage() {
   const [kTag, setKTag] = useState('')
   const [kMine, setKMine] = useState(false)
   const [gridView, setGridView] = useState(false)
+  const { openRename: openKnowledgeRename, renameModal: knowledgeRenameModal } = useRenameModal()
 
   const knowledgeForOrg = slice.knowledgeItems.filter((k) => k.organizationId === activeOrgId)
 
@@ -268,7 +272,29 @@ export function CompanyBrainPage() {
             profileUserId={profile.userId}
             workspaceApi={workspaceApi}
             activeOrgId={activeOrgId}
+            onRenameItem={(item) =>
+              openKnowledgeRename({
+                title: 'Rename knowledge item',
+                initialValue: item.title,
+                inputLabel: 'Title',
+                onSave: (title) =>
+                  workspaceApi.upsertCompanyKnowledgeItem(activeOrgId, {
+                    id: item.id,
+                    title,
+                    description: item.description,
+                    tags: item.tags,
+                    visibility: item.visibility,
+                    approvalStatus: item.approvalStatus,
+                    sourceType: item.sourceType,
+                    folderId: item.folderId,
+                    fileAssetId: item.fileAssetId,
+                    allowedDepartments: item.allowedDepartments,
+                    allowedRoleTitles: item.allowedRoleTitles,
+                  }),
+              })
+            }
           />
+          {knowledgeRenameModal}
         </div>
       ) : null}
 
@@ -379,7 +405,7 @@ function CompanyLibrariesCloudSyncPanel({
   const syncStatus = workspaceApi.companyLibrarySyncStatus
   const syncLabel =
     syncStatus.state === 'local-only'
-      ? 'Local only'
+      ? 'Demo mode'
       : syncStatus.state === 'saving'
         ? 'Saving...'
         : syncStatus.state === 'unsaved'
@@ -400,27 +426,30 @@ function CompanyLibrariesCloudSyncPanel({
           <> · autosave: brand kit, messaging, case studies, products (~4s)</>
         ) : null}
       </p>
+      {syncStatus.state === 'local-only' ? <p className="muted-copy">{DEMO_MODE_STORAGE_COPY}</p> : null}
       {syncStatus.message ? <p className="muted-copy">{syncStatus.message}</p> : null}
-      <div className="owner-suggestion-list__actions">
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => {
-            void workspaceApi.saveCompanyLibrariesToCloud()
-          }}
-        >
-          Save company libraries to Cloud
-        </button>
-        <button
-          type="button"
-          className="ghost-button"
-          onClick={() => {
-            void workspaceApi.loadCompanyLibrariesFromCloud()
-          }}
-        >
-          Load company libraries from Cloud
-        </button>
-      </div>
+      {syncStatus.state !== 'local-only' ? (
+        <div className="owner-suggestion-list__actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              void workspaceApi.saveCompanyLibrariesToCloud()
+            }}
+          >
+            Save company libraries to Cloud
+          </button>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => {
+              void workspaceApi.loadCompanyLibrariesFromCloud()
+            }}
+          >
+            Load company libraries from Cloud
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -504,17 +533,11 @@ function KnowledgeLibrarySection({
     setTagsRaw('')
   }
 
-  const newFolder = () => {
-    const name = window.prompt('Folder name')
-    if (!name?.trim()) {
-      return
-    }
-    workspaceApi.upsertCompanyKnowledgeFolder(activeOrgId, { name: name.trim() })
-  }
+  const { openRename, renameModal } = useRenameModal()
 
   const syncLabel =
     syncStatus.state === 'local-only'
-      ? 'Local only'
+      ? 'Demo mode'
       : syncStatus.state === 'saving'
         ? 'Saving...'
         : syncStatus.state === 'unsaved'
@@ -551,27 +574,30 @@ function KnowledgeLibrarySection({
         ) : null}
         {syncStatus.state !== 'local-only' ? <> · autosave: folders &amp; knowledge items (~4s)</> : null}
       </p>
+      {syncStatus.state === 'local-only' ? <p className="muted-copy">{DEMO_MODE_STORAGE_COPY}</p> : null}
       {syncStatus.message ? <p className="muted-copy">{syncStatus.message}</p> : null}
-      <div className="owner-suggestion-list__actions">
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => {
-            void workspaceApi.saveCompanyKnowledgeToCloud()
-          }}
-        >
-          Save knowledge library to Cloud
-        </button>
-        <button
-          type="button"
-          className="ghost-button"
-          onClick={() => {
-            void workspaceApi.loadCompanyKnowledgeFromCloud()
-          }}
-        >
-          Load knowledge library from Cloud
-        </button>
-      </div>
+      {syncStatus.state !== 'local-only' ? (
+        <div className="owner-suggestion-list__actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              void workspaceApi.saveCompanyKnowledgeToCloud()
+            }}
+          >
+            Save knowledge library to Cloud
+          </button>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => {
+              void workspaceApi.loadCompanyKnowledgeFromCloud()
+            }}
+          >
+            Load knowledge library from Cloud
+          </button>
+        </div>
+      ) : null}
 
       <div className="form-grid company-brain-register">
         <label className="field-group">
@@ -612,7 +638,17 @@ function KnowledgeLibrarySection({
           </select>
         </label>
 
-        <button type="button" className="ghost-button" onClick={newFolder}>
+        <button
+          type="button"
+          className="ghost-button"
+          onClick={() =>
+            openRename({
+              title: 'New folder',
+              inputLabel: 'Folder name',
+              onSave: (name) => workspaceApi.upsertCompanyKnowledgeFolder(activeOrgId, { name }),
+            })
+          }
+        >
           New folder
         </button>
 
@@ -727,8 +763,30 @@ function KnowledgeLibrarySection({
         profileUserId={profileUserId}
         workspaceApi={workspaceApi}
         activeOrgId={activeOrgId}
+        onRenameItem={(item) =>
+          openRename({
+            title: 'Rename knowledge item',
+            initialValue: item.title,
+            inputLabel: 'Title',
+            onSave: (title) =>
+              workspaceApi.upsertCompanyKnowledgeItem(activeOrgId, {
+                id: item.id,
+                title,
+                description: item.description,
+                tags: item.tags,
+                visibility: item.visibility,
+                approvalStatus: item.approvalStatus,
+                sourceType: item.sourceType,
+                folderId: item.folderId,
+                fileAssetId: item.fileAssetId,
+                allowedDepartments: item.allowedDepartments,
+                allowedRoleTitles: item.allowedRoleTitles,
+              }),
+          })
+        }
       />
       {!filteredKnowledge.length ? <p className="muted-copy">No items match filters.</p> : null}
+      {renameModal}
     </div>
   )
 }
@@ -740,6 +798,7 @@ function KnowledgeList({
   profileUserId,
   workspaceApi,
   activeOrgId,
+  onRenameItem,
 }: {
   items: CompanyKnowledgeItem[]
   variant?: 'grid' | 'list'
@@ -747,6 +806,7 @@ function KnowledgeList({
   profileUserId: string
   workspaceApi: ReturnType<typeof useWorkspace>
   activeOrgId: string
+  onRenameItem: (item: CompanyKnowledgeItem) => void
 }) {
   return (
     <ul className={variant === 'grid' ? 'company-brain-grid' : 'company-brain-list'}>
@@ -800,29 +860,7 @@ function KnowledgeList({
               >
                 Mark reviewed
               </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => {
-                  const next = window.prompt('Rename knowledge item', item.title)
-                  if (!next?.trim()) {
-                    return
-                  }
-                  workspaceApi.upsertCompanyKnowledgeItem(activeOrgId, {
-                    id: item.id,
-                    title: next.trim(),
-                    description: item.description,
-                    tags: item.tags,
-                    visibility: item.visibility,
-                    approvalStatus: item.approvalStatus,
-                    sourceType: item.sourceType,
-                    folderId: item.folderId,
-                    fileAssetId: item.fileAssetId,
-                    allowedDepartments: item.allowedDepartments,
-                    allowedRoleTitles: item.allowedRoleTitles,
-                  })
-                }}
-              >
+              <button type="button" className="ghost-button" onClick={() => onRenameItem(item)}>
                 Rename
               </button>
               {(admin || item.uploadedByUserId === profileUserId) && item.approvalStatus === 'needs-review' ? (

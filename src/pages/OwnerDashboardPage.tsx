@@ -167,7 +167,7 @@ export function OwnerDashboardPage() {
 
   const syncLabel =
     syncStatus.state === 'local-only'
-      ? 'Local only'
+      ? 'Demo mode'
       : syncStatus.state === 'saving'
         ? 'Saving...'
         : syncStatus.state === 'unsaved'
@@ -178,7 +178,7 @@ export function OwnerDashboardPage() {
 
   const knowledgeSyncLabel =
     knowledgeSyncStatus.state === 'local-only'
-      ? 'Local only'
+      ? 'Demo mode'
       : knowledgeSyncStatus.state === 'saving'
         ? 'Saving...'
         : knowledgeSyncStatus.state === 'unsaved'
@@ -189,7 +189,7 @@ export function OwnerDashboardPage() {
 
   const librarySyncLabel =
     librarySyncStatus.state === 'local-only'
-      ? 'Local only'
+      ? 'Demo mode'
       : librarySyncStatus.state === 'saving'
         ? 'Saving...'
         : librarySyncStatus.state === 'unsaved'

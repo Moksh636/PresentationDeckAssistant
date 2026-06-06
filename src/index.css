@@ -1949,6 +1949,20 @@ select:focus-visible {
   color: rgba(17, 102, 73, 0.95);
 }
 
+.builder-ready-checklist li.is-optional-pending {
+  color: rgba(71, 85, 105, 0.88);
+}
+
+.builder-advanced-future-linking {
+  margin-top: 8px;
+}
+
+.builder-advanced-future-linking summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: rgba(71, 85, 105, 0.95);
+}
+
 .builder-ready-checklist__hint {
   grid-column: 2 / -1;
   font-size: 12px;

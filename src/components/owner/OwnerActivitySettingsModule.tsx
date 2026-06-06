@@ -59,8 +59,8 @@ export function OwnerActivitySettingsModule({
         </div>
       ) : (
         <p className="muted-copy">
-          Cloud sync is unavailable in local-only mode. Sign in with Supabase to save or load identity, knowledge, and
-          libraries.
+          Demo mode stores changes locally in this browser. Sign in with Supabase to save or load identity, knowledge,
+          and libraries.
         </p>
       )}
       <h3>Recent activity</h3>

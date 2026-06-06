@@ -9,6 +9,7 @@ import {
   sortWorkspaceLibraryItems,
 } from '../data/workspaceLibrary'
 import { CompanySetupModal } from '../components/company/CompanySetupModal'
+import { useRenameModal } from '../components/workspace/useRenameModal'
 import {
   buildTemplateDepartmentPickerOptions,
   buildTemplateRolePickerOptions,
@@ -429,6 +430,7 @@ export function DashboardPage() {
   const [activeProjectId, setActiveProjectId] = useState<string>()
   const [moveItem, setMoveItem] = useState<WorkspaceLibraryItem>()
   const [moveTargetId, setMoveTargetId] = useState('')
+  const { openRename, renameModal } = useRenameModal()
 
   const setupRolePickerOptions = useMemo(() => buildTemplateRolePickerOptions(), [])
   const setupDepartmentPickerOptions = useMemo(() => buildTemplateDepartmentPickerOptions(), [])
@@ -500,12 +502,12 @@ export function DashboardPage() {
   }
 
   const handleRename = (item: WorkspaceLibraryItem) => {
-    const nextName = window.prompt(`Rename ${item.typeLabel}`, item.name)
-
-    if (nextName?.trim()) {
-      renameWorkspaceItem(item.type, item.id, nextName)
-    }
-
+    openRename({
+      title: `Rename ${item.typeLabel}`,
+      initialValue: item.name,
+      inputLabel: 'Name',
+      onSave: (nextName) => renameWorkspaceItem(item.type, item.id, nextName),
+    })
     setOpenMenuKey(undefined)
   }
 
@@ -750,6 +752,8 @@ export function DashboardPage() {
           onSave={(settings) => updateProjectCollaboration(selectedProject.id, settings)}
         />
       ) : null}
+
+      {renameModal}
 
       {moveItem ? (
         <MoveWorkspaceItemDialog

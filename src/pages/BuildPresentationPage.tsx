@@ -462,9 +462,17 @@ export function BuildPresentationPage() {
         </div>
         <ul className="builder-ready-checklist">
           {readyItems.map((item) => (
-            <li key={item.id} className={item.ok ? 'is-ok' : ''}>
+            <li
+              key={item.id}
+              className={[
+                item.ok ? 'is-ok' : '',
+                !item.ok && item.optional ? 'is-optional-pending' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
               <span className="builder-ready-checklist__status" aria-hidden>
-                {item.ok ? '✓' : '○'}
+                {item.ok ? '✓' : item.optional ? '—' : '○'}
               </span>
               <span>{item.label}</span>
               {!item.ok && item.hint ? <span className="muted-copy builder-ready-checklist__hint">{item.hint}</span> : null}
@@ -980,39 +988,18 @@ export function BuildPresentationPage() {
                   </p>
                 )}
 
-                <div className="form-grid builder-brand-readonly">
-                  <label className="field-group">
-                    <span className="field-label">Brand kit id (read-only)</span>
-                    <input type="text" readOnly value={setup.brandKitId ?? ''} placeholder="Not linked" />
-                  </label>
-                  <label className="field-group">
-                    <span className="field-label">Approved messaging IDs</span>
-                    <input
-                      type="text"
-                      disabled
-                      value={(setup.approvedMessagingIds ?? []).join(', ')}
-                      placeholder="Coming soon"
-                    />
-                  </label>
-                  <label className="field-group">
-                    <span className="field-label">Case study IDs</span>
-                    <input
-                      type="text"
-                      disabled
-                      value={(setup.caseStudyIds ?? []).join(', ')}
-                      placeholder="Coming soon"
-                    />
-                  </label>
-                  <label className="field-group field-group--wide">
-                    <span className="field-label">Product screenshot asset IDs</span>
-                    <input
-                      type="text"
-                      disabled
-                      value={(activeDeck.screenshotAssetIds ?? []).join(', ')}
-                      placeholder="Coming soon"
-                    />
-                  </label>
-                </div>
+                <label className="field-group">
+                  <span className="field-label">Brand kit id (read-only)</span>
+                  <input type="text" readOnly value={setup.brandKitId ?? ''} placeholder="Not linked" />
+                </label>
+
+                <details className="builder-advanced-future-linking">
+                  <summary>Future advanced linking</summary>
+                  <p className="muted-copy muted-copy--tiny">
+                    Managed automatically in this demo version. Approved messaging, case studies, and product screenshots
+                    are picked up from Company Brain when you generate the deck.
+                  </p>
+                </details>
               </div>
 
               <ChartSuggestionsPanel

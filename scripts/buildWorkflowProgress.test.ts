@@ -84,3 +84,20 @@ const checklist = buildReadyToGenerateChecklist({
 })
 
 assert.equal(checklist.every((item) => item.ok), true)
+
+const optionalIntelChecklist = buildReadyToGenerateChecklist({
+  setup: { ...deckSetup, intel: undefined },
+  deckAssets: [deckAsset],
+  companyKnowledgeSuggestionCount: 0,
+})
+
+const intelItem = optionalIntelChecklist.find((item) => item.id === 'intel')
+assert.equal(intelItem?.optional, true)
+assert.equal(intelItem?.ok, false)
+assert.match(intelItem?.label ?? '', /^Optional:/)
+
+const brandItem = optionalIntelChecklist.find((item) => item.id === 'brand')
+assert.equal(brandItem?.label, 'Optional: Brand Kit applied')
+
+const targetItem = optionalIntelChecklist.find((item) => item.id === 'brief-target')
+assert.match(targetItem?.label ?? '', /^Required:/)

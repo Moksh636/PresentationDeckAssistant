@@ -197,12 +197,9 @@ function AuthPanelContent({
 
   if (!auth.isSupabaseConfigured) {
     return (
-      <section className="auth-card" aria-label="Local workspace mode">
-        <span className="auth-card__status">Local workspace mode</span>
-        <p className="muted-copy">
-          Browser-only workspace. Use “Continue in local workspace mode” on the sign-in screen when cloud
-          settings are unavailable.
-        </p>
+      <section className="auth-card" aria-label="Demo workspace mode">
+        <span className="auth-card__status">Demo mode</span>
+        <p className="muted-copy">Demo mode stores changes locally in this browser.</p>
         <button type="button" className="ghost-button" disabled={isBusy} onClick={onSignOut}>
           Return to sign-in screen
         </button>

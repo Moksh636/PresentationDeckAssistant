@@ -71,6 +71,8 @@ export interface ReadyToGenerateCheckItem {
   label: string
   ok: boolean
   hint?: string
+  /** When true and not ok, UI shows a neutral skip state instead of a blocking gap. */
+  optional?: boolean
 }
 
 export function buildReadyToGenerateChecklist(ctx: BuildWorkflowContextInput): ReadyToGenerateCheckItem[] {
@@ -81,38 +83,38 @@ export function buildReadyToGenerateChecklist(ctx: BuildWorkflowContextInput): R
   return [
     {
       id: 'sources-or-intel',
-      label: 'At least one source file or usable intel',
+      label: 'Required: At least one source file or usable intel',
       ok: ctx.deckAssets.length > 0 || intelHasMinimumFields(intel),
       hint: 'Upload research files or run Intel Review.',
     },
     {
       id: 'brief-target',
-      label: 'Target company filled in',
+      label: 'Required: Target company filled in',
       ok: Boolean(setup.targetCompany?.trim()),
     },
     {
       id: 'brief-offering',
-      label: 'Product / service being pitched',
+      label: 'Required: Product / service being pitched',
       ok: Boolean(setup.offeringSummary?.trim()),
     },
     {
       id: 'brief-goal',
-      label: 'Meeting goal',
+      label: 'Required: Meeting goal',
       ok: Boolean((setup.meetingGoal ?? setup.goal)?.trim()),
     },
     {
       id: 'brief-persona',
-      label: 'Buyer persona / audience',
+      label: 'Required: Buyer persona / audience',
       ok: Boolean((setup.buyerPersona ?? setup.audience)?.trim()),
     },
     {
       id: 'deck-type',
-      label: 'Deck type selected',
+      label: 'Required: Deck type selected',
       ok: Boolean((setup.deckType ?? setup.presentationType)?.trim()),
     },
     {
       id: 'knowledge',
-      label: 'Company knowledge reviewed or intentionally skipped',
+      label: 'Required: Company knowledge reviewed or intentionally skipped',
       ok:
         (setup.selectedCompanyKnowledgeItemIds?.length ?? 0) > 0 ||
         ctx.companyKnowledgeSuggestionCount === 0,
@@ -123,21 +125,24 @@ export function buildReadyToGenerateChecklist(ctx: BuildWorkflowContextInput): R
     },
     {
       id: 'qa-snippet',
-      label: 'Source QA: snippets enabled where you want citations',
+      label: 'Optional: Source QA snippets enabled where you want citations',
+      optional: true,
       ok: ctx.deckAssets.length === 0 || stats.snippetsEnabled > 0 || stats.files === 0,
       hint: 'Open Source QA and enable snippets for citation-backed text.',
     },
     {
       id: 'intel',
-      label: 'Intel Review populated or explicitly skipped',
+      label: 'Optional: Intel Review populated or explicitly skipped',
+      optional: true,
       ok: intelHasMinimumFields(intel),
-      hint: 'Generate Intel Review or paste account context manually.',
+      hint: 'Skip Intel Review if your sources and brief already cover the account.',
     },
     {
       id: 'brand',
-      label: 'Brand Kit linked (optional)',
+      label: 'Optional: Brand Kit applied',
+      optional: true,
       ok: setup.brandKitId !== undefined && setup.brandKitId.trim() !== '',
-      hint: 'Optional — improves colors/logo in output.',
+      hint: 'Improves colors and logo in generated output.',
     },
   ]
 }

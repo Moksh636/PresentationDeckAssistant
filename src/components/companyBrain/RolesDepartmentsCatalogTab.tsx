@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useRenameModal } from '../workspace/useRenameModal'
 import type { WorkspaceContextValue } from '../../context/workspaceStoreContext'
 import type { CompanyBrainCatalogDepartment, CompanyBrainCatalogRole } from '../../types/models'
 
@@ -20,6 +21,7 @@ export function RolesDepartmentsCatalogTab({
   const [roleNameDraft, setRoleNameDraft] = useState('')
   const [roleDescDraft, setRoleDescDraft] = useState('')
   const [defaultDepartmentIdDraft, setDefaultDepartmentIdDraft] = useState('')
+  const { openRename, renameModal } = useRenameModal()
 
   const activeDepartments = departments.filter((row) => !row.archived)
   const archivedDepartments = departments.filter((row) => row.archived)
@@ -88,17 +90,19 @@ export function RolesDepartmentsCatalogTab({
                     <button
                       type="button"
                       className="ghost-button"
-                      onClick={() => {
-                        const next = window.prompt('Department name', row.name)
-                        if (!next?.trim()) {
-                          return
-                        }
-                        workspaceApi.upsertCompanyCatalogDepartment(activeOrgId, {
-                          id: row.id,
-                          name: next.trim(),
-                          description: row.description,
+                      onClick={() =>
+                        openRename({
+                          title: 'Edit department',
+                          initialValue: row.name,
+                          inputLabel: 'Department name',
+                          onSave: (name) =>
+                            workspaceApi.upsertCompanyCatalogDepartment(activeOrgId, {
+                              id: row.id,
+                              name,
+                              description: row.description,
+                            }),
                         })
-                      }}
+                      }
                     >
                       Edit
                     </button>
@@ -197,18 +201,20 @@ export function RolesDepartmentsCatalogTab({
                     <button
                       type="button"
                       className="ghost-button"
-                      onClick={() => {
-                        const next = window.prompt('Role title', row.name)
-                        if (!next?.trim()) {
-                          return
-                        }
-                        workspaceApi.upsertCompanyCatalogRole(activeOrgId, {
-                          id: row.id,
-                          name: next.trim(),
-                          description: row.description,
-                          defaultDepartmentId: row.defaultDepartmentId,
+                      onClick={() =>
+                        openRename({
+                          title: 'Edit role',
+                          initialValue: row.name,
+                          inputLabel: 'Role title',
+                          onSave: (name) =>
+                            workspaceApi.upsertCompanyCatalogRole(activeOrgId, {
+                              id: row.id,
+                              name,
+                              description: row.description,
+                              defaultDepartmentId: row.defaultDepartmentId,
+                            }),
                         })
-                      }}
+                      }
                     >
                       Edit
                     </button>
@@ -242,6 +248,7 @@ export function RolesDepartmentsCatalogTab({
           )}
         </section>
       </div>
+      {renameModal}
     </div>
   )
 }

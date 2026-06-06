@@ -286,7 +286,9 @@ export function EditPresentationPage() {
     }
     const report = scoreGeneratedDeckDesign(activeDeck, slides)
     const lines = report.findings.slice(0, 8).map((finding) => finding.message)
-    lines.push('Slide transitions are summarized in speaker notes for this exporter build.')
+    lines.push(
+      'PowerPoint export includes design notes and speaker notes. Live browser transitions may not appear exactly the same in PPTX.',
+    )
     lines.push('Verify SVG or uncommon image formats after download — some assets may be omitted.')
     return lines
   }, [activeDeck, slides])

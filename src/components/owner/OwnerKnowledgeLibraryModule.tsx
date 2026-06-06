@@ -2,6 +2,7 @@ import {
   OwnerFolderStructureSection,
   OwnerKnowledgeUploadSection,
 } from './OwnerConsolePanels'
+import { useRenameModal } from '../workspace/useRenameModal'
 import type { WorkspaceContextValue } from '../../context/workspaceStoreContext'
 import type {
   CompanyKnowledgeItem,
@@ -65,6 +66,8 @@ export function OwnerKnowledgeLibraryModule({
   setKnowledgeFolderFilter: (value: string) => void
   filteredKnowledge: CompanyKnowledgeItem[]
 }) {
+  const { openRename, renameModal } = useRenameModal()
+
   return (
     <div className="owner-module-layout__content">
       <aside className="owner-module-layout__sidebar">
@@ -107,6 +110,15 @@ export function OwnerKnowledgeLibraryModule({
             <OwnerKnowledgeTable
               activeOrgId={activeOrgId}
               workspaceApi={workspaceApi}
+              onEditTitle={(item) =>
+                openRename({
+                  title: 'Edit title',
+                  initialValue: item.title,
+                  inputLabel: 'Title',
+                  saveLabel: 'Save',
+                  onSave: (title) => workspaceApi.upsertCompanyKnowledgeItem(activeOrgId, { ...item, title }),
+                })
+              }
               items={filteredKnowledge.filter((row) => {
                 if (knowledgeSubsection === 'needs-review') return row.approvalStatus === 'needs-review'
                 if (knowledgeSubsection === 'approved') return row.approvalStatus === 'approved'
@@ -120,6 +132,7 @@ export function OwnerKnowledgeLibraryModule({
           </>
         )}
       </main>
+      {renameModal}
     </div>
   )
 }
@@ -129,11 +142,13 @@ function OwnerKnowledgeTable({
   workspaceApi,
   items,
   folders,
+  onEditTitle,
 }: {
   activeOrgId: string
   workspaceApi: WorkspaceContextValue
   items: CompanyKnowledgeItem[]
   folders: { id: string; name: string }[]
+  onEditTitle: (item: CompanyKnowledgeItem) => void
 }) {
   if (!items.length) {
     return <p className="muted-copy">No documents matched this subsection and filter set.</p>
@@ -159,15 +174,7 @@ function OwnerKnowledgeTable({
               <option value="">Move to folder...</option>
               {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
             </select>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => {
-                const next = window.prompt('Edit title', item.title)
-                if (!next?.trim()) return
-                workspaceApi.upsertCompanyKnowledgeItem(activeOrgId, { ...item, title: next.trim() })
-              }}
-            >
+            <button type="button" className="ghost-button" onClick={() => onEditTitle(item)}>
               Edit metadata
             </button>
             <button type="button" className="ghost-button" onClick={() => workspaceApi.deleteCompanyKnowledgeItem(activeOrgId, item.id)}>
