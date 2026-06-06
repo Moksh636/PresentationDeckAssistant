@@ -38,7 +38,11 @@ import {
   normalizeBlockVisualStyle,
   normalizeSlideBlock,
 } from '../data/slideLayout'
-import { aggregateCitationTracesFromSlides, formatBibliographyLines } from '../data/bibliographySlide'
+import {
+  aggregateCitationTracesFromSlides,
+  deckHasBibliographySlide,
+  formatBibliographyLines,
+} from '../data/bibliographySlide'
 import { scoreGeneratedDeckDesign } from '../data/deckDesignQuality'
 import { summarizeThemeAndDirectionFromSlides } from '../data/deckGenerationSummary'
 import { createSlideFromLayoutPreset } from '../data/slideLayoutPresets'
@@ -982,6 +986,11 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       }
 
       const deckSlides = getOrderedDeckSlides(current.slides, deckId)
+
+      if (deckHasBibliographySlide(deckSlides)) {
+        return current
+      }
+
       const traces = aggregateCitationTracesFromSlides(deckSlides)
 
       if (traces.length === 0) {

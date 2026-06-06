@@ -51,7 +51,7 @@ import type {
   WorkspaceAssetStorageRef,
 } from '../types/models'
 import type { GenerateSlidesResult } from '../context/workspaceStoreContext'
-import { bibliographySlideHasContent } from '../data/bibliographySlide'
+import { bibliographySlideHasContent, deckHasBibliographySlide } from '../data/bibliographySlide'
 import { scoreGeneratedDeckDesign, type DeckDesignQualityFinding } from '../data/deckDesignQuality'
 import { createId } from '../utils/ids'
 
@@ -278,8 +278,11 @@ export function EditPresentationPage() {
   }, [activeDeck, slides])
 
   const pptxPreflightWarnings = useMemo(() => {
-    if (!activeDeck || slides.length === 0) {
-      return []
+    if (!activeDeck) {
+      return ['No active deck selected.']
+    }
+    if (slides.length === 0) {
+      return ['Add at least one slide before exporting PPTX.']
     }
     const report = scoreGeneratedDeckDesign(activeDeck, slides)
     const lines = report.findings.slice(0, 8).map((finding) => finding.message)
@@ -287,6 +290,9 @@ export function EditPresentationPage() {
     lines.push('Verify SVG or uncommon image formats after download — some assets may be omitted.')
     return lines
   }, [activeDeck, slides])
+
+  const canAddBibliographySlide =
+    bibliographySlideHasContent(slides) && !deckHasBibliographySlide(slides)
   const versions = workspace.deckVersions.filter((version) => version.deckId === activeDeck?.id)
   const reportAssets = workspace.fileAssets
     .filter((asset) => asset.deckId === activeDeck?.id && asset.kind === 'report')
@@ -1328,7 +1334,7 @@ export function EditPresentationPage() {
                 </li>
               ))}
             </ul>
-            {bibliographySlideHasContent(slides) ? (
+            {canAddBibliographySlide ? (
               <button
                 type="button"
                 className="secondary-button secondary-button--sm"
@@ -1336,6 +1342,8 @@ export function EditPresentationPage() {
                   const id = addBibliographySlideForDeck(activeDeck.id)
                   if (id) {
                     showToast('Sources bibliography slide added.', 'success')
+                  } else {
+                    showToast('Bibliography slide already exists or no citation traces found.', 'info')
                   }
                 }}
               >
@@ -1392,11 +1400,20 @@ export function EditPresentationPage() {
               <button
                 type="button"
                 className="ghost-button ghost-button--sm"
-                disabled={!bibliographySlideHasContent(slides)}
+                disabled={!canAddBibliographySlide}
+                title={
+                  deckHasBibliographySlide(slides)
+                    ? 'Bibliography slide already in deck'
+                    : !bibliographySlideHasContent(slides)
+                      ? 'Add slides with citation traces first'
+                      : undefined
+                }
                 onClick={() => {
                   const id = addBibliographySlideForDeck(activeDeck.id)
                   if (id) {
                     showToast('Sources bibliography slide added at the end of the deck.', 'success')
+                  } else if (deckHasBibliographySlide(slides)) {
+                    showToast('Bibliography slide already exists in this deck.', 'info')
                   } else {
                     showToast('No citation traces found yet — add slides with sources first.', 'info')
                   }
@@ -1892,7 +1909,7 @@ export function EditPresentationPage() {
               <button
                 type="button"
                 className="primary-button"
-                disabled={isExportingPptx}
+                disabled={isExportingPptx || slides.length === 0}
                 onClick={async () => {
                   setPptxPreflightOpen(false)
                   await runPptxExport()

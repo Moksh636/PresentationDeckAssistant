@@ -4,7 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { useWorkspace } from '../context/useWorkspace'
 import { AuthLoadingScreen } from '../components/auth/AuthLoadingScreen'
-import { resolveDefaultAuthenticatedPath } from '../data/postAuthRedirect'
+import { resolveDefaultAuthenticatedPath, resolveLocalDevAuthenticatedPath } from '../data/postAuthRedirect'
 import { supabase } from '../data/supabaseClient'
 
 type AuthMode = 'signin' | 'signup'
@@ -136,7 +136,7 @@ export function AuthPage() {
 
   const handleLocalDevContinue = () => {
     auth.enterLocalDevMode()
-    navigate(destination, { replace: true })
+    navigate(resolveLocalDevAuthenticatedPath(workspace), { replace: true })
   }
 
   if (!auth.isSupabaseConfigured) {

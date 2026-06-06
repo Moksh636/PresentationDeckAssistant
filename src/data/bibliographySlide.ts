@@ -46,3 +46,9 @@ export function formatBibliographyLines(traces: SourceTrace[], maxLines = 24): s
 export function bibliographySlideHasContent(slides: Slide[]): boolean {
   return aggregateCitationTracesFromSlides(slides).length > 0
 }
+
+const BIBLIOGRAPHY_SLIDE_TITLE = 'Sources & references'
+
+export function deckHasBibliographySlide(slides: Slide[]): boolean {
+  return slides.some((slide) => slide.title.trim().toLowerCase() === BIBLIOGRAPHY_SLIDE_TITLE.toLowerCase())
+}

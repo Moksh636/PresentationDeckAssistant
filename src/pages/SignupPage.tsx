@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { useWorkspace } from '../context/useWorkspace'
 import { AuthLoadingScreen } from '../components/auth/AuthLoadingScreen'
-import { resolveDefaultAuthenticatedPath } from '../data/postAuthRedirect'
+import { resolveLocalDevAuthenticatedPath } from '../data/postAuthRedirect'
 import { supabase } from '../data/supabaseClient'
 
 export function SignupPage() {
@@ -17,17 +17,13 @@ export function SignupPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [isBusy, setIsBusy] = useState(false)
 
-  const destination = auth.user
-    ? resolveDefaultAuthenticatedPath(workspace, auth.user.id)
-    : '/dashboard'
-
   if (auth.isLoading) {
     return <AuthLoadingScreen />
   }
 
   const handleLocalDevContinue = () => {
     auth.enterLocalDevMode()
-    navigate(destination, { replace: true })
+    navigate(resolveLocalDevAuthenticatedPath(workspace), { replace: true })
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

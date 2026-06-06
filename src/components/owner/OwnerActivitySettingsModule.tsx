@@ -12,6 +12,7 @@ export function OwnerActivitySettingsModule({
   syncStatusMessage,
   knowledgeStatusMessage,
   libraryStatusMessage,
+  cloudSyncEnabled,
   workspaceApi,
   showToast,
 }: {
@@ -22,6 +23,7 @@ export function OwnerActivitySettingsModule({
   syncStatusMessage?: string
   knowledgeStatusMessage?: string
   libraryStatusMessage?: string
+  cloudSyncEnabled: boolean
   workspaceApi: WorkspaceContextValue
   showToast: ToastContextValue['showToast']
 }) {
@@ -34,14 +36,33 @@ export function OwnerActivitySettingsModule({
       {syncStatusMessage ? <p className="muted-copy">{syncStatusMessage}</p> : null}
       {knowledgeStatusMessage ? <p className="muted-copy">{knowledgeStatusMessage}</p> : null}
       {libraryStatusMessage ? <p className="muted-copy">{libraryStatusMessage}</p> : null}
-      <div className="owner-suggestion-list__actions">
-        <button type="button" className="secondary-button" onClick={() => void workspaceApi.saveCompanyIdentityToCloud()}>Save identity</button>
-        <button type="button" className="ghost-button" onClick={() => void workspaceApi.loadCompanyIdentityFromCloud()}>Load identity</button>
-        <button type="button" className="secondary-button" onClick={() => void workspaceApi.saveCompanyKnowledgeToCloud()}>Save knowledge</button>
-        <button type="button" className="ghost-button" onClick={() => void workspaceApi.loadCompanyKnowledgeFromCloud()}>Load knowledge</button>
-        <button type="button" className="secondary-button" onClick={() => void workspaceApi.saveCompanyLibrariesToCloud()}>Save libraries</button>
-        <button type="button" className="ghost-button" onClick={() => void workspaceApi.loadCompanyLibrariesFromCloud()}>Load libraries</button>
-      </div>
+      {cloudSyncEnabled ? (
+        <div className="owner-suggestion-list__actions">
+          <button type="button" className="secondary-button" onClick={() => void workspaceApi.saveCompanyIdentityToCloud()}>
+            Save identity
+          </button>
+          <button type="button" className="ghost-button" onClick={() => void workspaceApi.loadCompanyIdentityFromCloud()}>
+            Load identity
+          </button>
+          <button type="button" className="secondary-button" onClick={() => void workspaceApi.saveCompanyKnowledgeToCloud()}>
+            Save knowledge
+          </button>
+          <button type="button" className="ghost-button" onClick={() => void workspaceApi.loadCompanyKnowledgeFromCloud()}>
+            Load knowledge
+          </button>
+          <button type="button" className="secondary-button" onClick={() => void workspaceApi.saveCompanyLibrariesToCloud()}>
+            Save libraries
+          </button>
+          <button type="button" className="ghost-button" onClick={() => void workspaceApi.loadCompanyLibrariesFromCloud()}>
+            Load libraries
+          </button>
+        </div>
+      ) : (
+        <p className="muted-copy">
+          Cloud sync is unavailable in local-only mode. Sign in with Supabase to save or load identity, knowledge, and
+          libraries.
+        </p>
+      )}
       <h3>Recent activity</h3>
       {!activity.length ? <p className="muted-copy">No activity yet—uploads, staging, and approvals surface here.</p> : (
         <ul className="owner-activity-list">{activity.map((log) => <li key={log.id}><span className="owner-activity-list__kind">{log.kind}</span><span>{log.detail}</span><time dateTime={log.createdAt}>{formatShortDate(log.createdAt)}</time></li>)}</ul>

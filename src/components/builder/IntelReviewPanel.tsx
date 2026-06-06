@@ -84,6 +84,7 @@ export function IntelReviewPanel({
     undefined,
   )
   const [lastFallbackWarning, setLastFallbackWarning] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
   const intel = useMemo(() => setup.intel ?? {}, [setup.intel])
   const citationReviewMode = resolveCitationReviewMode(setup)
   const aiBackendEnabled = isAiBackendEnabled()
@@ -105,42 +106,54 @@ export function IntelReviewPanel({
   }, [intel])
 
   const handleGenerateDraft = async () => {
-    const reviewableAssets = filterAssetsForCitationUse(fileAssets, citationReviewMode)
-    const response = await aiClient.generateIntelReview({
-      setup,
-      fileAssets: reviewableAssets,
-      sourceTraces: collectSourceTracesFromAssets(reviewableAssets),
-      webResearchEnabled: setup.webResearch,
-      companyKnowledgeItems,
-      selectedCompanyKnowledgeItemIds: setup.selectedCompanyKnowledgeItemIds,
-      workspaceFileAssets,
-      brainProcesses,
-      brainPolicies,
-      brainSkillFiles,
-    })
-    const merged = mergeIntelDraftWithExisting(intel, response.intel)
-    updateDeckSetup(deckId, { intel: merged })
-    setLastBrainSourcesMeta(response.companyBrainSourcesUsed)
-
-    const usedFallback = response.warnings.some((w) =>
-      /AI backend unavailable|local intel draft fallback/i.test(w),
-    )
-    if (usedFallback) {
-      const message =
-        'Gemini Intel Review was unavailable — a local deterministic draft was applied instead. Review fields before generating your deck.'
-      setLastFallbackWarning(message)
-      showToast('AI backend unavailable; used local intel draft fallback.', 'info')
-    } else {
-      setLastFallbackWarning(null)
-      if (response.warnings.length > 0) {
-        showToast(response.warnings[0], 'info')
-      }
+    if (isGenerating) {
+      return
     }
 
-    recordActivity?.({
-      kind: 'intel-review-generated',
-      detail: `Intel Review draft updated (${aiBackendEnabled ? 'Gemini Intel Review edge path when reachable' : 'local deterministic pipeline'}).`,
-    })
+    setIsGenerating(true)
+
+    try {
+      const reviewableAssets = filterAssetsForCitationUse(fileAssets, citationReviewMode)
+      const response = await aiClient.generateIntelReview({
+        setup,
+        fileAssets: reviewableAssets,
+        sourceTraces: collectSourceTracesFromAssets(reviewableAssets),
+        webResearchEnabled: setup.webResearch,
+        companyKnowledgeItems,
+        selectedCompanyKnowledgeItemIds: setup.selectedCompanyKnowledgeItemIds,
+        workspaceFileAssets,
+        brainProcesses,
+        brainPolicies,
+        brainSkillFiles,
+      })
+      const merged = mergeIntelDraftWithExisting(intel, response.intel)
+      updateDeckSetup(deckId, { intel: merged })
+      setLastBrainSourcesMeta(response.companyBrainSourcesUsed)
+
+      const usedFallback = response.warnings.some((w) =>
+        /AI backend unavailable|local intel draft fallback/i.test(w),
+      )
+      if (usedFallback) {
+        const message =
+          'Gemini Intel Review was unavailable — a local deterministic draft was applied instead. Review fields before generating your deck.'
+        setLastFallbackWarning(message)
+        showToast('AI backend unavailable; used local intel draft fallback.', 'info')
+      } else {
+        setLastFallbackWarning(null)
+        if (response.warnings.length > 0) {
+          showToast(response.warnings[0], 'info')
+        }
+      }
+
+      recordActivity?.({
+        kind: 'intel-review-generated',
+        detail: `Intel Review draft updated (${aiBackendEnabled ? 'Gemini Intel Review edge path when reachable' : 'local deterministic pipeline'}).`,
+      })
+    } catch {
+      showToast('Intel Review generation failed. Try again or edit fields manually.', 'error')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleClearIntel = () => {
@@ -227,11 +240,16 @@ export function IntelReviewPanel({
     <div className="intel-review-card intel-review-card--compact">
       <div className="intel-review-panel__intro intel-review-panel__intro--compact">
         <div className="intel-review-toolbar">
-          <button type="button" className="primary-button" onClick={handleGenerateDraft}>
-            Generate Intel Review
+          <button type="button" className="primary-button" disabled={isGenerating} onClick={handleGenerateDraft}>
+            {isGenerating ? 'Generating…' : 'Generate Intel Review'}
           </button>
-          <button type="button" className="secondary-button secondary-button--sm" onClick={handleGenerateDraft}>
-            Regenerate
+          <button
+            type="button"
+            className="secondary-button secondary-button--sm"
+            disabled={isGenerating}
+            onClick={handleGenerateDraft}
+          >
+            {isGenerating ? 'Generating…' : 'Regenerate'}
           </button>
           <button type="button" className="ghost-button ghost-button--sm" onClick={handleClearIntel}>
             Clear intel

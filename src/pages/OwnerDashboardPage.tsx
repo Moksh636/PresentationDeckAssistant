@@ -366,6 +366,7 @@ export function OwnerDashboardPage() {
               syncStatusMessage={syncStatus.message}
               knowledgeStatusMessage={knowledgeSyncStatus.message}
               libraryStatusMessage={librarySyncStatus.message}
+              cloudSyncEnabled={syncStatus.state !== 'local-only'}
               workspaceApi={workspaceApi}
               showToast={showToast}
             />

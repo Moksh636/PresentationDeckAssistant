@@ -36,6 +36,11 @@ export function resolvePostSignupPath(workspace: WorkspaceState, userId: string)
   return resolveDefaultAuthenticatedPath(workspace, userId)
 }
 
+/** Local demo bypass uses the seeded owner profile — route owners to `/owner` like a signed-in admin. */
+export function resolveLocalDevAuthenticatedPath(workspace: WorkspaceState): '/owner' | '/dashboard' | '/join-company' {
+  return resolveDefaultAuthenticatedPath(workspace, OWNER_USER_ID)
+}
+
 export function isOwnerOrAdmin(workspace: WorkspaceState, userId: string): boolean {
   const orgId = workspace.companyBrain?.activeOrganizationId
   if (!orgId) {

@@ -4,6 +4,7 @@ import {
   canAccessOwnerConsole,
   isOwnerOrAdmin,
   resolveDefaultAuthenticatedPath,
+  resolveLocalDevAuthenticatedPath,
   resolvePostSignupPath,
 } from '../src/data/postAuthRedirect.ts'
 import { OWNER_USER_ID } from '../src/data/sourceIngestion.ts'
@@ -59,6 +60,8 @@ const ownerWorkspace = JSON.parse(
 ) as WorkspaceState
 
 assert.equal(resolveDefaultAuthenticatedPath(ownerWorkspace, OWNER_USER_ID), '/owner')
+assert.equal(resolveLocalDevAuthenticatedPath(ownerWorkspace), '/owner')
+assert.equal(resolveLocalDevAuthenticatedPath(skeleton), '/join-company')
 assert.equal(isOwnerOrAdmin(ownerWorkspace, OWNER_USER_ID), true)
 
 assert.equal(resolvePostSignupPath(skeleton, 'u1'), '/join-company')
