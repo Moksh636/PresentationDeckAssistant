@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { GenerateSlidesResult } from '../context/workspaceStoreContext'
+import { collectBuildPreflightIssues } from '../data/buildPresentationPreflight'
+import { buildReadyToGenerateChecklist, deriveBuildWorkflowSteps } from '../data/buildWorkflowProgress'
 import { CompanyKnowledgeSuggestPanel } from '../components/builder/CompanyKnowledgeSuggestPanel'
 import { ChartSuggestionsPanel } from '../components/builder/ChartSuggestionsPanel'
 import { IntelReviewPanel } from '../components/builder/IntelReviewPanel'
@@ -78,6 +81,26 @@ const setupFieldTargets: SetupFieldKey[] = [
 ]
 
 /** Canonical deck type labels (synced to `presentationType` + `deckType` for generation compatibility). */
+/** Demo scenario — kept in component state until explicitly applied (does not autosave by itself). */
+const DEMO_METROFLOW_BRIEF: Partial<DeckSetup> = {
+  targetCompany: 'MetroFlow Transit Authority',
+  buyerPersona: 'Chief Operating Officer',
+  audience: 'Chief Operating Officer',
+  offeringSummary: 'Northstar Ops Suite — scheduling, incident orchestration, and workforce analytics',
+  meetingGoal:
+    'Secure a 90-day pilot covering two depots with measurable on-time performance lift and executive readouts.',
+  goal: 'Secure a 90-day pilot covering two depots with measurable on-time performance lift and executive readouts.',
+  desiredCta: 'Approve a scoped pilot charter and joint success metrics workshop.',
+  tone: 'Confident, pragmatic, safety-first',
+  deckType: 'Pilot proposal deck',
+  presentationType: 'Pilot proposal deck',
+  knownPainPoints: [
+    'Manual crew roster edits delay recovery windows during disruptions',
+    'Incident context scattered across radio, CAD, and spreadsheets',
+  ],
+  notes: 'Northstar × MetroFlow demo scenario — click “Apply demo to pitch brief” to save into this deck.',
+}
+
 const DECK_TYPE_OPTIONS: readonly string[] = [
   'Account pitch deck',
   'Discovery follow-up deck',
@@ -119,12 +142,15 @@ export function BuildPresentationPage() {
     [user, isLocalDevBypass],
   )
   const [isGenerating, setIsGenerating] = useState(false)
+  const [demoBriefOverlay, setDemoBriefOverlay] = useState<Partial<DeckSetup> | null>(null)
+  const [preflightOpen, setPreflightOpen] = useState(false)
   const [uploadRole, setUploadRole] = useState<FileContributorRole>('owner')
   const [commentRole, setCommentRole] = useState<FileContributorRole>('owner')
   const [selectedSetupTarget, setSelectedSetupTarget] = useState<string>('general')
   const aiBackendEnabled = isAiBackendEnabled()
   const {
     workspace,
+    recordWorkspaceActivity,
     updateDeck,
     updateDeckSetup,
     uploadAssets,
@@ -283,8 +309,58 @@ export function BuildPresentationPage() {
   const selectedSetupFieldKey =
     selectedSetupTarget === 'general' ? undefined : (selectedSetupTarget as SetupFieldKey)
   const setup = activeDeck?.setup
-  const deckTypeSelectSource = setup ? effectiveDeckTypeValue(setup) : ''
+  const mergedSetup = useMemo(
+    () => (setup ? { ...setup, ...(demoBriefOverlay ?? {}) } : undefined),
+    [setup, demoBriefOverlay],
+  )
+
+  const patchBrief = (updates: Partial<DeckSetup>) => {
+    if (!activeDeck) {
+      return
+    }
+    if (demoBriefOverlay !== null) {
+      setDemoBriefOverlay({ ...demoBriefOverlay, ...updates })
+    } else {
+      updateDeckSetup(activeDeck.id, updates)
+    }
+  }
+
+  const deckTypeSelectSource = mergedSetup ? effectiveDeckTypeValue(mergedSetup) : ''
   const deckTypeOptions = activeDeck ? deckTypeSelectOptions(deckTypeSelectSource) : []
+
+  const workflowSteps = useMemo(
+    () =>
+      mergedSetup
+        ? deriveBuildWorkflowSteps({
+            setup: mergedSetup,
+            deckAssets,
+            companyKnowledgeSuggestionCount: companyKnowledgeRankedSuggestions.length,
+          })
+        : [],
+    [mergedSetup, deckAssets, companyKnowledgeRankedSuggestions.length],
+  )
+
+  const readyItems = useMemo(
+    () =>
+      mergedSetup
+        ? buildReadyToGenerateChecklist({
+            setup: mergedSetup,
+            deckAssets,
+            companyKnowledgeSuggestionCount: companyKnowledgeRankedSuggestions.length,
+          })
+        : [],
+    [mergedSetup, deckAssets, companyKnowledgeRankedSuggestions.length],
+  )
+
+  const preflightIssues = useMemo(
+    () => (mergedSetup ? collectBuildPreflightIssues(mergedSetup, deckAssets) : []),
+    [mergedSetup, deckAssets],
+  )
+
+  const brainSuggestionEmpty = Boolean(organizationId && companyKnowledgeRankedSuggestions.length === 0)
+  const selectedBrainEmpty = Boolean(
+    mergedSetup && (mergedSetup.selectedCompanyKnowledgeItemIds?.length ?? 0) === 0 && companyKnowledgeRankedSuggestions.length > 0,
+  )
   const setupCommentThreads = workspace.comments
     .filter(
       (thread) =>
@@ -296,7 +372,31 @@ export function BuildPresentationPage() {
     )
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 
-  if (!activeDeck || !setup) {
+  const selectedKnowledgeCount = (setup?.selectedCompanyKnowledgeItemIds ?? []).length
+
+  const runTailoredGeneration = async () => {
+    if (isGenerating || !activeDeck) {
+      return
+    }
+
+    setIsGenerating(true)
+
+    try {
+      const outcome = await generateSlides(activeDeck.id)
+
+      if (outcome) {
+        navigate('/edit', { state: { postGeneration: outcome as GenerateSlidesResult } })
+      }
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const citationReviewMode = setup?.citationReviewMode ?? 'permissive'
+  const citationQAStats = computeCitationQAStats(deckAssets)
+  const citationModeShortLabel = citationReviewMode === 'strict-approved-only' ? 'Strict' : 'Permissive'
+
+  if (!activeDeck || !setup || !mergedSetup) {
     return (
       <section className="page">
         <div className="page-header">
@@ -308,30 +408,6 @@ export function BuildPresentationPage() {
       </section>
     )
   }
-
-  const selectedKnowledgeCount = (setup.selectedCompanyKnowledgeItemIds ?? []).length
-
-  const handleGenerateDeck = async () => {
-    if (isGenerating) {
-      return
-    }
-
-    setIsGenerating(true)
-
-    try {
-      const generatedDeckId = await generateSlides(activeDeck.id)
-
-      if (generatedDeckId) {
-        navigate('/edit')
-      }
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const citationReviewMode = setup.citationReviewMode ?? 'permissive'
-  const citationQAStats = computeCitationQAStats(deckAssets)
-  const citationModeShortLabel = citationReviewMode === 'strict-approved-only' ? 'Strict' : 'Permissive'
 
   return (
     <section className="page page--build page--build-calm">
@@ -346,9 +422,9 @@ export function BuildPresentationPage() {
             />
           </label>
           <div className="builder-command-bar__inline-meta">
-            {setup.targetCompany?.trim() ? (
+            {mergedSetup.targetCompany?.trim() ? (
               <span className="builder-command-bar__target" title="Target company">
-                {setup.targetCompany.trim()}
+                {mergedSetup.targetCompany.trim()}
               </span>
             ) : null}
           </div>
@@ -358,12 +434,44 @@ export function BuildPresentationPage() {
             type="button"
             className="primary-button builder-generate-cta"
             disabled={isGenerating}
-            onClick={handleGenerateDeck}
+            onClick={() => setPreflightOpen(true)}
           >
             {isGenerating ? 'Generating tailored deck...' : 'Generate tailored pitch deck'}
           </button>
         </div>
       </header>
+
+      <div className="builder-progress-track" aria-label="Build progress">
+        <ol className="builder-progress-steps">
+          {workflowSteps.map((step) => (
+            <li
+              key={step.id}
+              className={`builder-progress-step ${step.complete ? 'builder-progress-step--complete' : ''}`}
+            >
+              <span className="builder-progress-step__dot" aria-hidden />
+              <span className="builder-progress-step__label">{step.label}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="builder-ready-panel">
+        <div className="builder-ready-panel__header">
+          <span className="field-label field-label--compact">Ready to generate?</span>
+          <span className="muted-copy builder-ready-panel__hint">Non-blocking checklist — you can still generate anytime.</span>
+        </div>
+        <ul className="builder-ready-checklist">
+          {readyItems.map((item) => (
+            <li key={item.id} className={item.ok ? 'is-ok' : ''}>
+              <span className="builder-ready-checklist__status" aria-hidden>
+                {item.ok ? '✓' : '○'}
+              </span>
+              <span>{item.label}</span>
+              {!item.ok && item.hint ? <span className="muted-copy builder-ready-checklist__hint">{item.hint}</span> : null}
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <div className="builder-workspace">
         <div className="builder-workspace__main builder-workspace__main--calm">
@@ -379,6 +487,16 @@ export function BuildPresentationPage() {
             </summary>
             <div className="builder-disclosure__body">
               <div className="upload-panel builder-step-surface">
+                {deckAssets.length === 0 ? (
+                  <div className="builder-empty-callout" role="status">
+                    <strong>No sources yet.</strong>
+                    <span className="muted-copy">
+                      {' '}
+                      Upload earnings decks, call notes, or RFP excerpts — the generator and Intel Review prioritize
+                      citation-backed snippets from files you parse successfully.
+                    </span>
+                  </div>
+                ) : null}
                 <div className="builder-inline-actions builder-inline-actions--tight">
                   <span className="field-label field-label--compact">Research uploads</span>
                   <a href="#qa" className="builder-jump-link">
@@ -410,20 +528,54 @@ export function BuildPresentationPage() {
                 <span className="builder-disclosure__num">2</span>
                 Pitch brief
               </span>
-              <span className="builder-disclosure__meta muted-copy">{effectiveDeckTypeValue(setup)}</span>
+              <span className="builder-disclosure__meta muted-copy">{effectiveDeckTypeValue(mergedSetup)}</span>
             </summary>
             <div className="builder-disclosure__body">
               <div className="builder-step-surface builder-brief-surface">
+                <div className="builder-demo-actions">
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={() => setDemoBriefOverlay(DEMO_METROFLOW_BRIEF)}
+                  >
+                    Use demo example (MetroFlow)
+                  </button>
+                  {demoBriefOverlay ? (
+                    <>
+                      <button
+                        type="button"
+                        className="secondary-button secondary-button--sm"
+                        onClick={() => {
+                          updateDeckSetup(activeDeck.id, demoBriefOverlay)
+                          setDemoBriefOverlay(null)
+                        }}
+                      >
+                        Apply demo to pitch brief
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--sm"
+                        onClick={() => setDemoBriefOverlay(null)}
+                      >
+                        Discard demo overlay
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+                {demoBriefOverlay ? (
+                  <p className="muted-copy builder-demo-hint">
+                    Demo fields appear below but stay local until you apply — apply saves into this deck with your normal
+                    workspace persistence.
+                  </p>
+                ) : null}
                 <div className="builder-brief-grid">
                   <label className="field-group">
                     <span className="field-label field-label--compact">Target company</span>
                     <input
                       type="text"
-                      value={setup.targetCompany ?? ''}
+                      value={mergedSetup.targetCompany ?? ''}
                       placeholder="Account legal name or shorthand"
-                      onChange={(event) =>
-                        updateDeckSetup(activeDeck.id, { targetCompany: event.target.value })
-                      }
+                      onChange={(event) => patchBrief({ targetCompany: event.target.value })}
                     />
                   </label>
 
@@ -432,11 +584,11 @@ export function BuildPresentationPage() {
                       <span className="field-label field-label--compact">Buyer persona / role</span>
                       <input
                         type="text"
-                        value={effectiveBuyerPersona(setup)}
+                        value={effectiveBuyerPersona(mergedSetup)}
                         placeholder="Economic buyer, champion, or committee role"
                         onChange={(event) => {
                           const value = event.target.value
-                          updateDeckSetup(activeDeck.id, { buyerPersona: value, audience: value })
+                          patchBrief({ buyerPersona: value, audience: value })
                         }}
                       />
                     </label>
@@ -447,7 +599,7 @@ export function BuildPresentationPage() {
                         value={deckTypeSelectSource}
                         onChange={(event) => {
                           const value = event.target.value
-                          updateDeckSetup(activeDeck.id, {
+                          patchBrief({
                             deckType: value,
                             presentationType: value,
                           })
@@ -470,8 +622,8 @@ export function BuildPresentationPage() {
                       <span className="field-label field-label--compact">Tone</span>
                       <input
                         type="text"
-                        value={setup.tone}
-                        onChange={(event) => updateDeckSetup(activeDeck.id, { tone: event.target.value })}
+                        value={mergedSetup.tone}
+                        onChange={(event) => patchBrief({ tone: event.target.value })}
                       />
                     </label>
                   </div>
@@ -480,11 +632,9 @@ export function BuildPresentationPage() {
                     <span className="field-label field-label--compact">Product or service being pitched</span>
                     <input
                       type="text"
-                      value={setup.offeringSummary ?? ''}
+                      value={mergedSetup.offeringSummary ?? ''}
                       placeholder="What you are asking them to buy, pilot, or expand"
-                      onChange={(event) =>
-                        updateDeckSetup(activeDeck.id, { offeringSummary: event.target.value })
-                      }
+                      onChange={(event) => patchBrief({ offeringSummary: event.target.value })}
                     />
                   </label>
 
@@ -493,11 +643,11 @@ export function BuildPresentationPage() {
                     <textarea
                       className="builder-textarea--brief"
                       rows={2}
-                      value={effectiveMeetingGoal(setup)}
+                      value={effectiveMeetingGoal(mergedSetup)}
                       placeholder="Outcome you need from this conversation"
                       onChange={(event) => {
                         const value = event.target.value
-                        updateDeckSetup(activeDeck.id, { meetingGoal: value, goal: value })
+                        patchBrief({ meetingGoal: value, goal: value })
                       }}
                     />
                   </label>
@@ -506,11 +656,9 @@ export function BuildPresentationPage() {
                     <span className="field-label field-label--compact">Desired CTA</span>
                     <input
                       type="text"
-                      value={setup.desiredCta ?? ''}
+                      value={mergedSetup.desiredCta ?? ''}
                       placeholder="Next step you want them to take"
-                      onChange={(event) =>
-                        updateDeckSetup(activeDeck.id, { desiredCta: event.target.value })
-                      }
+                      onChange={(event) => patchBrief({ desiredCta: event.target.value })}
                     />
                   </label>
                 </div>
@@ -522,11 +670,9 @@ export function BuildPresentationPage() {
                       <span className="field-label field-label--compact">Target website</span>
                       <input
                         type="text"
-                        value={setup.targetWebsite ?? ''}
+                        value={mergedSetup.targetWebsite ?? ''}
                         placeholder="https://…"
-                        onChange={(event) =>
-                          updateDeckSetup(activeDeck.id, { targetWebsite: event.target.value })
-                        }
+                        onChange={(event) => patchBrief({ targetWebsite: event.target.value })}
                       />
                     </label>
                     <label className="field-group field-group--wide">
@@ -534,10 +680,10 @@ export function BuildPresentationPage() {
                       <textarea
                         className="builder-textarea--brief"
                         rows={2}
-                        value={painPointsToLines(setup)}
+                        value={painPointsToLines(mergedSetup)}
                         placeholder={'One pain point per line\ne.g. manual reporting\nslow approvals'}
                         onChange={(event) =>
-                          updateDeckSetup(activeDeck.id, {
+                          patchBrief({
                             knownPainPoints: linesToPainPoints(event.target.value),
                           })
                         }
@@ -548,11 +694,9 @@ export function BuildPresentationPage() {
                       <textarea
                         className="builder-textarea--brief"
                         rows={2}
-                        value={setup.notes}
+                        value={mergedSetup.notes}
                         placeholder="Positioning, landmines, proof to emphasize, stakeholders to name-check"
-                        onChange={(event) =>
-                          updateDeckSetup(activeDeck.id, { notes: event.target.value })
-                        }
+                        onChange={(event) => patchBrief({ notes: event.target.value })}
                       />
                     </label>
                   </div>
@@ -572,6 +716,25 @@ export function BuildPresentationPage() {
               </span>
             </summary>
             <div className="builder-disclosure__body">
+              {brainSuggestionEmpty ? (
+                <div className="builder-empty-callout" role="status">
+                  <strong>No Brain matches yet.</strong>
+                  <span className="muted-copy">
+                    {' '}
+                    Tune your pitch brief — roles, tone, and offering — then revisit suggestions, or add documents from the
+                    Knowledge Library.
+                  </span>
+                </div>
+              ) : null}
+              {selectedBrainEmpty ? (
+                <div className="builder-empty-callout builder-empty-callout--soft" role="status">
+                  <strong>No Company Brain rows selected.</strong>
+                  <span className="muted-copy">
+                    {' '}
+                    Pick approved snippets so citations stay grounded in curated messaging.
+                  </span>
+                </div>
+              ) : null}
               <CompanyKnowledgeSuggestPanel
                 introVariant="minimal"
                 deckId={activeDeck.id}
@@ -608,6 +771,25 @@ export function BuildPresentationPage() {
                 onSetSourceStatus={setFileAssetSourceReviewStatus}
                 onSetSnippetEnabled={setFileAssetSnippetEnabled}
                 onSetSnippetLabelOverride={setFileAssetSnippetLabelOverride}
+                onApproveAllUsable={() => {
+                  for (const asset of deckAssets) {
+                    if (asset.status === 'parsed' && asset.sourceTrace.length > 0) {
+                      setFileAssetSourceReviewStatus(asset.id, 'approved')
+                    }
+                  }
+                }}
+                onExcludeUnsupported={() => {
+                  for (const asset of deckAssets) {
+                    if (asset.status === 'parsed' && asset.sourceTrace.length === 0) {
+                      setFileAssetSourceReviewStatus(asset.id, 'excluded')
+                    }
+                  }
+                }}
+                onClearDecisions={() => {
+                  for (const asset of deckAssets) {
+                    setFileAssetSourceReviewStatus(asset.id, 'pending')
+                  }
+                }}
               />
             </div>
           </details>
@@ -621,6 +803,16 @@ export function BuildPresentationPage() {
               <span className="builder-disclosure__meta muted-copy">Generate &amp; refine citations</span>
             </summary>
             <div className="builder-disclosure__body">
+              {!(setup.intel && Object.keys(setup.intel).length > 0) ? (
+                <div className="builder-empty-callout builder-empty-callout--soft" role="status">
+                  <strong>No intel captured yet.</strong>
+                  <span className="muted-copy">
+                    {' '}
+                    Generate Intel Review after sources parse, or paste account research manually — strict citations still
+                    respect Source QA decisions.
+                  </span>
+                </div>
+              ) : null}
               <IntelReviewPanel
                 deckId={activeDeck.id}
                 setup={setup}
@@ -632,6 +824,7 @@ export function BuildPresentationPage() {
                 brainPolicies={brainPoliciesForIntel}
                 brainSkillFiles={brainSkillFilesForIntel}
                 updateDeckSetup={updateDeckSetup}
+                recordActivity={recordWorkspaceActivity}
               />
             </div>
           </details>
@@ -879,7 +1072,7 @@ export function BuildPresentationPage() {
               type="button"
               className="primary-button builder-generate-cta"
               disabled={isGenerating}
-              onClick={handleGenerateDeck}
+              onClick={() => setPreflightOpen(true)}
             >
               {isGenerating ? 'Generating…' : 'Generate tailored pitch deck'}
             </button>
@@ -894,6 +1087,68 @@ export function BuildPresentationPage() {
           </div>
         </aside>
       </div>
+
+      {preflightOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setPreflightOpen(false)}>
+          <div
+            className="modal-card builder-preflight-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="preflight-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <span className="section-label">Preflight</span>
+                <h3 id="preflight-title">Review before generating</h3>
+                <p className="muted-copy">
+                  Quick sanity checks before opening the editor — they are advisory, not blocking.
+                </p>
+              </div>
+              <button type="button" className="ghost-button" onClick={() => setPreflightOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="modal-card__body">
+              {preflightIssues.length === 0 ? (
+                <p className="muted-copy">No major gaps detected from this workspace snapshot.</p>
+              ) : (
+                <ul className="builder-preflight-issues">
+                  {preflightIssues.map((issue) => (
+                    <li key={issue.id}>
+                      <span className={`builder-preflight-severity builder-preflight-severity--${issue.severity}`}>
+                        {issue.severity === 'warning' ? 'Warning' : 'Note'}
+                      </span>
+                      <span>{issue.message}</span>
+                      {issue.fixHref ? (
+                        <a className="builder-preflight-jump" href={issue.fixHref} onClick={() => setPreflightOpen(false)}>
+                          Jump
+                        </a>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="modal-card__footer">
+              <button type="button" className="ghost-button" onClick={() => setPreflightOpen(false)}>
+                Back to edit
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={isGenerating}
+                onClick={async () => {
+                  setPreflightOpen(false)
+                  await runTailoredGeneration()
+                }}
+              >
+                {isGenerating ? 'Generating…' : 'Generate tailored deck'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

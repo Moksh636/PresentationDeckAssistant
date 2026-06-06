@@ -544,6 +544,15 @@ export function OwnerWorkerPrepSection({
                     {inv.invitedDepartment ? <> · dept {inv.invitedDepartment}</> : null}
                     {inv.roleLocked ? <> · role locked</> : null}
                     {inv.departmentLocked ? <> · dept locked</> : null}
+                    <br />
+                    Created {new Date(inv.createdAt).toLocaleString()} · Updated {new Date(inv.updatedAt).toLocaleString()}
+                    {inv.joinedAt ? (
+                      <>
+                        {' '}
+                        · Joined {new Date(inv.joinedAt).toLocaleString()}
+                      </>
+                    ) : null}
+                    {inv.status === 'invited' ? <> · Awaiting worker acceptance at /join-company</> : null}
                   </div>
                 </div>
                 <div className="owner-suggestion-list__actions">

@@ -132,6 +132,39 @@ export function OwnerDashboardPage() {
   const knowledgeSyncStatus = workspaceApi.companyKnowledgeSyncStatus
   const librarySyncStatus = workspaceApi.companyLibrarySyncStatus
 
+  const brainMapCounts = useMemo(() => {
+    const processes = workspace.companyBrain.brainProcesses.filter(
+      (p) => p.organizationId === orgId && p.approvalStatus !== 'archived',
+    ).length
+    const policies = workspace.companyBrain.brainPolicies.filter(
+      (p) => p.organizationId === orgId && p.approvalStatus !== 'archived',
+    ).length
+    const skillFiles = workspace.companyBrain.brainSkillFiles.filter(
+      (s) => s.organizationId === orgId && s.approvalStatus !== 'archived',
+    ).length
+    return { processes, policies, skillFiles, total: processes + policies + skillFiles }
+  }, [orgId, workspace.companyBrain.brainProcesses, workspace.companyBrain.brainPolicies, workspace.companyBrain.brainSkillFiles])
+
+  const setupCompleteness = useMemo(() => {
+    const steps = [
+      { id: 'knowledge', label: 'Approved knowledge items', ok: knowledgeItems.some((k) => k.approvalStatus === 'approved') },
+      { id: 'brand', label: 'Brand Kit configured', ok: Boolean(brandKit) },
+      { id: 'messaging', label: 'Approved messaging snippets', ok: messaging.length > 0 },
+      { id: 'brain', label: 'Brain Map rows (process/policy/skill)', ok: brainMapCounts.total > 0 },
+      { id: 'team', label: 'Workers or staged invites', ok: workerCount > 0 || workspace.companyBrain.workerInvites.some((w) => w.organizationId === orgId) },
+    ]
+    const done = steps.filter((s) => s.ok).length
+    return { steps, done, total: steps.length }
+  }, [
+    knowledgeItems,
+    brandKit,
+    messaging.length,
+    brainMapCounts.total,
+    workerCount,
+    workspace.companyBrain.workerInvites,
+    orgId,
+  ])
+
   const syncLabel =
     syncStatus.state === 'local-only'
       ? 'Local only'
@@ -221,17 +254,47 @@ export function OwnerDashboardPage() {
             <strong>{membership?.accessRole ?? '—'}</strong>
           </p>
         </div>
-        <div className="owner-dashboard__status-chips">
-          <span>Cloud sync: {syncLabel}</span>
-          <span>Knowledge sync: {knowledgeSyncLabel}</span>
-          <span>Documents: {knowledgeItems.length}</span>
-          <span>Workers: {workerCount}</span>
-          <span>Pending review: {needsReviewCount}</span>
-        </div>
+        <p className="owner-dashboard__sync-line muted-copy">
+          Sync — Identity: <strong>{syncLabel}</strong> · Knowledge library: <strong>{knowledgeSyncLabel}</strong> · Company
+          libraries: <strong>{librarySyncLabel}</strong> · Documents: <strong>{knowledgeItems.length}</strong> · Workers:{' '}
+          <strong>{workerCount}</strong> · Pending review: <strong>{needsReviewCount}</strong>
+        </p>
       </header>
 
       {!activeOwnerSection ? (
-        <OwnerConsoleHome modules={OWNER_MODULES} onSelectModule={setActiveOwnerSection} />
+        <>
+          <div className="owner-overview-grid">
+            <div className="owner-overview-card">
+              <p className="section-label">Setup completeness</p>
+              <p className="owner-overview-card__metric">
+                {setupCompleteness.done}/{setupCompleteness.total} checkpoints
+              </p>
+              <ul className="owner-overview-checklist muted-copy">
+                {setupCompleteness.steps.map((step) => (
+                  <li key={step.id} className={step.ok ? 'is-ok' : ''}>
+                    <span aria-hidden>{step.ok ? '✓' : '○'}</span> {step.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="owner-overview-card">
+              <p className="section-label">What AI can use</p>
+              <p className="muted-copy owner-overview-card__body">
+                Approved knowledge ({knowledgeItems.filter((k) => k.approvalStatus === 'approved').length} items),
+                messaging ({messaging.length}), proof ({caseStudies.length}), offerings ({products.length}), Brain Map (
+                {brainMapCounts.total} active rows).
+              </p>
+            </div>
+            <div className="owner-overview-card">
+              <p className="section-label">Brain Map inventory</p>
+              <p className="muted-copy">
+                Processes <strong>{brainMapCounts.processes}</strong> · Policies{' '}
+                <strong>{brainMapCounts.policies}</strong> · Skill files <strong>{brainMapCounts.skillFiles}</strong>
+              </p>
+            </div>
+          </div>
+          <OwnerConsoleHome modules={OWNER_MODULES} onSelectModule={setActiveOwnerSection} />
+        </>
       ) : (
         <OwnerModuleShell
           moduleTitle={OWNER_MODULES.find((m) => m.id === activeOwnerSection)?.title}

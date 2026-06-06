@@ -41,6 +41,7 @@ export interface SanitizedParseWarnings {
  */
 export function sanitizeParseWarningsForUserDisplay(
   warnings: string[] | undefined,
+  fileKind?: string,
 ): SanitizedParseWarnings {
   const raw = Array.isArray(warnings) ? warnings.filter((w) => typeof w === 'string' && w.trim()) : []
 
@@ -57,8 +58,13 @@ export function sanitizeParseWarningsForUserDisplay(
     LIMITED_PREVIEW_FRAGMENTS.some((pattern) => pattern.test(message)),
   )
 
+  const pdfHint =
+    fileKind === 'pdf' && limited
+      ? ' For fuller extraction, export the document to TXT or DOCX and upload that alongside the PDF.'
+      : ''
+
   const friendlyMessage = limited
-    ? 'Limited preview — we parsed what we could from this file. Snippets and citations still work for any text we could read.'
+    ? `Limited preview — we parsed what we could from this file. Snippets and citations still work for any text we could read.${pdfHint}`
     : 'Some parser notes were captured for this file. See Advanced source details for the technical messages.'
 
   return {

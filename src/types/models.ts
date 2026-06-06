@@ -773,6 +773,10 @@ export type CompanyActivityKind =
   | 'worker-invite-revoked'
   | 'worker-invite-updated'
   | 'worker-joined-from-invite'
+  | 'pitch-deck-generated'
+  | 'intel-review-generated'
+  | 'pptx-exported'
+  | 'cloud-data-conflict-resolved'
 
 /** Workspace access granted when a worker accepts an invite (never owner). */
 export type WorkerInviteAccessRole = 'admin' | 'member' | 'viewer'

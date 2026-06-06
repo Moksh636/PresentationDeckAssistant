@@ -14,6 +14,7 @@ import type {
   CompanyBrainSkillFile,
   CompanyBrainSourceUsed,
   CompanyKnowledgeItem,
+  CompanyActivityKind,
   DeckIntel,
   DeckSetup,
   FileAsset,
@@ -39,6 +40,18 @@ function arrayFromLines(text: string) {
     .filter(Boolean)
 }
 
+function dedupeLines(lines: string[]) {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const line of lines) {
+    const t = line.trim()
+    if (!t || seen.has(t.toLowerCase())) continue
+    seen.add(t.toLowerCase())
+    out.push(t)
+  }
+  return out
+}
+
 interface IntelReviewPanelProps {
   deckId: string
   setup: DeckSetup
@@ -50,6 +63,7 @@ interface IntelReviewPanelProps {
   brainPolicies?: CompanyBrainPolicy[]
   brainSkillFiles?: CompanyBrainSkillFile[]
   updateDeckSetup: (deckId: string, updates: Partial<DeckSetup>) => void
+  recordActivity?: (input: { kind: CompanyActivityKind; detail: string }) => void
 }
 
 export function IntelReviewPanel({
@@ -63,18 +77,32 @@ export function IntelReviewPanel({
   brainPolicies = [],
   brainSkillFiles = [],
   updateDeckSetup,
+  recordActivity,
 }: IntelReviewPanelProps) {
   const { showToast } = useToast()
   const [lastBrainSourcesMeta, setLastBrainSourcesMeta] = useState<CompanyBrainSourceUsed[] | undefined>(
     undefined,
   )
-  const intel = setup.intel ?? {}
+  const [lastFallbackWarning, setLastFallbackWarning] = useState<string | null>(null)
+  const intel = useMemo(() => setup.intel ?? {}, [setup.intel])
   const citationReviewMode = resolveCitationReviewMode(setup)
   const aiBackendEnabled = isAiBackendEnabled()
 
   const patchIntel = (partial: Partial<DeckIntel>) => {
     updateDeckSetup(deckId, { intel: { ...intel, ...partial } })
   }
+
+  const intelChecklist = useMemo(() => {
+    return [
+      { id: 'summary', label: 'Company summary', ok: Boolean(intel.companySummary?.trim()) },
+      { id: 'priorities', label: 'Inferred priorities', ok: (intel.inferredPriorities ?? []).some((p) => p.trim()) },
+      { id: 'pains', label: 'Pain points', ok: (intel.painPoints ?? []).some((p) => p.trim()) },
+      { id: 'proof', label: 'Proof points', ok: (intel.proofPoints ?? []).some((p) => p.trim()) },
+      { id: 'objections', label: 'Likely objections', ok: (intel.objections ?? []).some((p) => p.trim()) },
+      { id: 'angle', label: 'Recommended pitch angle', ok: Boolean(intel.recommendedPitchAngle?.trim()) },
+      { id: 'citations', label: 'Citations present', ok: Boolean(intel.citations && intel.citations.length > 0) },
+    ]
+  }, [intel])
 
   const handleGenerateDraft = async () => {
     const reviewableAssets = filterAssetsForCitationUse(fileAssets, citationReviewMode)
@@ -94,9 +122,57 @@ export function IntelReviewPanel({
     updateDeckSetup(deckId, { intel: merged })
     setLastBrainSourcesMeta(response.companyBrainSourcesUsed)
 
-    if (response.warnings.length > 0) {
-      showToast(response.warnings[0], 'info')
+    const usedFallback = response.warnings.some((w) =>
+      /AI backend unavailable|local intel draft fallback/i.test(w),
+    )
+    if (usedFallback) {
+      const message =
+        'Gemini Intel Review was unavailable — a local deterministic draft was applied instead. Review fields before generating your deck.'
+      setLastFallbackWarning(message)
+      showToast('AI backend unavailable; used local intel draft fallback.', 'info')
+    } else {
+      setLastFallbackWarning(null)
+      if (response.warnings.length > 0) {
+        showToast(response.warnings[0], 'info')
+      }
     }
+
+    recordActivity?.({
+      kind: 'intel-review-generated',
+      detail: `Intel Review draft updated (${aiBackendEnabled ? 'Gemini Intel Review edge path when reachable' : 'local deterministic pipeline'}).`,
+    })
+  }
+
+  const handleClearIntel = () => {
+    updateDeckSetup(deckId, { intel: undefined })
+    setLastBrainSourcesMeta(undefined)
+    setLastFallbackWarning(null)
+  }
+
+  const handleApplyIntelToBrief = () => {
+    const baseGoal = setup.meetingGoal?.trim() || setup.goal?.trim() || ''
+    const angle = intel.recommendedPitchAngle?.trim()
+    const nextGoal =
+      angle && !baseGoal.includes(angle)
+        ? [baseGoal, `Pitch angle:\n${angle}`].filter(Boolean).join('\n\n')
+        : baseGoal
+
+    const mergedPains = [...(setup.knownPainPoints ?? []), ...(intel.painPoints ?? [])]
+
+    const intelNotes = [
+      setup.notes?.trim(),
+      intel.companySummary?.trim() && `Intel — company summary:\n${intel.companySummary.trim()}`,
+      (intel.objections ?? []).length > 0 && `Likely objections:\n${(intel.objections ?? []).join('\n')}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+
+    updateDeckSetup(deckId, {
+      meetingGoal: nextGoal || setup.meetingGoal,
+      goal: nextGoal || setup.goal,
+      knownPainPoints: dedupeLines(mergedPains),
+      notes: intelNotes || setup.notes,
+    })
   }
 
   const handleRefreshCitations = () => {
@@ -154,13 +230,37 @@ export function IntelReviewPanel({
           <button type="button" className="primary-button" onClick={handleGenerateDraft}>
             Generate Intel Review
           </button>
+          <button type="button" className="secondary-button secondary-button--sm" onClick={handleGenerateDraft}>
+            Regenerate
+          </button>
+          <button type="button" className="ghost-button ghost-button--sm" onClick={handleClearIntel}>
+            Clear intel
+          </button>
+          <button type="button" className="ghost-button ghost-button--sm" onClick={handleApplyIntelToBrief}>
+            Apply to pitch brief
+          </button>
           <button type="button" className="ghost-button ghost-button--sm" onClick={handleRefreshCitations}>
             Refresh citations
           </button>
         </div>
+        <p className="intel-ai-mode-pill" aria-label="Intel Review AI mode">
+          {aiBackendEnabled
+            ? 'Gemini Intel Review edge path · Company Brain filters preserved'
+            : 'Local deterministic intel · bundled heuristics only'}
+        </p>
+        {lastFallbackWarning ? (
+          <div className="intel-fallback-banner" role="status">
+            <strong>Intel fallback active.</strong> {lastFallbackWarning}
+          </div>
+        ) : null}
+        <ul className="intel-field-checklist muted-copy">
+          {intelChecklist.map((row) => (
+            <li key={row.id} className={row.ok ? 'is-ok' : ''}>
+              <span aria-hidden>{row.ok ? '✓' : '○'}</span> {row.label}
+            </li>
+          ))}
+        </ul>
         <p className="muted-copy intel-review-mode-line intel-review-mode-line--compact">
-          <strong>{aiBackendEnabled ? 'Backend AI on' : 'Local generator'}</strong>
-          {' · '}
           Citations use approved source snippets; memory-only Brain rows stay non-file-backed.
         </p>
         <details className="intel-review-about-fold">

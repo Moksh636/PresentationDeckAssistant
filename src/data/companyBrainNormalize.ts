@@ -121,6 +121,10 @@ const ACTIVITY_KINDS = new Set<CompanyActivityKind>([
   'worker-invite-revoked',
   'worker-invite-updated',
   'worker-joined-from-invite',
+  'pitch-deck-generated',
+  'intel-review-generated',
+  'pptx-exported',
+  'cloud-data-conflict-resolved',
 ])
 
 function nowIso() {

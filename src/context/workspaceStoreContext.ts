@@ -9,9 +9,11 @@ import type {
   UpsertWorkerInviteInput,
 } from '../data/companyBrainMutations'
 import type { CompanyKnowledgeOrganizationPlan } from '../data/companyKnowledgeOrganization'
+import type { DeckDesignQualityReport } from '../data/deckDesignQuality'
 import type {
   ApprovedMessagingItem,
   CaseStudyItem,
+  CompanyActivityKind,
   CompanyBrandKit,
   CompanyBrainCatalogDepartment,
   CompanyBrainCatalogRole,
@@ -37,6 +39,15 @@ import type {
   WorkerInvite,
   WorkspaceState,
 } from '../types/models'
+
+export interface GenerateSlidesResult {
+  deckId: string
+  qualityReport: DeckDesignQualityReport
+  slideCount: number
+  themeSummary?: string
+  directionSummary?: string
+  citationModeLabel: string
+}
 
 export interface CollaborationUpdate {
   isShared: boolean
@@ -109,7 +120,9 @@ export interface WorkspaceContextValue {
     labelOverride: string,
   ) => void
   autoFillDeckSetupFromFiles: (deckId: string) => void
-  generateSlides: (deckId: string) => Promise<string | undefined>
+  generateSlides: (deckId: string) => Promise<GenerateSlidesResult | undefined>
+  addBibliographySlideForDeck: (deckId: string) => string | undefined
+  recordWorkspaceActivity: (input: { kind: CompanyActivityKind; detail: string }) => void
   generateReport: (deckId: string, reportType: ReportType) => string | undefined
   acceptChartSuggestion: (suggestionId: string) => void
   rejectChartSuggestion: (suggestionId: string) => void

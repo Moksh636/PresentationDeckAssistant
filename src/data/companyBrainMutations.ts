@@ -365,6 +365,17 @@ function appendLog(slice: CompanyBrainWorkspaceSlice, log: Omit<CompanyActivityL
   }
 }
 
+/** Workspace-level helper for cross-cutting activity entries (deck tools, exports, etc.). */
+export function appendCompanyActivityLog(
+  workspace: WorkspaceState,
+  entry: Omit<CompanyActivityLog, 'id' | 'createdAt'>,
+): WorkspaceState {
+  return {
+    ...workspace,
+    companyBrain: appendLog(workspace.companyBrain, entry),
+  }
+}
+
 export function dismissCompanyOnboarding(workspace: WorkspaceState): WorkspaceState {
   return {
     ...workspace,

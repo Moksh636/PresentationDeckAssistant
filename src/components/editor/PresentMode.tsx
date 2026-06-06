@@ -17,6 +17,9 @@ interface PresentModeProps {
   onNext: () => void
   onPrevious: () => void
   onExit: () => void
+  presenterNotes?: string
+  showSpeakerNotes?: boolean
+  onToggleSpeakerNotes?: () => void
 }
 
 function getSlidePosition(slides: Slide[], activeSlideId?: string) {
@@ -131,6 +134,9 @@ export function PresentMode({
   onNext,
   onPrevious,
   onExit,
+  presenterNotes,
+  showSpeakerNotes,
+  onToggleSpeakerNotes,
 }: PresentModeProps) {
   const { index, slide } = getSlidePosition(slides, activeSlideId)
 
@@ -205,10 +211,20 @@ export function PresentMode({
             <button type="button" onClick={onNext} disabled={index >= slides.length - 1}>
               Next
             </button>
+            {onToggleSpeakerNotes ? (
+              <button type="button" onClick={onToggleSpeakerNotes}>
+                {showSpeakerNotes ? 'Hide notes' : 'Notes'}
+              </button>
+            ) : null}
             <button type="button" onClick={onExit}>
               Exit
             </button>
           </div>
+          {showSpeakerNotes && presenterNotes?.trim() ? (
+            <div className="present-mode__speaker-notes" aria-label="Speaker notes">
+              <p>{presenterNotes}</p>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

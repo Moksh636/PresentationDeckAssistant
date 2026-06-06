@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { AiChatPanel, type AiChatMessage } from '../components/editor/AiChatPanel'
 import { ShareProjectModal } from '../components/collaboration/ShareProjectModal'
 import { DeckReportModal } from '../components/editor/DeckReportModal'
@@ -50,6 +50,9 @@ import type {
   SlideBlock,
   WorkspaceAssetStorageRef,
 } from '../types/models'
+import type { GenerateSlidesResult } from '../context/workspaceStoreContext'
+import { bibliographySlideHasContent } from '../data/bibliographySlide'
+import { scoreGeneratedDeckDesign, type DeckDesignQualityFinding } from '../data/deckDesignQuality'
 import { createId } from '../utils/ids'
 
 const initialMessages: AiChatMessage[] = [
@@ -165,6 +168,18 @@ type EditorContextMenuState =
 
 export function EditPresentationPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [postGenSummary, setPostGenSummary] = useState<GenerateSlidesResult | undefined>()
+  const postGenHandledRef = useRef(false)
+
+  useEffect(() => {
+    const pg = (location.state as { postGeneration?: GenerateSlidesResult } | null)?.postGeneration
+    if (pg && !postGenHandledRef.current) {
+      postGenHandledRef.current = true
+      setPostGenSummary(pg)
+      navigate('.', { replace: true, state: {} })
+    }
+  }, [location.state, navigate])
   const { showToast } = useToast()
   const { user, isLocalDevBypass } = useAuth()
   const {
@@ -200,6 +215,8 @@ export function EditPresentationPage() {
     pasteSlideBlocks,
     arrangeSlideBlock,
     updateSlideNotes,
+    addBibliographySlideForDeck,
+    recordWorkspaceActivity,
   } = useWorkspace()
   const [scope, setScope] = useState<AiEditScope>('slide')
   const [askBeforeApplying, setAskBeforeApplying] = useState(true)
@@ -220,6 +237,8 @@ export function EditPresentationPage() {
   const [messages, setMessages] = useState<AiChatMessage[]>(initialMessages)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isExportingPptx, setIsExportingPptx] = useState(false)
+  const [pptxPreflightOpen, setPptxPreflightOpen] = useState(false)
+  const [presentShowNotes, setPresentShowNotes] = useState(false)
   const [clipboardBlocks, setClipboardBlocks] = useState<SlideBlock[]>([])
   const [pasteOffsetCount, setPasteOffsetCount] = useState(0)
   const [zoomPercent, setZoomPercent] = useState(100)
@@ -250,6 +269,24 @@ export function EditPresentationPage() {
   const slides = workspace.slides
     .filter((slide) => slide.deckId === activeDeck?.id)
     .sort((left, right) => left.index - right.index)
+
+  const liveDeckQuality = useMemo(() => {
+    if (!activeDeck || slides.length === 0) {
+      return undefined
+    }
+    return scoreGeneratedDeckDesign(activeDeck, slides)
+  }, [activeDeck, slides])
+
+  const pptxPreflightWarnings = useMemo(() => {
+    if (!activeDeck || slides.length === 0) {
+      return []
+    }
+    const report = scoreGeneratedDeckDesign(activeDeck, slides)
+    const lines = report.findings.slice(0, 8).map((finding) => finding.message)
+    lines.push('Slide transitions are summarized in speaker notes for this exporter build.')
+    lines.push('Verify SVG or uncommon image formats after download — some assets may be omitted.')
+    return lines
+  }, [activeDeck, slides])
   const versions = workspace.deckVersions.filter((version) => version.deckId === activeDeck?.id)
   const reportAssets = workspace.fileAssets
     .filter((asset) => asset.deckId === activeDeck?.id && asset.kind === 'report')
@@ -413,6 +450,7 @@ export function EditPresentationPage() {
   const activePresentationSlideId = slides.some((slide) => slide.id === presentationSlideId)
     ? presentationSlideId
     : selectedSlide?.id
+  const presentationSlideForNotes = slides.find((slide) => slide.id === activePresentationSlideId)
   const thumbnailRailPresentation = getThumbnailRailPresentation({
     collapsed: isThumbnailRailCollapsed,
     compact: isThumbnailRailCompact,
@@ -909,7 +947,7 @@ export function EditPresentationPage() {
     }
   }
 
-  const handleExportPptx = async () => {
+  const runPptxExport = async () => {
     if (!activeDeck || isExportingPptx) {
       return
     }
@@ -933,12 +971,20 @@ export function EditPresentationPage() {
           ? { kit: exportBrandCtx.kit, organizationName: exportBrandCtx.organizationName }
           : undefined,
       })
+      recordWorkspaceActivity({
+        kind: 'pptx-exported',
+        detail: `Exported "${activeDeck.title}" to PPTX (${slides.length} slides).`,
+      })
       showToast('PPTX export started.', 'success')
     } catch {
       showToast('PPTX export failed. Try again.', 'error')
     } finally {
       setIsExportingPptx(false)
     }
+  }
+
+  const handleExportPptx = () => {
+    setPptxPreflightOpen(true)
   }
 
   const handleZoom = (direction: 'in' | 'out') => {
@@ -1124,6 +1170,7 @@ export function EditPresentationPage() {
 
   const exitPresentation = () => {
     setIsPresenting(false)
+    setPresentShowNotes(false)
 
     if (document.fullscreenElement === presentationRootRef.current) {
       void document.exitFullscreen().catch(() => undefined)
@@ -1215,10 +1262,10 @@ export function EditPresentationPage() {
               setIsGenerating(true)
 
               try {
-                const generatedDeckId = await generateSlides(activeDeck.id)
+                const outcome = await generateSlides(activeDeck.id)
 
-                if (generatedDeckId) {
-                  navigate('/edit')
+                if (outcome) {
+                  navigate('/edit', { state: { postGeneration: outcome } })
                 }
               } finally {
                 setIsGenerating(false)
@@ -1237,6 +1284,70 @@ export function EditPresentationPage() {
 
   return (
     <section className="page page--editor">
+      {postGenSummary ? (
+        <div className="editor-postgen-banner">
+          <div>
+            <p className="section-label">Latest generation</p>
+            <h3 className="editor-postgen-banner__title">Tailored deck ready in the editor</h3>
+            <p className="muted-copy">
+              Quality score {postGenSummary.qualityReport.score}/100 ({postGenSummary.qualityReport.overall}) ·{' '}
+              {postGenSummary.slideCount} slides · {postGenSummary.citationModeLabel}
+            </p>
+            {postGenSummary.themeSummary ? (
+              <p className="muted-copy">
+                <strong>Design sample:</strong> {postGenSummary.themeSummary}
+              </p>
+            ) : null}
+            {postGenSummary.directionSummary ? (
+              <p className="muted-copy">
+                <strong>Direction:</strong> {postGenSummary.directionSummary}
+              </p>
+            ) : null}
+            <p className="muted-copy">
+              <strong>Next:</strong> tighten slides here or regenerate from Build with richer sources.
+            </p>
+            <ul className="editor-postgen-findings">
+              {postGenSummary.qualityReport.findings.slice(0, 5).map((finding, index) => (
+                <li key={`${finding.code}-${index}`}>
+                  {finding.message}
+                  {finding.slideId ? (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--sm editor-postgen-findings__jump"
+                        onClick={() => {
+                          setSelectedSlideId(finding.slideId)
+                          setPostGenSummary(undefined)
+                        }}
+                      >
+                        Go to slide
+                      </button>
+                    </>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            {bibliographySlideHasContent(slides) ? (
+              <button
+                type="button"
+                className="secondary-button secondary-button--sm"
+                onClick={() => {
+                  const id = addBibliographySlideForDeck(activeDeck.id)
+                  if (id) {
+                    showToast('Sources bibliography slide added.', 'success')
+                  }
+                }}
+              >
+                Add bibliography slide
+              </button>
+            ) : null}
+          </div>
+          <button type="button" className="ghost-button" onClick={() => setPostGenSummary(undefined)}>
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       <div
         className={`editor-shell ${isThumbnailRailCollapsed ? 'is-thumbnail-collapsed' : ''}`}
         style={editorShellStyle}
@@ -1263,6 +1374,47 @@ export function EditPresentationPage() {
         />
 
         <div className="editor-workspace">
+          <div className="editor-slide-meta-row">
+            <div className="editor-slide-meta-row__design muted-copy">
+              {selectedSlide?.designIntent ? (
+                <>
+                  Design intent · role <strong>{selectedSlide.designIntent.role}</strong> · layout{' '}
+                  {selectedSlide.designIntent.layoutIntent} · visual {selectedSlide.designIntent.visualPriority}
+                  {selectedSlide.designIntent.transitionIn
+                    ? ` · transition ${selectedSlide.designIntent.transitionIn.type}`
+                    : ''}
+                </>
+              ) : (
+                'No design intent metadata on this slide — defaults from the generator apply.'
+              )}
+            </div>
+            <div className="editor-slide-meta-row__actions">
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm"
+                disabled={!bibliographySlideHasContent(slides)}
+                onClick={() => {
+                  const id = addBibliographySlideForDeck(activeDeck.id)
+                  if (id) {
+                    showToast('Sources bibliography slide added at the end of the deck.', 'success')
+                  } else {
+                    showToast('No citation traces found yet — add slides with sources first.', 'info')
+                  }
+                }}
+              >
+                Add sources bibliography slide
+              </button>
+            </div>
+          </div>
+          {liveDeckQuality ? (
+            <div className="editor-deck-quality muted-copy">
+              Deck quality {liveDeckQuality.score}/100 ({liveDeckQuality.overall}) · highlights:{' '}
+              {liveDeckQuality.findings
+                .slice(0, 3)
+                .map((finding: DeckDesignQualityFinding) => finding.message)
+                .join(' · ')}
+            </div>
+          ) : null}
           <EditorMainChrome
             activeDeckTitle={activeDeck.title}
             slideCount={slides.length}
@@ -1707,6 +1859,52 @@ export function EditPresentationPage() {
         onClose={() => setIsReportOpen(false)}
       />
 
+      {pptxPreflightOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setPptxPreflightOpen(false)}>
+          <div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pptx-preflight-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <span className="section-label">Export check</span>
+                <h3 id="pptx-preflight-title">Before exporting PPTX</h3>
+                <p className="muted-copy">Sanity checks from the design scorer plus exporter caveats.</p>
+              </div>
+              <button type="button" className="ghost-button" onClick={() => setPptxPreflightOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="modal-card__body">
+              <ul className="builder-preflight-issues">
+                {pptxPreflightWarnings.map((line: string, index: number) => (
+                  <li key={`pptx-warn-${index}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="modal-card__footer">
+              <button type="button" className="ghost-button" onClick={() => setPptxPreflightOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={isExportingPptx}
+                onClick={async () => {
+                  setPptxPreflightOpen(false)
+                  await runPptxExport()
+                }}
+              >
+                {isExportingPptx ? 'Exporting…' : 'Download PPTX'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <PresentMode
         slides={slides}
         activeSlideId={activePresentationSlideId}
@@ -1715,6 +1913,9 @@ export function EditPresentationPage() {
         onNext={goToNextPresentationSlide}
         onPrevious={goToPreviousPresentationSlide}
         onExit={exitPresentation}
+        presenterNotes={presentationSlideForNotes?.notes}
+        showSpeakerNotes={presentShowNotes}
+        onToggleSpeakerNotes={() => setPresentShowNotes((current) => !current)}
       />
 
       {contextMenu ? (

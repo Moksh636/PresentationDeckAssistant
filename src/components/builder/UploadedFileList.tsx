@@ -24,23 +24,26 @@ function sourceRowStatus(
   if (isSourceExcluded(asset)) {
     return { label: 'Excluded', tone: 'excluded' }
   }
-  if (isSourceApproved(asset)) {
-    return { label: 'Approved', tone: 'approved' }
-  }
   if (asset.status === 'extracting') {
     return { label: 'Processing', tone: 'pending' }
   }
   if (asset.highlightForOwnerReview) {
     return { label: 'Needs review', tone: 'warning' }
   }
-  if (asset.status === 'parsed' && asset.sourceTrace.length === 0) {
-    return { label: 'Unsupported', tone: 'warning' }
-  }
-  if (hasLimitedPreview) {
+  if (hasLimitedPreview && asset.status === 'parsed') {
     return { label: 'Limited preview', tone: 'warning' }
   }
-  if (asset.status === 'parsed') {
-    return { label: 'Parsed', tone: 'parsed' }
+  if (asset.status === 'parsed' && asset.sourceTrace.length === 0) {
+    return { label: 'No snippets found', tone: 'warning' }
+  }
+  if (asset.status !== 'parsed') {
+    return { label: 'Unsupported', tone: 'warning' }
+  }
+  if (asset.status === 'parsed' && asset.sourceTrace.length > 0) {
+    return {
+      label: isSourceApproved(asset) ? 'Ready · approved' : 'Ready',
+      tone: isSourceApproved(asset) ? 'approved' : 'parsed',
+    }
   }
   return { label: 'Uploaded', tone: 'uploaded' }
 }
@@ -53,7 +56,7 @@ export function UploadedFileList({ assets, onMarkReviewed }: UploadedFileListPro
   return (
     <div className="uploaded-file-list uploaded-file-list--compact">
       {assets.map((asset) => {
-        const sanitized = sanitizeParseWarningsForUserDisplay(asset.parseWarnings)
+        const sanitized = sanitizeParseWarningsForUserDisplay(asset.parseWarnings, asset.kind)
         const rowStatus = sourceRowStatus(asset, sanitized.hasLimitedPreview)
         const snippetCount = asset.sourceTrace.length
         return (

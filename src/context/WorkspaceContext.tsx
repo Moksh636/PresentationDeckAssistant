@@ -1,4 +1,5 @@
 import { type PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'
+import { ConflictResolutionModal, type CloudConflictChoice } from '../components/workspace/ConflictResolutionModal'
 import { useToast } from '../components/feedback/toastContext'
 import {
   createChartSlideFromSuggestion,
@@ -37,6 +38,9 @@ import {
   normalizeBlockVisualStyle,
   normalizeSlideBlock,
 } from '../data/slideLayout'
+import { aggregateCitationTracesFromSlides, formatBibliographyLines } from '../data/bibliographySlide'
+import { scoreGeneratedDeckDesign } from '../data/deckDesignQuality'
+import { summarizeThemeAndDirectionFromSlides } from '../data/deckGenerationSummary'
 import { createSlideFromLayoutPreset } from '../data/slideLayoutPresets'
 import {
   loadOrganizationIdentity,
@@ -55,6 +59,7 @@ import {
 } from '../data/companyLibraryCloudPersistence'
 import { isSupabaseConfigured, supabase } from '../data/supabaseClient'
 import {
+  appendCompanyActivityLog,
   acceptWorkerInviteForUser,
   addOrganizationMember,
   archiveBrainPolicy,
@@ -289,6 +294,23 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   const knowledgeAutosaveQueuedRef = useRef(false)
   const libraryAutosaveInFlightRef = useRef(false)
   const libraryAutosaveQueuedRef = useRef(false)
+
+  const cloudConflictResolverRef = useRef<((choice: CloudConflictChoice) => void) | null>(null)
+  const [cloudConflictModal, setCloudConflictModal] = useState<{ title: string; body: string } | null>(null)
+
+  const promptCloudDataConflict = useCallback((title: string, body: string) => {
+    return new Promise<CloudConflictChoice>((resolve) => {
+      cloudConflictResolverRef.current = resolve
+      setCloudConflictModal({ title, body })
+    })
+  }, [])
+
+  const resolveCloudDataConflict = useCallback((choice: CloudConflictChoice) => {
+    setCloudConflictModal(null)
+    const resolver = cloudConflictResolverRef.current
+    cloudConflictResolverRef.current = null
+    resolver?.(choice)
+  }, [])
 
   useEffect(() => {
     workspaceRef.current = workspace
@@ -930,6 +952,81 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     })
   }
 
+  const recordWorkspaceActivity: WorkspaceContextValue['recordWorkspaceActivity'] = ({ kind, detail }) => {
+    const orgId =
+      workspaceRef.current.companyBrain.activeOrganizationId ||
+      workspaceRef.current.companyBrain.organizations[0]?.id ||
+      ''
+    if (!orgId) {
+      return
+    }
+    const profile = workspaceUserProfileFromAuth(user ?? null, isLocalDevBypass)
+    setWorkspace((current) =>
+      appendCompanyActivityLog(current, {
+        organizationId: orgId,
+        actorUserId: profile.userId,
+        kind,
+        detail,
+      }),
+    )
+  }
+
+  const addBibliographySlideForDeck: WorkspaceContextValue['addBibliographySlideForDeck'] = (deckId) => {
+    let createdId: string | undefined
+
+    commitWorkspace((current) => {
+      const deck = current.decks.find((candidate) => candidate.id === deckId)
+
+      if (!deck) {
+        return current
+      }
+
+      const deckSlides = getOrderedDeckSlides(current.slides, deckId)
+      const traces = aggregateCitationTracesFromSlides(deckSlides)
+
+      if (traces.length === 0) {
+        return current
+      }
+
+      const lines = formatBibliographyLines(traces)
+      let slide = createSlideFromLayoutPreset(deckId, deckSlides.length + 1, 'title-bullets')
+      const titleBlock = slide.blocks.find((block) => block.type === 'title')
+      const bulletBlock = slide.blocks.find((block) => block.type === 'bullet-list')
+
+      slide = {
+        ...slide,
+        title: 'Sources & references',
+        notes:
+          'Citation-backed sources aggregated from slide traces. Company Brain memory-only rows remain non-file-backed per workspace rules.',
+        sourceTrace: traces.slice(0, 64),
+        blocks: slide.blocks.map((block) => {
+          if (titleBlock && block.id === titleBlock.id) {
+            return { ...block, content: 'Sources & references' }
+          }
+          if (bulletBlock && block.id === bulletBlock.id) {
+            return { ...block, content: lines }
+          }
+          return block
+        }),
+      }
+
+      createdId = slide.id
+
+      const nextDeckSlides = reindexSlides([...deckSlides, slide])
+
+      return {
+        ...current,
+        slides: replaceDeckSlides(current.slides, deckId, nextDeckSlides),
+        decks: touchDecks(current.decks, deckId, {
+          slideIds: nextDeckSlides.map((s) => s.id),
+          status: 'editing',
+        }),
+      }
+    })
+
+    return createdId
+  }
+
   const generateSlides: WorkspaceContextValue['generateSlides'] = async (deckId) => {
     const sourceDeck = workspace.decks.find((candidate) => candidate.id === deckId)
 
@@ -987,32 +1084,63 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       brainMapDeckInfluence,
     })
 
-    setWorkspace((current) => ({
-      ...current,
-      activeDeckId: result.generatedDeck.id,
-      decks: [result.generatedDeck, ...current.decks],
-      slides: [...current.slides, ...result.generatedSlides],
-      fileAssets: [...current.fileAssets, ...result.generatedFiles],
-      chartSuggestions: [
-        ...createChartSuggestionsFromFiles(result.generatedFiles, current.chartSuggestions).filter(
-          (suggestion) =>
-            !current.chartSuggestions.some((currentSuggestion) => currentSuggestion.id === suggestion.id),
-        ),
-        ...current.chartSuggestions,
-      ],
-      deckVersions: [result.generatedVersion, ...current.deckVersions],
-      projects: current.projects.map((project) =>
-        project.id === result.generatedDeck.projectId
-          ? {
-              ...project,
-              deckIds: [result.generatedDeck.id, ...project.deckIds],
-              updatedAt: result.generatedDeck.updatedAt,
-            }
-          : project,
-      ),
-    }))
+    const qualityReport = scoreGeneratedDeckDesign(result.generatedDeck, result.generatedSlides)
+    const { themeSummary, directionSummary } = summarizeThemeAndDirectionFromSlides(result.generatedSlides)
+    const citationModeLabel =
+      resolveCitationReviewMode(sourceDeck.setup) === 'strict-approved-only'
+        ? 'Strict (approved sources only)'
+        : 'Permissive'
 
-    return result.generatedDeck.id
+    const actorProfile = workspaceUserProfileFromAuth(user ?? null, isLocalDevBypass)
+    const logOrgId =
+      workspace.companyBrain.activeOrganizationId || workspace.companyBrain.organizations[0]?.id || ''
+
+    setWorkspace((current) => {
+      const base: WorkspaceState = {
+        ...current,
+        activeDeckId: result.generatedDeck.id,
+        decks: [result.generatedDeck, ...current.decks],
+        slides: [...current.slides, ...result.generatedSlides],
+        fileAssets: [...current.fileAssets, ...result.generatedFiles],
+        chartSuggestions: [
+          ...createChartSuggestionsFromFiles(result.generatedFiles, current.chartSuggestions).filter(
+            (suggestion) =>
+              !current.chartSuggestions.some((currentSuggestion) => currentSuggestion.id === suggestion.id),
+          ),
+          ...current.chartSuggestions,
+        ],
+        deckVersions: [result.generatedVersion, ...current.deckVersions],
+        projects: current.projects.map((project) =>
+          project.id === result.generatedDeck.projectId
+            ? {
+                ...project,
+                deckIds: [result.generatedDeck.id, ...project.deckIds],
+                updatedAt: result.generatedDeck.updatedAt,
+              }
+            : project,
+        ),
+      }
+
+      if (!logOrgId) {
+        return base
+      }
+
+      return appendCompanyActivityLog(base, {
+        organizationId: logOrgId,
+        actorUserId: actorProfile.userId,
+        kind: 'pitch-deck-generated',
+        detail: `Generated "${result.generatedDeck.title}" (${result.generatedSlides.length} slides)`,
+      })
+    })
+
+    return {
+      deckId: result.generatedDeck.id,
+      qualityReport,
+      slideCount: result.generatedSlides.length,
+      themeSummary,
+      directionSummary,
+      citationModeLabel,
+    }
   }
 
   const generateReport: WorkspaceContextValue['generateReport'] = (deckId, reportType) => {
@@ -2288,19 +2416,30 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       const hasCloudIdentity = cloud.organizations.length > 0
 
       if (hasLocalIdentity && hasCloudIdentity) {
-        const answer = window.prompt(
-          'Both local and cloud identity data exist. Type: local | cloud | save',
-          'cloud',
+        const choice = await promptCloudDataConflict(
+          'Identity data conflict',
+          'Both local and cloud identity data exist. Choose whether to keep local data, load from cloud, or save local changes to cloud first.',
         )
-        if (answer === 'local') {
+        if (choice === 'cancel') {
+          return false
+        }
+        if (choice === 'local') {
           setCompanyIdentitySyncStatus({
             state: 'saved',
             message: 'Kept local identity data.',
           })
           showToast('Kept local identity data.', 'info')
+          recordWorkspaceActivity({
+            kind: 'cloud-data-conflict-resolved',
+            detail: 'Cloud identity load canceled; kept local identity data.',
+          })
           return false
         }
-        if (answer === 'save') {
+        if (choice === 'save') {
+          recordWorkspaceActivity({
+            kind: 'cloud-data-conflict-resolved',
+            detail: 'Chose to save local identity data to cloud before resolving conflict.',
+          })
           return saveCompanyIdentityToCloud()
         }
       }
@@ -2402,16 +2541,27 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       const hasCloudLibraries = countCloudLibs > 0
 
       if (hasLocalLibraries && hasCloudLibraries) {
-        const answer = window.prompt(
-          'Both local and cloud company libraries exist. Type: local | cloud | save',
-          'cloud',
+        const choice = await promptCloudDataConflict(
+          'Company libraries conflict',
+          'Both local and cloud company libraries exist. Choose whether to keep local libraries, load from cloud, or save local libraries to cloud first.',
         )
-        if (answer === 'local') {
-          setCompanyLibrarySyncStatus({ state: 'saved', message: 'Kept local company libraries.' })
-          showToast('Kept local company libraries.', 'info')
+        if (choice === 'cancel') {
           return false
         }
-        if (answer === 'save') {
+        if (choice === 'local') {
+          setCompanyLibrarySyncStatus({ state: 'saved', message: 'Kept local company libraries.' })
+          showToast('Kept local company libraries.', 'info')
+          recordWorkspaceActivity({
+            kind: 'cloud-data-conflict-resolved',
+            detail: 'Cloud libraries load canceled; kept local company libraries.',
+          })
+          return false
+        }
+        if (choice === 'save') {
+          recordWorkspaceActivity({
+            kind: 'cloud-data-conflict-resolved',
+            detail: 'Chose to save local company libraries to cloud before resolving conflict.',
+          })
           return saveCompanyLibrariesToCloud()
         }
       }
@@ -2497,13 +2647,27 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       const hasCloudKnowledge = cloud.knowledgeFolders.length > 0 || cloud.knowledgeItems.length > 0
 
       if (hasLocalKnowledge && hasCloudKnowledge) {
-        const answer = window.prompt('Both local and cloud knowledge data exist. Type: local | cloud | save', 'cloud')
-        if (answer === 'local') {
-          setCompanyKnowledgeSyncStatus({ state: 'saved', message: 'Kept local knowledge data.' })
-          showToast('Kept local knowledge data.', 'info')
+        const choice = await promptCloudDataConflict(
+          'Knowledge library conflict',
+          'Both local and cloud knowledge data exist. Choose whether to keep local knowledge, load from cloud, or save local knowledge to cloud first.',
+        )
+        if (choice === 'cancel') {
           return false
         }
-        if (answer === 'save') {
+        if (choice === 'local') {
+          setCompanyKnowledgeSyncStatus({ state: 'saved', message: 'Kept local knowledge data.' })
+          showToast('Kept local knowledge data.', 'info')
+          recordWorkspaceActivity({
+            kind: 'cloud-data-conflict-resolved',
+            detail: 'Cloud knowledge load canceled; kept local knowledge data.',
+          })
+          return false
+        }
+        if (choice === 'save') {
+          recordWorkspaceActivity({
+            kind: 'cloud-data-conflict-resolved',
+            detail: 'Chose to save local knowledge data to cloud before resolving conflict.',
+          })
           return saveCompanyKnowledgeToCloud()
         }
       }
@@ -3006,6 +3170,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         setFileAssetSnippetLabelOverride,
         autoFillDeckSetupFromFiles,
         generateSlides,
+        addBibliographySlideForDeck,
+        recordWorkspaceActivity,
         generateReport,
         acceptChartSuggestion,
         rejectChartSuggestion,
@@ -3082,7 +3248,15 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         loadCompanyLibrariesFromCloud,
       }}
     >
-      {children}
+      <>
+        {children}
+        <ConflictResolutionModal
+          isOpen={Boolean(cloudConflictModal)}
+          title={cloudConflictModal?.title ?? ''}
+          body={cloudConflictModal?.body ?? ''}
+          onChoose={resolveCloudDataConflict}
+        />
+      </>
     </WorkspaceContext.Provider>
   )
 }

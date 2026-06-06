@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { FileAsset, SourceCitationReviewMode } from '../../types/models'
 import {
   computeCitationQAStats,
@@ -17,6 +18,9 @@ interface SourceCitationQAPanelProps {
   onSetSourceStatus: (assetId: string, status: 'pending' | 'approved' | 'excluded') => void
   onSetSnippetEnabled: (assetId: string, snippetKey: string, enabled: boolean) => void
   onSetSnippetLabelOverride: (assetId: string, snippetKey: string, labelOverride: string) => void
+  onApproveAllUsable?: () => void
+  onExcludeUnsupported?: () => void
+  onClearDecisions?: () => void
 }
 
 export function SourceCitationQAPanel({
@@ -26,8 +30,30 @@ export function SourceCitationQAPanel({
   onSetSourceStatus,
   onSetSnippetEnabled,
   onSetSnippetLabelOverride,
+  onApproveAllUsable,
+  onExcludeUnsupported,
+  onClearDecisions,
 }: SourceCitationQAPanelProps) {
   const stats = computeCitationQAStats(assets)
+  const listRootRef = useRef<HTMLDivElement | null>(null)
+
+  const pendingSources = assets.filter(
+    (asset) => !isSourceApproved(asset) && !isSourceExcluded(asset),
+  ).length
+  const usableParsed = assets.filter((a) => a.status === 'parsed' && a.sourceTrace.length > 0).length
+  const unsupportedParsed = assets.filter((a) => a.status === 'parsed' && a.sourceTrace.length === 0).length
+
+  const expandAllFiles = () => {
+    listRootRef.current?.querySelectorAll('details.source-qa-file').forEach((node) => {
+      ;(node as HTMLDetailsElement).open = true
+    })
+  }
+
+  const collapseAllFiles = () => {
+    listRootRef.current?.querySelectorAll('details.source-qa-file').forEach((node) => {
+      ;(node as HTMLDetailsElement).open = false
+    })
+  }
 
   const modeToggle = (
     <div className="scope-toggle source-citation-qa__mode-toggle" role="group" aria-label="Citation review mode">
@@ -67,16 +93,62 @@ export function SourceCitationQAPanel({
         </div>
         {modeToggle}
       </div>
+      <div className="source-citation-qa__quality-row muted-copy" aria-label="Source quality summary">
+        <span>
+          Pending decisions: <strong>{pendingSources}</strong>
+        </span>
+        <span aria-hidden="true">
+          ·{' '}
+        </span>
+        <span>
+          Usable (parsed + snippets): <strong>{usableParsed}</strong>
+        </span>
+        <span aria-hidden="true">
+          ·{' '}
+        </span>
+        <span>
+          Unsupported text: <strong>{unsupportedParsed}</strong>
+        </span>
+      </div>
+      <div className="source-citation-qa__bulk-actions">
+        {onApproveAllUsable ? (
+          <button type="button" className="secondary-button secondary-button--sm" onClick={onApproveAllUsable}>
+            Approve all usable
+          </button>
+        ) : null}
+        {onExcludeUnsupported ? (
+          <button type="button" className="ghost-button ghost-button--sm" onClick={onExcludeUnsupported}>
+            Exclude unsupported
+          </button>
+        ) : null}
+        {onClearDecisions ? (
+          <button type="button" className="ghost-button ghost-button--sm" onClick={onClearDecisions}>
+            Clear decisions
+          </button>
+        ) : null}
+        <button type="button" className="ghost-button ghost-button--sm" onClick={expandAllFiles}>
+          Expand all
+        </button>
+        <button type="button" className="ghost-button ghost-button--sm" onClick={collapseAllFiles}>
+          Collapse all
+        </button>
+      </div>
       <p className="muted-copy source-citation-qa__hint">
         Approve, exclude, and enable individual citation-ready snippets here. Strict mode uses approved sources
         only when generating citations.
       </p>
       {assets.length === 0 ? (
-        <p className="muted-copy">No sources uploaded yet.</p>
+        <div className="builder-empty-callout" role="status">
+          <strong>No sources in Source QA.</strong>
+          <span className="muted-copy">
+            {' '}
+            Upload files under Sources — parsed PDFs and documents surface snippets you can enable for citations.
+          </span>
+        </div>
       ) : (
-        <div className="source-qa-asset-list source-qa-asset-list--compact">
+        <div ref={listRootRef} className="source-qa-asset-list source-qa-asset-list--compact">
           {assets.map((asset) => {
-            const sanitized = sanitizeParseWarningsForUserDisplay(asset.parseWarnings)
+            const sanitized = sanitizeParseWarningsForUserDisplay(asset.parseWarnings, asset.kind)
             return (
               <details key={asset.id} className="source-qa-file">
                 <summary className="source-qa-file__summary">
